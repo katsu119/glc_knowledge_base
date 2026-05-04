@@ -1,0 +1,29 @@
+\documentclass[UTF8,a4paper,10pt,oneside]{ctexbook}
+
+% 配置与宏包
+\input{config}
+
+\begin{document}
+
+% 前置部分：页码通常为罗马数字
+\frontmatter
+\maketitle
+\tableofcontents
+
+\newpage
+% 修订历史（放入前置部分）
+\input{content/history}
+
+% 正文部分：页码重置为阿拉伯数字，开始章节计数
+\mainmatter
+
+% 正文内容
+\input{content/linux_roadmap.tex}
+
+
+% 附录
+\appendix
+
+
+
+\end{document}

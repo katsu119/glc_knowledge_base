@@ -1,0 +1,162 @@
+% ---------- 页面与基础 ----------
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{indentfirst}
+\setlength{\parindent}{2em}
+\usepackage{placeins}
+
+% ---------- 数学与公式 ----------
+\usepackage{amsmath,amssymb}
+
+% ---------- 图形与颜色 ----------
+\usepackage[table]{xcolor}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{positioning, calc, shapes.geometric, arrows.meta, backgrounds, external, fit}
+
+% ---------- 表格 ----------
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{longtable}
+\usepackage{colortbl}
+
+% ---------- 列表、代码与文本 ----------
+\usepackage{enumitem}
+\usepackage{soul}
+\usepackage{listings}
+\usepackage{subfiles}
+\usepackage[numbers,sort&compress]{natbib}
+
+% ---------- 图题与浮动 ----------
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+
+% ---------- 其他常用工具 ----------
+\usepackage{changelog}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins,breakable}
+\usepackage{etoolbox}
+\usepackage{siunitx}
+
+% ---------- TODO 注释 ----------
+% 默认使用页边 TODO，尽量不影响正文排版。
+\usepackage[textsize=scriptsize]{todonotes}
+\setlength{\marginparwidth}{2.1cm}
+
+% ---- TikZ 外部化缓存 (首次编译生成 PDF，后续直接复用，大幅提速) ----
+% 编译时必须开启 -shell-escape（VSCode 配置已设置）
+% 如需临时关闭缓存（调试用），注释下面两行并取消 \tikzexternaldisable 的注释
+% prefix 只能是项目根目录下的相对路径（不含 out/ 前缀），
+% 因为 xelatex 的 -output-directory=out 会让 openout 自动在前面加 out/，
+% 若 prefix 也写 out/ 则变成 out/out/tikz-cache/ —— 路径叠加导致写入失败。
+% .md5 文件写到 out/tikz-cache/（kpathsea 会把 out/ 加入搜索路径，读取正常）；
+% 外部化子进程（无 -output-directory）将 PDF 写到项目根 tikz-cache/，\includegraphics 可直接找到。
+\tikzexternalize[prefix=tikz-cache/]
+%\tikzexternaldisable  % 取消注释可关闭外部化，回退到内联编译（调试用）
+
+% ---- 修复 tcolorbox (skins+breakable) 与 TikZ external 的兼容性冲突 ----
+% tcolorbox skins 库内部会创建 tikzpicture 用于绘制边框/背景；
+% TikZ external 全局 hook 会拦截这些内部 tikzpicture，在 breakable 跨页时
+% 导致 collect@until@end@tikzpicture 状态错乱（Extra \else / extra } 等连锁错误）。
+% 解决方案：在每个 tcolorbox / personalnote 环境的开头/结尾禁用/启用外部化。
+\AtBeginEnvironment{tcolorbox}{\tikzexternaldisable}
+\AtEndEnvironment{tcolorbox}{\tikzexternalenable}
+\AtBeginEnvironment{personalnote}{\tikzexternaldisable}
+\AtEndEnvironment{personalnote}{\tikzexternalenable}
+
+\definecolor{ieeeBlue}{RGB}{0, 83, 159}
+\definecolor{ieeeRed}{RGB}{198, 38, 46}
+\definecolor{ieeeGreen}{RGB}{0, 114, 41}
+\definecolor{ieeeOrange}{RGB}{235, 110, 31}
+\definecolor{ieeeGray}{RGB}{100, 100, 100}
+\definecolor{darkGray}{RGB}{66, 66, 66}
+\definecolor{lightGray}{RGB}{189, 189, 189}
+
+% TODO 全局样式与便捷命令
+\setuptodonotes{
+  color=ieeeOrange!15,
+  bordercolor=ieeeOrange,
+  linecolor=ieeeOrange
+}
+% todonotes 内部依赖 TikZ；开启 externalize 时需临时禁用外部化，避免编译失败。
+\let\origTodo\todo
+\RenewDocumentCommand{\todo}{ O{} m }{%
+  \tikzexternaldisable
+  \origTodo[#1]{#2}%
+  \tikzexternalenable
+}
+\newcommand{\todoinline}[1]{\todo[inline,color=ieeeOrange!12]{#1}}
+
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+
+% ctex 设置，确保各级标题缩进符合中文规范
+\ctexset{
+  paragraph/indent = 2em,
+  subparagraph/indent = 2em,
+}
+
+
+
+% 链接相关宏包建议放在导言区靠后位置
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue,
+  pdftitle={知识库文档},
+  pdfauthor={葛良晨}
+}
+
+\lstdefinelanguage{riscv-asm}{
+  morekeywords={add, addi, sub, sll, slli, srl, srli, sra, srai, and, andi, or, ori, xor, xori, slt, slti, sltu, sltiu,
+    beq, bne, blt, bge, bltu, bgeu, jal, jalr, lui, auipc, lw, lh, lb, lhu, lbu, sw, sh, sb,
+    csrr, csrw, csrrs, csrrc, csrrwi, csrrsi, csrrci, mret, ecall, ebreak, wfi, nop, ret, call, j, li, la, mv,
+    .text, .data, .bss, .rodata, .section, .global, .globl, .align, .file, .type, .size, .word, .half, .byte, .asciz},
+  morecomment=[l]{\#},
+  morecomment=[l]{;},
+  morestring=[b]",
+  sensitive=true
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  frame=single,
+  breaklines=true,
+  keywordstyle=\color{blue},
+  commentstyle=\color{teal},
+  stringstyle=\color{red!70!black}
+}
+
+% ---------- 自定义行内代码样式 ----------
+\definecolor{codebg}{RGB}{230, 230, 230}
+% 定义新命令 \code，避免直接修改 \texttt 导致系统崩溃
+\newcommand{\code}[1]{\colorbox{codebg}{\ttfamily #1}}
+
+% 保持 tcolorbox 的兼容性设置
+\tcbset{shield externalize}
+
+
+
+
+
+\title{RISC-V 技术文档 Demo}
+\author{葛良晨}
+\date{\today}
+
+% 自定义个人总结环境
+\newtcolorbox{personalnote}[1][]{
+  colback=yellow!10,
+  colframe=yellow!70!black,
+  fonttitle=\bfseries,
+  title=个人总结,
+  breakable,
+  enhanced,
+  before upper={\setlength{\parindent}{2em}},
+  #1
+}
+
+

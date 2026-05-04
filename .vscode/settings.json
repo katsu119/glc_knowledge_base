@@ -1,0 +1,51 @@
+{
+  "latex-workshop.latex.outDir": "%WORKSPACE_FOLDER%/out",
+  "latex-workshop.latex.autoBuild.run": "onSave",
+  "latex-workshop.latex.build.forceRecipeUsage": true,
+  "latex-workshop.latex.recipe.default": "first",
+  "latex-workshop.latex.recipes": [
+    {
+      "name": "latexmk + copy pdf to tex dir",
+      "tools": [
+        "latexmk_xelatex_outdir",
+        "copy_pdf_to_tex_dir"
+      ]
+    }
+  ],
+  "latex-workshop.latex.tools": [
+    {
+      "name": "latexmk_xelatex_outdir",
+      "command": "latexmk",
+      "args": [
+        "-xelatex",
+        "-synctex=1",
+        "-interaction=nonstopmode",
+        "-file-line-error",
+        "-shell-escape",
+        "-outdir=%WORKSPACE_FOLDER%/out",
+        "%DOC%"
+      ]
+    },
+    {
+      "name": "copy_pdf_to_tex_dir",
+      "command": "cp",
+      "args": [
+        "%WORKSPACE_FOLDER%/out/%DOCFILE%.pdf",
+        "%DIR%/%DOCFILE%.pdf"
+      ]
+    }
+  ],
+  "latex-workshop.view.pdf.viewer": "tab",
+  "workbench.editor.openSideBySideDirection": "right",
+  "latex-workshop.message.error.show": false,
+  "latex-workshop.message.warning.show": false,
+  "editor.cursorSmoothCaretAnimation": "on",
+  "editor.cursorBlinking": "expand",
+  "editor.cursorStyle": "line",
+  "editor.cursorWidth": 3,
+  "editor.wordWrap": "on",
+  "workbench.colorCustomizations": {
+    "editorCursor.foreground": "#00FF7F"
+  },
+  "explorer.autoReveal": false
+}
