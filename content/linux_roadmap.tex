@@ -1,1 +1,131 @@
-\chapter{Roadmap of Linux Kennel}
+\chapter{Roadmap of Linux Kernel}
+
+Linux学习的Roadmap，主要包括三大主题（系统的使用与管理，核心子系统原理，内核深度剖析），以及一个额外的高级主题。
+
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/linux_kernel_roadmap.png}
+    \caption{Linux学习Roadmap}
+\end{figure}
+
+\begin{itemize}
+    \item \textbf{系统的使用与管理}：这一部分不是简单介绍基础操作。而是比价深入的理解各种基础概念。
+    \begin{itemize}
+        \item \textbf{进程与服务管理}：使用ps/top/htop等工具，相关的系统调用fork/exec/wait等；服务管理systemd/uinit；Linux的启动流程演化路径。
+        
+        \item \textbf{用户/权限/安全模型}：UID/GID/权限位/ACL；sudo机制，PAM（安全） capabilities（替代root）；Linux安全模块（LSM）和SELinux/AppArmor等安全框架；Linux的安全加固和最佳实践。
+        
+        \item \textbf{文件系统与存储管理}： VFS抽象；常见FS ext4/xfs/btrfs/procfs/sysfs；mount / namespace。存储上，block device；LVM；RAID；buffer vs cache；direct IO/ buffered IO；IO调度器（CFQ/Deadline/NOOP）；
+
+        \item \textbf{网络管理}：socket编程；TCP/IP；ss/netstat；iproute2工具；iptables/nftables；network namespaces；
+        
+        \item \textbf{系统监控与性能分析}：iostat/vmstat/pidstat；perf工具；strace/ltrace/bpftrace；systemtap/eBPF；日志管理（syslog/journald/dmesg）；
+    
+    \end{itemize}
+    
+    \item \textbf{核心子系统原理}：这一部分深入探讨Linux内核的核心子系统，包括进程管理、内存管理、文件系统、网络协议栈等。通过理解这些子系统的原理，读者可以更好地理解Linux内核的工作机制。
+    
+    \item \textbf{内核深度剖析}：这一部分将深入分析Linux内核的实现细节，包括内核模块开发、调试技巧、性能优化等内容。通过实际的代码示例和案例分析，读者可以掌握内核开发和调试的技能。
+    
+    \item \textbf{高级主题}：这一部分将涵盖一些高级主题，如实时内核、嵌入式Linux、安全性增强等。这些内容将帮助读者了解Linux在特定领域的应用和发展趋势。
+\end{itemize}
+
+\section{系统使用与管理}
+
+\subsection{进程与服务管理}
+
+\subsubsection{启动流程}
+
+\paragraph{启动流程}
+Linux的启动流程可以分为以下几个阶段：
+\begin{itemize}
+    \item \textbf{BIOS/UEFI阶段}：计算机开机后，BIOS或UEFI固件会进行硬件初始化，并寻找可引导设备。找到后，加载引导加载程序（如GRUB）到内存并执行
+    \item \textbf{引导加载程序阶段}：引导加载程序负责加载Linux内核和初始RAM盘（initrd/initramfs）到内存，并将控制权转交给内核。
+    \item \textbf{内核初始化阶段}：内核开始执行，进行硬件检测和初始化，挂载根文件系统，并启动第一个用户空间进程（通常是\texttt{init}或\texttt{systemd}）。
+    内核初始化完成后，内核会调用\texttt{init}进程，通常是通过
+    \texttt{execve("/sbin/init", ...)}，这样第一个用户态进程（PID 1）就开始运行。
+    
+    \item \textbf{用户空间初始化阶段}：\texttt{init}或\texttt{systemd}负责启动系统服务和用户进程，完成系统的初始化。
+\end{itemize}
+
+\paragraph{展开说说内核的启动过程}
+Bootloader（比如GRUB）完成的工作有：
+\begin{itemize}
+    \item 加载内核映像（vmlinuz）和初始RAM盘（initrd/initramfs）到内存。
+    \item 设置内核启动参数cmdline （如root=、console=等）。
+    \item 将控制权转交给内核，通常是通过跳转到内核入口点（如0x100000）来实现。
+\end{itemize}
+下面就进入到内核启动流程：
+\begin{enumerate}
+    \item \textbf{体系结构相关的初始化}：内核会进行CPU特定的初始化，建立最初的栈，如设置GDT/IDT、启用分页、初始化中断控制器、设置CPU模式等。
+    \item \textbf{start\_kernel函数}：这是内核的主入口点，负责调用各种初始化函数来设置内核环境。
+    \item \textbf{内核子系统初始化}：内核会依次初始化内存管理、调度器、中断子系统、定时器、设备模型、驱动框架和文件系统等核心模块，并完成根文件系统的挂载准备。
+\end{enumerate}
+
+
+
+
+\paragraph{为什么要挂载initramfs？}
+
+\paragraph{如何创建kernel\_thread的？内核PID 1是如何变成用户态的？}
+
+\paragraph{initramfs->rootfs切换是如何进行的？}
+
+
+
+
+
+\paragraph{内核的概念}
+内核用于整个操作系统核心，用于管理资源（CPU，内存，网络，存储，系统调用等）。
+内核是资源的拥有者和仲裁者。指责包括：
+\begin{itemize}
+    \item \textbf{进程调度}：分配CPU时间片，管理进程状态（就绪、运行、阻塞等）。
+    \item \textbf{内存管理}：分配和回收内存，管理虚拟内存和物理内存。
+    \item \textbf{文件系统}：提供统一的接口访问不同类型的文件系统。
+    \item \textbf{网络协议栈}：处理网络通信，支持各种协议（TCP/IP等）。
+    \item \textbf{设备驱动}：管理硬件设备的访问和控制。
+    \item \textbf{系统调用}：提供用户空间与内核空间的接口，允许用户程序请求内核服务。
+\end{itemize}
+
+内核的主要工作方式：事件驱动+被动执行+少量主动线程
+
+内核的代码运行在3种context中：
+\begin{itemize}
+    \item \textbf{用户空间进程}：当用户空间的程序执行时，它会通过系统调用进入内核态，内核会执行相应的内核代码来处理请求。
+    \item \textbf{中断处理程序}：当硬件设备发出中断信号时，内核会暂停当前正在执行的代码，转而执行相应的中断处理程序来响应硬件事件。
+    \item \textbf{内核线程}：内核可以创建自己的线程（kernel thread），这些线程在内核态运行，执行内核任务，如处理网络请求、管理内存等。
+\end{itemize}
+
+
+\begin{lstlisting}[language=bash, caption={Linux内核的核心子系统}]
+Linux Kernel
+ - 进程调度（Scheduler）
+ - 内存管理（Memory Management）
+ - 虚拟文件系统（VFS）
+ - 设备驱动（Drivers）
+ - 网络子系统（Networking）
+ - 系统调用接口（Syscall）
+ - 安全机制（LSM / 权限）
+\end{lstlisting}
+
+\paragraph{内核中的执行体}
+假设一个单核CPU，它每时每刻都在执行指令，那么这个指令来自于哪里呢？有这样几种可能：
+\begin{itemize}
+    \item \textbf{用户空间进程}：当用户空间的程序执行时，它会通过系统调用进入内核态，内核会执行相应的内核代码来处理请求。
+    \item \textbf{内核syscall}：当用户空间进程调用系统调用时，内核会执行相应的系统调用处理函数来完成用户请求。
+    \item \textbf{内核线程}：内核可以创建自己的线程（kernel thread），这些线程在内核态运行，执行内核任务，如处理网络请求、管理内存等。
+    \item \textbf{中断处理程序}：当硬件设备发出中断信号时，内核会暂停当前正在执行的代码，转而执行相应的中断处理程序来响应硬件事件。
+\end{itemize}
+
+
+现代Linux发行版已经从原本的\texttt{init+/etc/rc*.d}脚本的启动方式SysV，转变到了使用systemd。
+启动模型也从原本串行执行脚本，变成依赖驱动的并行服务调度。
+
+PID 1的\texttt{init}进程是系统启动后第一个运行的用户空间进程，负责启动和管理其他系统服务和用户进程。它是系统的根进程，所有其他进程都是它的子孙进程。它具有如下的特点：
+\begin{itemize}
+    \item \textbf{祖先进程}：所有其他进程都是\texttt{init}的子孙进程。当一个进程的父进程终止时，\texttt{init}会接管这些孤儿进程。否则这些孤儿进程将成为僵尸进程，占用系统资源。
+    \item \textbf{信号语义特殊}：\texttt{init}进程对某些信号有特殊的处理方式。例如，\texttt{SIGTERM}信号会被\texttt{init}忽略，而不是终止进程。这是为了确保系统的稳定性和可靠性。
+    \item \textbf{系统初始化和服务管理}：\texttt{init}负责启动和管理系统服务。比如，挂载为难系统，启动服务，设置环境。它会根据配置文件（如\texttt{/etc/inittab}或systemd的unit文件）来启动必要的服务，并确保它们在系统运行期间保持运行。
+\end{itemize}
+
+将内核和PID 1进行对比，重点是内核管理资源，PID 1管理进程和服务。内核类似于政府+法律，PID 1类似于总理，负责执行和管理系统服务，组织社会的运行。首相也不能违法，他在用户层，必须通过syscall来请求内核服务。
