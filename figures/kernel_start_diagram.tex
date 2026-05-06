@@ -1,0 +1,220 @@
+\documentclass[border=15pt, 10pt]{standalone}
+
+% 支持中文
+\usepackage{ctex}
+
+% TikZ 及相关绘图库
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc, backgrounds, fit, shadows}
+
+\begin{document}
+
+% Inline path/code label used inside node text.
+\newcommand{\pathText}[1]{\textcolor{blue!70!black}{\texttt{#1}}}
+
+\begin{tikzpicture}[
+    font=\sffamily\small,
+    >=Stealth,
+    % 核心卡片样式
+    box/.style={
+        rectangle, 
+        draw=black!60, 
+        thick, 
+        rounded corners=4pt,
+        text width=7.2cm, 
+        fill=white, 
+        inner xsep=8pt, 
+        inner ysep=6pt,
+        drop shadow={opacity=0.08, shadow xshift=2pt, shadow yshift=-2pt}
+    },
+    % 旁支节点样式 (如 PID 2)
+    sidebox/.style={
+        box,
+        text width=3.8cm
+    },
+    % 箭头线条样式
+    line/.style={
+        draw, 
+        thick, 
+        -Stealth, 
+        draw=black!70
+    },
+    % 背景分组框样式
+    groupbox/.style={
+        rectangle, 
+        draw=#1!80!black, 
+        thick, 
+        dashed, 
+        rounded corners=6pt,
+        fill=#1!8, 
+        inner sep=7pt
+    },
+    % 分组侧边标签样式
+    grouplabel/.style={
+        font=\sffamily\bfseries\normalsize, 
+        text=#1!90!black, 
+        rotate=90
+    },
+    % 标题和高亮字体样式
+    nodeTitle/.style={font=\sffamily\bfseries\normalsize, text=black!90},
+    pathText/.style={font=\ttfamily\scriptsize, text=blue!70!black},
+    divider/.style={text=black!20}
+]
+
+    % ==========================================
+    % 1. 硬件阶段 (Hardware)
+    % ==========================================
+    \node[box, text centered] (n1) at (0,0) {
+        \textbf{硬件上电 / Reset}
+    };
+
+    % ==========================================
+    % 2. 固件与 Bootloader 阶段
+    % ==========================================
+    \node[box] (n2) [below=0.6cm of n1] {
+        \textbf{Firmware: BIOS / UEFI}\\
+        \textcolor{black!20}{\rule{\linewidth}{0.8pt}}\\[0.5ex]
+        $\bullet$ 硬件初始化 \\
+        $\bullet$ 选择启动设备 \\
+        $\bullet$ 加载 Bootloader
+    };
+
+    \node[box] (n3) [below=0.6cm of n2] {
+        \textbf{Bootloader (e.g. GRUB)}\\
+        \textcolor{black!20}{\rule{\linewidth}{0.8pt}}\\[0.5ex]
+        $\bullet$ 加载内核镜像 (\pathText{vmlinuz}) \\
+        $\bullet$ 加载 \pathText{initramfs} \\
+        $\bullet$ 设置 \pathText{kernel cmdline} \\
+        $\bullet$ 跳转内核入口
+    };
+
+    % ==========================================
+    % 3. 内核阶段 (Kernel Space)
+    % ==========================================
+    \node[box] (n4) [right = 1.3cm of n1] {
+        \textbf{内核入口}\\
+        \pathText{arch/x86/boot/compressed/head.S}\\
+        \textcolor{black!20}{\rule{\linewidth}{0.8pt}}\\[0.5ex]
+        $\bullet$ 解压内核 \quad $\rightarrow$ \quad \pathText{startup\_32 / startup\_64}
+    };
+
+    \node[box] (n5) [below=0.6cm of n4] {
+        \textbf{早期内核初始化}\\
+        \pathText{arch/x86/kernel/head\_64.S}\\
+        \textcolor{black!20}{\rule{\linewidth}{0.8pt}}\\[0.5ex]
+        $\bullet$ 建立初始页表 \quad $\bullet$ 打开 MMU \quad $\bullet$ 设置栈\\[0.5ex]
+        $\rightarrow$ \textbf{\texttt{start\_kernel()}}
+    };
+
+    \node[box] (n6) [below=0.6cm of n5] {
+        \textbf{\texttt{start\_kernel()}} \hfill \pathText{init/main.c}\\
+        \textcolor{black!20}{\rule{\linewidth}{0.8pt}}\\[0.5ex]
+        \begin{tabular}{@{}p{3.2cm}l@{}}
+        \texttt{trap\_init()}      & $\rightarrow$ \textcolor{black!70}{中断/异常入口} \\
+        \texttt{mm\_init()}        & $\rightarrow$ \textcolor{black!70}{内存管理 (buddy/slab)} \\
+        \texttt{sched\_init()}     & $\rightarrow$ \textcolor{black!70}{调度器 (CFS)} \\
+        \texttt{time\_init()}      & $\rightarrow$ \textcolor{black!70}{时钟/定时器} \\
+        \texttt{console\_init()}   & $\rightarrow$ \textcolor{black!70}{\texttt{printk} 输出} \\
+        \texttt{init\_IRQ()}       & $\rightarrow$ \textcolor{black!70}{中断控制器} \\
+        \texttt{local\_irq\_enable()} & $\rightarrow$ \textcolor{orange!90!black}{\textbf{开启中断}} \\
+        \texttt{rest\_init()}      & $\rightarrow$ \textcolor{black!70}{进入多执行流阶段}
+        \end{tabular}
+    };
+
+    \node[box] (n7) [below=0.6cm of n6] {
+        \textbf{\texttt{rest\_init()}}\\
+        \textcolor{black!20}{\rule{\linewidth}{0.8pt}}\\[0.5ex]
+        \begin{tabular}{@{}p{4.2cm}l@{}}
+        \texttt{kernel\_thread(kernel\_init)} & $\rightarrow$ \textbf{PID 1} \\
+        \texttt{kernel\_thread(kthreadd)}   & $\rightarrow$ \textbf{PID 2} \\
+        \texttt{cpu\_startup\_entry()}      & $\rightarrow$ idle (PID 0)
+        \end{tabular}
+    };
+
+    % PID 1 主线
+    \node[box] (n8) [below=0.6cm of n7] {
+        \textbf{\texttt{kernel\_init} (PID 1)}\\
+        \pathText{init/main.c}
+    };
+
+    % PID 2 旁支 (放置在 PID 1 右侧)
+    \node[sidebox] (n9) [below left = -1.0cm and 0.5cm of n8] {
+        \textbf{\texttt{kthreadd} (PID 2)}\\
+        \textcolor{black!20}{\rule{\linewidth}{0.8pt}}\\[0.5ex]
+        \textcolor{black!70}{内核线程管理器}
+    };
+
+    \node[box] (n10) [below=0.6cm of n8] {
+        \textbf{\texttt{kernel\_init\_freeable()}}\\
+        \textcolor{black!20}{\rule{\linewidth}{0.8pt}}\\[0.5ex]
+        \begin{tabular}{@{}p{3.2cm}l@{}}
+        \texttt{do\_basic\_setup()} & \\
+        \hspace*{1em} $\rightarrow$ \texttt{do\_initcalls()} & $\leftarrow$ \textcolor{blue!80!black}{\textbf{驱动初始化 (关键机制)}}\\[1ex]
+        \texttt{prepare\_namespace()} & \\
+        \hspace*{1em} $\rightarrow$ \textcolor{black!80}{挂载 rootfs (initramfs / 磁盘)} &
+        \end{tabular}
+    };
+
+    \node[box] (n11) [below=0.6cm of n10] {
+        \textbf{\texttt{run\_init\_process()}}\\
+        \textcolor{black!20}{\rule{\linewidth}{0.8pt}}\\[0.5ex]
+        尝试执行：\\
+        \hspace*{1em}\pathText{/sbin/init} \quad \pathText{/etc/init} \quad \pathText{/bin/init} \quad \pathText{/bin/sh}\\[1ex]
+        $\rightarrow$ \textbf{\texttt{execve()}}
+    };
+
+    % ==========================================
+    % 4. 用户空间阶段 (User Space)
+    % ==========================================
+    \node[box] (n12) [below right=0.0cm and 1.6cm of n4] {
+        \textbf{用户空间启动}\\
+        \textcolor{black!20}{\rule{\linewidth}{0.8pt}}\\[0.5ex]
+        \textbf{PID 1 = \texttt{systemd}}\\[1ex]
+        \textbf{\texttt{systemd:}}\\
+        $\bullet$ \textcolor{black!80}{mount units}\\
+        $\bullet$ \textcolor{black!80}{启动 services}\\
+        $\bullet$ \textcolor{black!80}{进入 target (multi-user / graphical)}
+    };
+
+    % ==========================================
+    % 绘制连线
+    % ==========================================
+    \draw[line] (n1) -- (n2);
+    \draw[line] (n2) -- (n3);
+    \draw[line] (n3.south) |- ++(4.4,-1) |- (n4);
+    \draw[line] (n4) -- (n5);
+    \draw[line] (n5) -- (n6);
+    \draw[line] (n6) -- (n7);
+    \draw[line] (n7) -- (n8);
+    \draw[line] (n8) -- (n10);
+    \draw[line] (n10) -- (n11);
+    \draw[line] (n11) -| (n12);
+    
+    % PID 2 分支折线
+    \draw[line] (n7.south) -- ++(0,-0.3) -| (n9.north);
+
+    % ==========================================
+    % 绘制背景分组层 (Background Layers)
+    % ==========================================
+    \begin{scope}[on background layer]
+        % Hardware
+        \node[groupbox=gray, fit=(n1)] (g1) {};
+        \node[grouplabel=gray, left=0.1cm of g1.west, anchor=south] {\textsc{Hardware Phase}};
+
+        % Firmware
+        \node[groupbox=cyan, fit=(n2)(n3)] (g2) {};
+        \node[grouplabel=cyan, left=0.1cm of g2.west, anchor=south] {\textsc{Firmware / Bootloader}};
+
+        % Kernel Space (包含 n9 PID2 旁支，故自适应宽度会自动扩充)
+        \node[groupbox=green, fit=(n4)(n6)(n8)(n11)] (g3) {};
+        \node[groupbox=green, fit=(n9)] {};
+        \node[grouplabel=green, left=0.1cm of g3.west, anchor=south] {\textsc{Kernel Space}};
+
+        % User Space
+        \node[groupbox=orange, fit=(n12)] (g4) {};
+        \node[grouplabel=orange, left=0.1cm of g4.west, anchor=south] {\textsc{User Space}};
+    \end{scope}
+
+\end{tikzpicture}
+
+\end{document}
