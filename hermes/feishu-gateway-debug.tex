@@ -1,0 +1,136 @@
+\section{Hermes Feishu 网关连接与用户白名单 Debug 记录}
+
+\subsection{问题描述}
+
+Hermes Agent 飞书（Feishu/Lark）网关启动后无法回复用户消息。
+
+\begin{itemize}
+  \item 在飞书上发消息给机器人，没有收到任何回复
+  \item Gateway 日志中显示飞书适配器未加载
+\end{itemize}
+
+\subsection{环境}
+
+\begin{itemize}
+  \item macOS 15.6
+  \item Hermes Agent v0.13.0（Nix 安装）
+  \item Python 3.12.13（Nix 环境）
+  \item 飞书连接模式：WebSocket
+  \item Feishu App ID: cli\_aa8f26395378dbdb
+\end{itemize}
+
+\subsection{日志现象}
+
+\begin{lstlisting}
+WARNING gateway.run: Feishu: lark-oapi not installed or FEISHU_APP_ID/SECRET not set
+WARNING gateway.run: No adapter available for feishu
+\end{lstlisting}
+
+\subsection{原因分析}
+
+\subsubsection{原因 1：lark-oapi 库未安装}
+
+Hermes Gateway 使用 Nix 环境中的 Python 3.12（路径：\texttt{/nix/store/...-hermes-agent-env/bin/python}），而 \texttt{lark-oapi} 库不存在于该环境中。飞书适配器在 import lark\_oapi 失败时将 \texttt{FEISHU\_AVAILABLE} 置为 \texttt{False}，导致适配器无法启动。
+
+\subsubsection{原因 2：launchd 缺少 PYTHONPATH}
+
+即使安装了库，Gateway 的 launchd plist（\texttt{\textasciitilde/Library/LaunchAgents/ai.hermes.gateway.plist}）中没有设置 \texttt{PYTHONPATH} 环境变量，Python 找不到额外安装的包。
+
+\subsubsection{原因 3：用户白名单限制}
+
+\texttt{.env} 中 \texttt{FEISHU\_ALLOW\_ALL\_USERS=false}，初始白名单 \texttt{FEISHU\_ALLOWED\_USERS=b5g9a7g9} 中没有包含实际发消息的用户。日志中表现为：
+
+\begin{lstlisting}
+WARNING gateway.run: Unauthorized user: ou_xxx (None) on feishu
+\end{lstlisting}
+
+\subsection{解决步骤}
+
+\subsubsection{1. 安装 lark-oapi 到 Nix Python 可访问的路径}
+
+由于 Nix 环境是只读的，\texttt{lark-oapi} 无法通过 \texttt{pip install} 直接安装到 Nix store 中的 site-packages。采用以下方案：
+
+\begin{lstlisting}[language=bash]
+# 使用 macOS 系统 Python 的 pip 安装到 ~/.hermes/site-packages/
+# 指定 Python 3.12 编译的 wheel 以保证兼容性
+python3 -m pip install \
+  --target ~/.hermes/site-packages \
+  --only-binary=:all: \
+  --python-version 3.12 \
+  --platform macosx_11_0_arm64 \
+  --abi cp312 \
+  lark-oapi
+\end{lstlisting}
+
+\subsubsection{2. 在 launchd plist 中添加 PYTHONPATH}
+
+编辑 \texttt{\textasciitilde/Library/LaunchAgents/ai.hermes.gateway.plist}，在 \texttt{<key>EnvironmentVariables</key>} 的 \texttt{<dict>} 中添加：
+
+\begin{lstlisting}[language=xml]
+<key>PYTHONPATH</key>
+<string>/Users/katsu/.hermes/site-packages</string>
+\end{lstlisting}
+
+然后重新加载 plist：
+
+\begin{lstlisting}[language=bash]
+launchctl unload ~/Library/LaunchAgents/ai.hermes.gateway.plist
+launchctl load ~/Library/LaunchAgents/ai.hermes.gateway.plist
+\end{lstlisting}
+
+\subsubsection{3. 更新用户白名单}
+
+在 \texttt{.env} 中找到 \texttt{FEISHU\_ALLOWED\_USERS}，将新用户的 open\_id 追加到逗号分隔的列表中：
+
+\begin{lstlisting}
+FEISHU_ALLOWED_USERS=ou_8f29366d98158fbc2b52c7772dba32de
+\end{lstlisting}
+
+然后重启网关使其生效：
+
+\begin{lstlisting}[language=bash]
+launchctl stop ai.hermes.gateway
+sleep 2
+launchctl start ai.hermes.gateway
+\end{lstlisting}
+
+\subsection{验证}
+
+重启后日志显示飞书正常连接：
+
+\begin{lstlisting}
+INFO gateway.run: ✓ feishu connected
+[Lark] [INFO] connected to wss://msg-frontier.feishu.cn/ws/v2?...
+\end{lstlisting}
+
+\subsection{关键文件路径}
+
+\begin{longtable}{ll}
+\toprule
+\textbf{文件} & \textbf{用途} \\
+\midrule
+\endhead
+\texttt{\textasciitilde/.hermes/.env} & Feishu 配置（APP\_ID, APP\_SECRET, 白名单等） \\
+\texttt{\textasciitilde/.hermes/site-packages/} & 手动安装的 lark-oapi 库（Nix Python 通过 PYTHONPATH 访问） \\
+\texttt{\textasciitilde/Library/LaunchAgents/ai.hermes.gateway.plist} & Gateway 的 launchd 服务配置 \\
+\texttt{\textasciitilde/.hermes/logs/gateway.log} & 网关运行日志 \\
+\bottomrule
+\end{longtable}
+
+\subsection{飞书相关环境变量}
+
+\begin{longtable}{ll}
+\toprule
+\textbf{变量} & \textbf{说明} \\
+\midrule
+\endhead
+\texttt{FEISHU\_APP\_ID} & 飞书应用 ID（cli\_xxx） \\
+\texttt{FEISHU\_APP\_SECRET} & 飞书应用密钥 \\
+\texttt{FEISHU\_DOMAIN} & 域名，国内飞书填 \texttt{feishu}，国际版填 \texttt{lark} \\
+\texttt{FEISHU\_CONNECTION\_MODE} & 连接模式：\texttt{websocket} 或 \texttt{webhook} \\
+\texttt{FEISHU\_ALLOW\_ALL\_USERS} & 是否允许所有用户（\texttt{true}/\texttt{false}） \\
+\texttt{FEISHU\_ALLOWED\_USERS} & 白名单，逗号分隔的 open\_id 列表 \\
+\texttt{FEISHU\_GROUP\_POLICY} & 群组策略：\texttt{open}（所有群）、\texttt{allowlist}（仅白名单群） \\
+\texttt{FEISHU\_REQUIRE\_MENTION} & 是否要求 @提及 才回复（默认 \texttt{true}） \\
+\bottomrule
+\end{longtable}

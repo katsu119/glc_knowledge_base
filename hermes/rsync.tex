@@ -1,0 +1,39 @@
+\section{rsync 文件同步工具}
+\label{sec:rsync}
+
+\texttt{rsync}（remote sync）是 Linux/macOS 上的文件同步工具，核心特点是\textbf{增量复制}——只传输有差异的部分，而非每次都全量拷贝。
+
+\subsection{常用选项}
+
+\begin{longtable}{ll}
+\toprule
+\textbf{选项} & \textbf{含义} \\
+\midrule
+\endhead
+\texttt{-a} & archive 模式：递归 + 保留权限/时间/属主/符号链接等 \\
+\texttt{--delete} & 删除目标端存在但源端已不存在的文件 \\
+\texttt{-v} & verbose，显示详细信息 \\
+\texttt{-z} & 传输时压缩 \\
+\texttt{--dry-run} & 模拟运行，不实际复制 \\
+\bottomrule
+\end{longtable}
+
+\subsection{Hermes 数据同步中的应用}
+
+在 Hermes 数据同步脚本中，其用法如下：
+
+\begin{lstlisting}[language=bash]
+rsync -a --delete "$HERMES_DIR/skills/" "$REPO_DIR/skills/"
+\end{lstlisting}
+
+这表示：递归同步 \texttt{\textasciitilde/.hermes/skills/} 到仓库的 \texttt{skills/} 目录，保持文件属性不变，并删除仓库里本地已被删除的多余文件。
+
+\subsection{与 cp/scp 的对比}
+
+\begin{itemize}
+  \item \texttt{cp}：每次都全量复制，不论文件是否变更
+  \item \texttt{scp}：跨网络全量复制，不支持断点续传
+  \item \texttt{rsync}：仅传输差异部分，支持增量、断点续传
+\end{itemize}
+
+简言之，rsync 是智能版的 cp/备份工具。

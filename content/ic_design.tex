@@ -1,0 +1,28 @@
+\chapter{IC设计相关知识积累}
+
+\paragraph{Testbench阶段标注}
+为了在Verilog中的仿真波形中看到目前测试的执行阶段，我们可以在Testbench中添加一些标志位或者输出语句来标注当前的阶段。例如：
+\begin{lstlisting}[language=SystemVerilog]
+  typedef enum int {
+            ST_INIT   = 0,
+            ST_REG_RW = 1,
+            ST_SPLIT  = 2,
+            ST_WSTRB  = 3,
+            ST_STREAM = 4,
+            ST_DONE   = 5
+          } test_stage_e;
+  test_stage_e test_stage_id;
+
+  task automatic set_stage(input test_stage_e id, input string name);
+    begin
+      test_stage_id = id;
+      test_stage = name;
+    end
+  endtask
+\end{lstlisting}
+
+\section{一些易用设置}
+
+\paragraph{Verdi缩放波形居中显示}
+在使用Verdi进行仿真波形查看时，可以通过以下设置来缩放波形并居中显示：
+在nWave窗口中，选择Waveform -> Keep Cursor at Center，这样在缩放波形时，光标会保持在中心位置，方便观察波形的细节。

@@ -122,6 +122,23 @@
   sensitive=true
 }
 
+\lstdefinelanguage{SystemVerilog}{
+  morekeywords={
+    always_comb, always_ff, always_latch, assert, assume, automatic, begin, end, case, endcase,
+    class, endclass, clocking, endclocking, constraint, endconstraint, cover, covergroup, endgroup,
+    default, disable, do, else, endfunction, endmodule, endpackage, endprogram, endtask, enum,
+    export, extends, final, for, foreach, fork, join, join_any, join_none, function, generate,
+    endgenerate, genvar, if, import, inside, interface, endinterface, localparam, logic, modport,
+    module, new, package, program, protected, rand, randc, randcase, randsequence, ref, return,
+    sequence, endsequence, struct, task, typedef, union, unique, unique0, virtual, void, wait, while,
+    with
+  },
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]",
+  sensitive=true
+}
+
 \lstset{
   basicstyle=\ttfamily\small,
   frame=single,
