@@ -1,0 +1,176 @@
+\documentclass[tikz,border=10pt]{standalone}
+\usepackage[utf8]{inputenc}
+\usepackage{ctex}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning,fit,calc,decorations.pathreplacing}
+
+\begin{document}
+
+% Transformer 解码器架构图
+\begin{tikzpicture}[
+    % 节点样式
+    block/.style={rectangle, draw, fill=blue!10, rounded corners=4pt, 
+                  minimum width=3cm, minimum height=0.8cm, align=center,
+                  font=\small\sffamily, inner sep=4pt},
+    emb/.style={rectangle, draw, fill=orange!20, rounded corners=4pt,
+                minimum width=3cm, minimum height=0.7cm, align=center,
+                font=\small\sffamily},
+    attn/.style={rectangle, draw, fill=green!15, rounded corners=4pt,
+                 minimum width=3.2cm, minimum height=0.9cm, align=center,
+                 font=\small\sffamily, inner sep=4pt},
+    ffn/.style={rectangle, draw, fill=purple!10, rounded corners=4pt,
+                minimum width=3cm, minimum height=0.8cm, align=center,
+                font=\small\sffamily},
+    addnorm/.style={rectangle, draw=gray!60, dashed, fill=gray!5, rounded corners=3pt,
+                    minimum width=2.6cm, minimum height=0.5cm, align=center,
+                    font=\scriptsize\sffamily},
+    arrow/.style={->, >=stealth, thick, color=black!70},
+    brace_arrow/.style={decorate, decoration={brace, amplitude=6pt, mirror}, 
+                        thick, black!60},
+    label_font/.style={font=\scriptsize\sffamily, color=gray!70},
+    % 颜色
+    data_color/.style={fill=cyan!20, draw=cyan!60!black},
+    out_color/.style={fill=red!15, draw=red!60!black},
+]
+
+% ===== 左半部分：编码器 (Encoder) =====
+\begin{scope}[shift={(-5.5,0)}]
+    % 标题
+    \node[font=\large\sffamily\bfseries] at (0, 9.3) {编码器 (Encoder)};
+    
+    % 输入嵌入
+    \node[emb, data_color] (enc_in) at (0, 8.2) {输入嵌入};
+    
+    % 位置编码
+    \node[emb, fill=yellow!15, draw=yellow!60!black] (enc_pos) at (0, 7.2) {位置编码};
+    \draw[arrow] (enc_in) -- (enc_pos);
+    
+    % 多头自注意力
+    \node[attn] (enc_attn) at (0, 5.6) {多头自注意力\\ (Masked Self-Attention)};
+    \draw[arrow] (enc_pos) -- (enc_attn);
+    
+    % 残差+层归一化
+    \node[addnorm] (enc_norm1) at (0, 4.5) {Add \& LayerNorm};
+    \draw[arrow] (enc_attn) -- (enc_norm1);
+    
+    % 残差连接
+    \draw[arrow, gray!50] ($(enc_pos.east)+(0.2,0)$) -- 
+          ($(enc_pos.east)+(0.8,0)$) |- ($(enc_norm1.east)+(0.5,0)$);
+    \node[label_font] at ($(enc_pos.east)+(1.8,0.8)$) {残差连接};
+    
+    % 前馈网络
+    \node[ffn] (enc_ffn) at (0, 3.0) {前馈网络 (FFN)};
+    \draw[arrow] (enc_norm1) -- (enc_ffn);
+    
+    % 残差+层归一化
+    \node[addnorm] (enc_norm2) at (0, 1.9) {Add \& LayerNorm};
+    \draw[arrow] (enc_ffn) -- (enc_norm2);
+    
+    % 残差连接
+    \draw[arrow, gray!50] ($(enc_norm1.east)+(0.2,0)$) -- 
+          ($(enc_norm1.east)+(0.8,0)$) |- ($(enc_norm2.east)+(0.5,0)$);
+    
+    % 编码器输出
+    \node[block, fill=teal!10, draw=teal!60!black] (enc_out) at (0, 0.7) {编码器输出};
+    \draw[arrow] (enc_norm2) -- (enc_out);
+    
+    % 重复标记
+    \node[label_font, font=\tiny\sffamily] at (-2.2, 6.4) {$\times N$};
+    \draw[gray!30] ($(-1.6,6.9)$) rectangle ($(-1.4,5.1)$);
+    
+    % 侧边标注
+    \draw[brace_arrow] ($(enc_in.west)+(-0.5,0.35)$) -- 
+          ($(enc_out.west)+(-0.5,-0.35)$);
+    \node[label_font, font=\footnotesize\sffamily] at ($(enc_in.west)+(-2.0,0)$) 
+          {编码器层 $\times 6$};
+\end{scope}
+
+% ===== 右半部分：解码器 (Decoder) =====
+\begin{scope}[shift={(5.5,0)}]
+    % 标题
+    \node[font=\large\sffamily\bfseries] at (0, 10.6) {解码器 (Decoder)};
+    
+    % 输出嵌入（右移）
+    \node[emb, data_color] (dec_in) at (0, 9.5) {输出嵌入（右移）};
+    
+    % 位置编码
+    \node[emb, fill=yellow!15, draw=yellow!60!black] (dec_pos) at (0, 8.5) {位置编码};
+    \draw[arrow] (dec_in) -- (dec_pos);
+    
+    % 掩码多头自注意力
+    \node[attn, fill=green!20] (dec_attn1) at (0, 6.9) {掩码多头自注意力\\ (Masked Self-Attention)};
+    \draw[arrow] (dec_pos) -- (dec_attn1);
+    
+    % Add & LayerNorm
+    \node[addnorm] (dec_norm1) at (0, 5.8) {Add \& LayerNorm};
+    \draw[arrow] (dec_attn1) -- (dec_norm1);
+    
+    % 残差连接
+    \draw[arrow, gray!50] ($(dec_pos.east)+(0.2,0)$) -- 
+          ($(dec_pos.east)+(0.8,0)$) |- ($(dec_norm1.east)+(0.5,0)$);
+    
+    % 交叉注意力
+    \node[attn, fill=cyan!20, draw=cyan!60!black] (dec_cross) at (0, 4.2) 
+          {交叉注意力\\ (Cross-Attention)};
+    \draw[arrow] (dec_norm1) -- (dec_cross);
+    
+    % 来自编码器的 KV
+    \draw[arrow, teal!70!black] ($(enc_out.east)+(0.3,0)$) -- 
+          ($(enc_out.east)+(1.2,0)$) |- ($(dec_cross.west)+(-0.05,0.2)$);
+    \node[label_font, teal!70!black] at ($(enc_out.east)+(2.2,0.15)$) {Key / Value};
+    
+    % Add & LayerNorm
+    \node[addnorm] (dec_norm2) at (0, 3.1) {Add \& LayerNorm};
+    \draw[arrow] (dec_cross) -- (dec_norm2);
+    
+    % 残差连接
+    \draw[arrow, gray!50] ($(dec_norm1.east)+(0.2,0)$) -- 
+          ($(dec_norm1.east)+(0.8,0)$) |- ($(dec_norm2.east)+(0.5,0)$);
+    
+    % 前馈网络
+    \node[ffn] (dec_ffn) at (0, 1.6) {前馈网络 (FFN)};
+    \draw[arrow] (dec_norm2) -- (dec_ffn);
+    
+    % Add & LayerNorm
+    \node[addnorm] (dec_norm3) at (0, 0.5) {Add \& LayerNorm};
+    \draw[arrow] (dec_ffn) -- (dec_norm3);
+    
+    % 残差连接
+    \draw[arrow, gray!50] ($(dec_norm2.east)+(0.2,0)$) -- 
+          ($(dec_norm2.east)+(0.8,0)$) |- ($(dec_norm3.east)+(0.5,0)$);
+    
+    % 线性层 + Softmax
+    \node[block, out_color] (dec_out) at (0, -0.8) {线性层 + Softmax};
+    \draw[arrow] (dec_norm3) -- (dec_out);
+    
+    % 输出
+    \node[block, fill=red!20, draw=red!80!black, minimum height=0.6cm] 
+          (output) at (0, -1.9) {输出概率分布};
+    \draw[arrow] (dec_out) -- (output);
+    
+    % 重复标记
+    \node[label_font, font=\tiny\sffamily] at (-2.2, 7.7) {$\times N$};
+    \draw[gray!30] ($(-1.6,8.2)$) rectangle ($(-1.4,6.4)$);
+    
+    % 侧边标注
+    \draw[brace_arrow] ($(dec_in.west)+(-0.5,0.35)$) -- 
+          ($(dec_ffn.east)+(-0.5,0)+(0,-0.5)$);
+    \node[label_font, font=\footnotesize\sffamily] at ($(dec_in.west)+(-2.1,1.0)$) 
+          {解码器层 $\times 6$};
+\end{scope}
+
+% ===== 中间连接箭头 =====
+\node[align=center, font=\small\sffamily] at (0, 0.2) {编码器-解码器\\ 交互};
+\draw[->, >=stealth, thick, dashed, teal!60!black] 
+      ($(enc_out.east)+(0.2,0)$) -- ($(enc_out.east)+(0.6,0)$);
+\draw[->, >=stealth, thick, dashed, teal!60!black] 
+      ($(dec_cross.south)+(1.5,0)$) -- ($(dec_cross.south)+(1.1,0)$);
+
+% ===== 整体标题 =====
+\node[font=\huge\sffamily\bfseries, align=center] at (0, 11.8) 
+      {Transformer 模型架构\\[3pt]
+       {\normalsize\sffamily\mdseries —— 基于 《Attention Is All You Need》}};
+
+\end{tikzpicture}
+
+\end{document}
