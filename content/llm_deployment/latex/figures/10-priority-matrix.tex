@@ -1,0 +1,98 @@
+% 投入优先级矩阵 —— 2×2 散点矩阵
+% X轴: 投入成本 (低→高)  Y轴: 收益影响 (低→高)
+\documentclass[border=5pt,tikz]{standalone}
+\usepackage{pgfplots}
+\usetikzlibrary{calc}
+\pgfplotsset{compat=1.18}
+\usepackage{xeCJK}
+\setCJKmainfont{STSong}
+
+\begin{document}
+\begin{tikzpicture}
+\begin{axis}[
+    width=14cm, height=11cm,
+    xlabel={投入成本 / 工程难度},
+    ylabel={收益影响 / 研发提效},
+    xmin=0, xmax=10,
+    ymin=0, ymax=10,
+    grid=major,
+    grid style={dashed, gray!40},
+    title={LLM 在 IC 设计中的投入优先级矩阵},
+    title style={font=\bfseries\large},
+    xtick={1,2,3,4,5,6,7,8,9},
+    ytick={1,2,3,4,5,6,7,8,9},
+    xticklabels={}, yticklabels={},
+    xlabel style={font=\footnotesize, text=black!60},
+    ylabel style={font=\footnotesize, text=black!60},
+    % 象限分割线
+    extra x ticks={5},
+    extra y ticks={5},
+    extra x tick style={grid=major, grid style={black!50, thick}},
+    extra y tick style={grid=major, grid style={black!50, thick}},
+]
+
+% 象限标签（基于轴中心的相对位置）
+\coordinate (axisCenter) at (axis cs:5,5);
+\coordinate (qTopLeft)  at ($(axisCenter)!0.5!(axis cs:0,10)$);
+\coordinate (qTopRight) at ($(axisCenter)!0.5!(axis cs:10,10)$);
+\coordinate (qBotLeft)  at ($(axisCenter)!0.5!(axis cs:0,0)$);
+\coordinate (qBotRight) at ($(axisCenter)!0.5!(axis cs:10,0)$);
+
+\node[font=\large\bfseries, text=green!40!black, opacity=0.6] at (qTopLeft) {优先投入};
+\node[font=\large\bfseries, text=orange!60!black, opacity=0.5] at (qTopRight) {战略布局};
+\node[font=\large\bfseries, text=blue!40!black, opacity=0.35] at (qBotLeft) {低优先级};
+\node[font=\large\bfseries, text=red!40!black, opacity=0.35] at (qBotRight) {暂不推荐};
+
+% ---- 数据点 ----
+% (effort, impact) label color
+
+% 优先投入区 (左上) —— 低成本高收益
+\addplot[only marks, mark=*, green!50!black, mark size=8pt]
+    coordinates {(2,9)(3,8.5)(2.5,8)(1.5,7.5)(3,7)};
+\addlegendentry{优先投入}
+
+% 战略布局区 (右上) —— 高成本高收益
+\addplot[only marks, mark=*, orange!70!black, mark size=8pt]
+    coordinates {(7,8)(6,7)};
+\addlegendentry{战略布局}
+
+% 暂不推荐区 (右下) —— 高成本低收益/高风险
+\addplot[only marks, mark=*, red!50!black, mark size=7pt]
+    coordinates {(8,2.5)};
+\addlegendentry{暂不推荐}
+
+% ---- 标签 ----
+\node[font=\footnotesize\bfseries, green!50!black, anchor=south] at (axis cs:2,9.3) {RAG 知识库};
+\node[font=\footnotesize\bfseries, green!50!black, anchor=south] at (axis cs:3,8.8) {仿真脚本};
+\node[font=\footnotesize\bfseries, green!50!black, anchor=south] at (axis cs:2.5,8.3) {DevOps 自动化};
+\node[font=\footnotesize\bfseries, green!50!black, anchor=south] at (axis cs:1.5,7.8) {代码补全(IDE)};
+\node[font=\footnotesize\bfseries, green!50!black, anchor=south] at (axis cs:3,7.3) {UVM 验证模板};
+
+\node[font=\footnotesize\bfseries, orange!70!black, anchor=south] at (axis cs:7,8.3) {Agent (log分析)};
+\node[font=\footnotesize\bfseries, orange!70!black, anchor=south] at (axis cs:6,7.3) {IC领域微调};
+
+\node[font=\footnotesize\bfseries, red!60!black, anchor=south] at (axis cs:8,2.8) {RTL 自动生成};
+
+% 标注箭头
+\draw[->, green!50!black, thick] (axis cs:4.5,9) -- (axis cs:2.2,9)
+    node[midway, above, font=\tiny\bfseries, green!50!black] {$\leftarrow$ 即刻开始};
+
+\draw[->, red!60!black, thick] (axis cs:5.5,1.5) -- (axis cs:7.8,2.7)
+    node[midway, below, font=\tiny\bfseries, red!60!black] {高风险 $\rightarrow$};
+
+% 右下角注释
+\node[anchor=south east, font=\footnotesize, align=left, text=black!50]
+    at (axis cs:9.5,1.5) {
+    $\uparrow$ 收益 = 研发提效\\
+    $\rightarrow$ 成本 = 工程复杂度 + 风险
+};
+
+\end{axis}
+
+\node[font=\footnotesize\bfseries, text=black!50, anchor=north]
+    at (current bounding box.south) {
+    \textbf{解读：} 左上角优先做（低投入高回报），右上角规划做（高投入但值得），右下角暂不做（高风险低回报）
+};
+
+\end{tikzpicture}
+\end{document}

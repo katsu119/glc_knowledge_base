@@ -1,0 +1,66 @@
+\documentclass[tikz,border=10pt]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{positioning,calc,shapes.geometric,arrows.meta,backgrounds,fit,math}
+\usepackage{amsmath,amssymb}
+\usepackage{xeCJK}
+\setCJKmainfont{STHeiti}
+\setCJKsansfont{STHeiti}
+
+\begin{document}
+\begin{tikzpicture}[
+    >=Latex,
+    every node/.style={font=\small},
+    block/.style={rectangle, draw, minimum width=2.3cm, minimum height=1.2cm, align=center, rounded corners=3pt, inner sep=3pt},
+    sum/.style={circle, draw, minimum size=0.7cm, inner sep=0pt},
+    path/.style={->, thick},
+    fback/.style={->, thick, red!70!black, dashed},
+    label/.style={font=\scriptsize, text=gray!70!black},
+    title/.style={font=\large\bfseries},
+]
+
+%% === Title ===
+\node[title] at (0,4.3) {TIADC 失调校准 (Offset Calibration)};
+
+%% === Blocks (top row: forward path) ===
+\node[block, fill=blue!8] (input)  {\textbf{输入}\\$V_{\text{in}}^{(k)}+O_k$\\带失调误差};
+\node[sum, right=1.1cm of input] (sum) {$-$};
+\node[block, fill=cyan!12, right=1.1cm of sum] (adc) {\textbf{子ADC}\\$A_o = \text{ADCF}(V_i)-128$};
+\node[block, fill=green!12, right=1.1cm of adc] (dout) {校准后输出\\$y_k[n]$};
+
+%% === Bottom row (feedback path) ===
+\node[block, fill=purple!10, below=0.9cm of adc] (intg) {\textbf{指数平均 (IIR-LPF)}\\$\displaystyle I^{(n+1)} = I^{(n)} + w \cdot A_o$\\$w = 2^{-12}$};
+\node[block, fill=yellow!15, right=2.7cm of intg] (trunc) {\textbf{截位量化}\\$\hat{O}_k = \lfloor I \times 4 \rfloor / 4$};
+
+%% === Arrows: forward ===
+\draw[path] (input)  -- node[above]{$V_i$} (sum);
+\draw[path] (sum)    -- (adc);
+\draw[path] (adc)    -- node[above]{$A_o$} (dout);
+
+%% === Arrows: feedback loop ===
+\draw[path] ($(adc.south)!0.6!(adc.south west)$) -- ++(0,-0.4) -| (intg.north);
+
+\draw[path] (intg)   -- (trunc);
+
+% Feedback: trunc -> sum
+\draw[fback] (trunc.north) -- ++(0,0.3) -| node[pos=0.75, above]{$\hat{O}_k$} (sum.south);
+
+%% === Annotations ===
+\node[label, below=0.1cm of intg]  {累加即低通滤波};
+\node[label, below=0.1cm of trunc] {模拟硬件位宽截断};
+\node[label, above right=-0.1cm and -0.1cm of adc.north] {SAR量化};
+\node[label, above=0.15cm of input.north] {通道 $k$};
+
+%% === Convergence detector (right) ===
+\begin{scope}[shift={(7.2, 0)}]
+\node[block, fill=red!8, minimum width=2.0cm, minimum height=1.8cm] (detect) {\textbf{收敛检测}\\跟踪$\hat{O}_k$方向\\上下抖动$\to$收敛\\阈值：512次};
+\draw[->, thick, gray] (trunc.east) -- ++(0.5,0) |- (detect.west);
+\draw[->, thick, gray] (detect.west) -- ++(-0.3,0) node[left]{\scriptsize 标志位};
+\node[below=0.05cm of detect, font=\tiny, text=gray] {控制字累加器};
+\end{scope}
+
+%% === Legend ===
+\draw[path] (0,-1.5) -- (0.8,-1.5) node[right]{\scriptsize 信号路径};
+\draw[fback] (0,-2.0) -- (0.8,-2.0) node[right]{\scriptsize 反馈补偿};
+
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,119 @@
+clc;
+clear;
+fs = 64*10^9;   %采样频率16GHz
+T = 1/fs;       %采样间隔
+fin1 = 809/8192*fs; %输入正弦波频率
+Tin = 1/(fin1);     %输入正弦波间隔 
+
+N = 2^24;                    %采样点数
+M = 64;                      %采样通道：16
+t = 0:1/fs:(N-1)/fs;         %采样时刻
+
+%%  generate random mismatch variable
+skew_mismatch = zeros(1,M);
+gain_mismatch = ones(1,M);
+offset_mismatch = zeros(1,M);
+for i = 1:4     %generate random mismatch variable for each channel
+    skew_mismatch(i) = randn(1,1) * 0.01*T*8;
+    %gain_mismatch(i) = 1+randn(1,1) * 0.01;
+    %offset_mismatch(i) = randn(1,1) * 0.01;
+end
+skew_mismatch=[0,0,0,0];
+
+Vi=zeros(2^18,64);
+Ao=zeros(2^18,64);
+Ao_64=zeros(2^18,1);
+mismatch=zeros(2^18-1,4);
+e=zeros(2^18-1,4);
+u=2^-30;
+
+Vi_1=zeros(N,1);
+
+
+for i=1:2^18-1
+    for t=1:64
+        
+    if(mod(t,4) == 0)
+        Vi(i,t) =  0.4 * cos(2*pi*fin1*(T*((i-1)*64+t) + skew_mismatch(4)-0))+0.45;%mismatch(i,4))) +0.45;
+    elseif (mod(t,4)~=1)
+        Vi(i,t) =  0.4 * cos(2*pi*fin1*(T*((i-1)*64+t)) + skew_mismatch(mod(t,4))-0)+0.45;%mismatch(i,mod(t,4)))+0.45 ;
+    else
+        Vi(i,t) =  0.4 * cos(2*pi*fin1*(T*((i-1)*64+t)) + skew_mismatch(mod(t,4))-0)+0.45;
+    end
+    Ao(i,t)=ADCF(Vi(i,t))-128;
+
+    end
+    A1=Ao_64(i,1)* Vi(i,1)+ Vi(i,1)*Vi(i,2)+Vi(i,2)*Vi(i,3)+Vi(i,3)*Vi(i,4);  %互相关
+    A2= Vi(i,4)*Vi(i,5)+Vi(i,5)*Vi(i,6)+Vi(i,6)*Vi(i,7)+Vi(i,7)*Vi(i,8);
+    A3= Vi(i,8)*Vi(i,9)+Vi(i,9)*Vi(i,10)+Vi(i,10)*Vi(i,11)+Vi(i,11)*Vi(i,12);
+    A4= Vi(i,12)*Vi(i,13)+Vi(i,13)*Vi(i,14)+Vi(i,14)*Vi(i,15)+Vi(i,15)*Vi(i,16);
+    A5= Vi(i,16)*Vi(i,17)+Vi(i,17)*Vi(i,18)+Vi(i,18)*Vi(i,19)+Vi(i,19)*Vi(i,20);
+    A6= Vi(i,20)*Vi(i,21)+Vi(i,21)*Vi(i,22)+Vi(i,22)*Vi(i,23)+Vi(i,23)*Vi(i,24);
+    A7= Vi(i,24)*Vi(i,25)+Vi(i,25)*Vi(i,26)+Vi(i,26)*Vi(i,27)+Vi(i,27)*Vi(i,28);
+    A8= Vi(i,28)*Vi(i,29)+Vi(i,29)*Vi(i,30)+Vi(i,30)*Vi(i,31)+Vi(i,31)*Vi(i,32);
+    A9= Vi(i,32)*Vi(i,33)+Vi(i,33)*Vi(i,34)+Vi(i,34)*Vi(i,35)+Vi(i,35)*Vi(i,36);
+    A10= Vi(i,36)*Vi(i,37)+Vi(i,37)*Vi(i,38)+Vi(i,38)*Vi(i,39)+Vi(i,39)*Vi(i,40);
+    A11= Vi(i,40)*Vi(i,41)+Vi(i,41)*Vi(i,42)+Vi(i,42)*Vi(i,43)+Vi(i,43)*Vi(i,44);
+    A12= Vi(i,44)*Vi(i,45)+Vi(i,45)*Vi(i,46)+Vi(i,46)*Vi(i,47)+Vi(i,47)*Vi(i,48);
+    A13= Vi(i,48)*Vi(i,49)+Vi(i,49)*Vi(i,50)+Vi(i,50)*Vi(i,51)+Vi(i,51)*Vi(i,52);
+    A14= Vi(i,52)*Vi(i,53)+Vi(i,53)*Vi(i,54)+Vi(i,54)*Vi(i,55)+Vi(i,55)*Vi(i,56);
+    A15= Vi(i,56)*Vi(i,57)+Vi(i,57)*Vi(i,58)+Vi(i,58)*Vi(i,59)+Vi(i,59)*Vi(i,60);
+    A16= Vi(i,60)*Vi(i,61)+Vi(i,61)*Vi(i,62)+Vi(i,62)*Vi(i,63)+Vi(i,63)*Vi(i,64);
+    A17=A1+A2+A3+A4+A5+A6+A7+A8+A9+A10+A11+A12+A13+A14+A15+A16;
+
+    for t=2:4
+      
+            for m=1:16
+              e(i,t)=-Vi(i,t-1+(m-1)*4)*Vi(i,t+(m-1)*4)*4;
+            end
+            e(i,t)=e(i,t)+A17;
+        mismatch(i+1,t)=mismatch(i,t)+u*e(i,t);
+    end
+   
+    
+
+    
+    Ao_64(i+1,1)=Vi(i,64);
+end
+%%%%%%%%%%%%%%%%%%%%%%%%%  未校准的图
+Vi_2=zeros(N,1);
+Ao_1=zeros(N,1);
+for i = 1:N
+    if(mod(i,4 )== 0)
+        Vi_2(i) =  0.4 * cos(2*pi*fin1*(T*(i-1) + skew_mismatch(4))) +0.45;
+    else
+        Vi_2(i) = 0.4 * cos(2*pi*fin1*(T*(i-1) + skew_mismatch(mod(i,4))))+0.45 ;
+    end
+    Ao_1(i)=ADCF(Vi_2(i))-128; 
+end
+
+
+[SNR,SINAD,SFDR,ENOB]=ADC_dynamic_with_figure(rot90(Ao_1),fs,8192,"校准前");
+hold on
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%校准后的
+Ao_2=zeros(N,1);
+
+for i = 1:2^18-1
+    for t=1:64
+        Ao_2((i-1)*64+t)=Vi(i,t);
+    end
+end
+
+
+[SNR,SINAD,SFDR,ENOB]=ADC_dynamic_with_figure(rot90(Ao_2),fs,8192,"校准后");
+hold on
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%不加误差
+Vi_3=zeros(N,1);
+Ao_2=zeros(N,1);
+for i = 1:N
+    if(mod(i,4 )== 0)
+        Vi_3(i) =  0.4* cos(2*pi*fin1*(T*i))+0.45;
+    else
+        Vi_3(i) = 0.4 * cos(2*pi*fin1*(T*i))+0.45 ;
+    end
+    Ao_2(i)=ADCF(Vi_3(i))-128; 
+end
+[SNR,SINAD,SFDR,ENOB]=ADC_dynamic_with_figure(rot90(Ao_2),fs,8192,"不加误差");
+[SNR,SINAD,SFDR,ENOB]=ADC_dynamic_with_figure(rot90(Vi_3),fs,8192,"原函数未进ADC");
+hold on

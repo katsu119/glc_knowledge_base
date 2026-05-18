@@ -1,0 +1,37 @@
+function [out]=ADCF(in)
+
+%ADC behavior model
+%
+
+
+
+%defalut value
+
+Vn=0.45+in/2;
+Vp=0.45-in/2;
+s=zeros(1,9);
+Vn=Vn/0.9*256;
+Vp=Vp/0.9*256;
+r=[60,28,16,10,6,4,2,1,1];
+if Vn>=Vp
+    s(1,1)=1;
+else
+    s(1,1)=0;
+end
+
+for i=1:8
+    if s(1,i)==1
+        Vn=Vn-r(1,i);
+        Vp=Vp+r(1,i);
+    else
+        Vn=Vn+r(1,i);
+        Vp=Vp-r(1,i);
+    end
+    if Vn>=Vp
+    s(1,i+1)=1;
+    else
+    s(1,i+1)=0;
+    end
+end
+
+out=s(1,1)*120+s(1,2)*56+s(1,3)*32+s(1,4)*20+s(1,5)*12+s(1,6)*8+s(1,7)*4+s(1,8)*2+s(1,9)*1;

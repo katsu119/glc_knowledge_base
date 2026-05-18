@@ -1,0 +1,94 @@
+\documentclass[tikz,border=10pt]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{positioning,calc,shapes.geometric,arrows.meta,backgrounds,fit,math}
+\usepackage{amsmath,amssymb}
+\usepackage{xeCJK}
+\setCJKmainfont{STHeiti}
+\setCJKsansfont{STHeiti}
+
+\begin{document}
+\begin{tikzpicture}[
+    >=Latex,
+    every node/.style={font=\small},
+    block/.style={rectangle, draw, minimum width=2.2cm, minimum height=1.0cm, align=center, rounded corners=3pt, inner sep=3pt},
+    smallblock/.style={rectangle, draw, minimum width=1.5cm, minimum height=0.7cm, align=center, rounded corners=2pt, inner sep=2pt, font=\footnotesize},
+    sum/.style={circle, draw, minimum size=0.6cm, inner sep=0pt},
+    path/.style={->, thick},
+    fback/.style={->, thick, red!70!black, dashed},
+    label/.style={font=\scriptsize, text=gray!70!black},
+    title/.style={font=\large\bfseries},
+]
+
+%% === Title ===
+\node[title] at (0,5.8) {TIADC 时钟偏斜校准 (Timing Skew Calibration)};
+
+%% === Left: Clock groups and channel array ===
+\node[draw, fill=cyan!6, dashed, inner sep=0.3cm] (chanbox) at (-6.5,2.2) {
+\begin{tikzpicture}[scale=0.65, every node/.style={font=\tiny}]
+  \node[draw, fill=orange!20, minimum width=0.4cm, minimum height=0.4cm] (c1) at (0,0) {$\phi_1$};
+  \node[draw, fill=orange!30, minimum width=0.4cm, minimum height=0.4cm] (c2) at (0.8,0) {$\phi_2$};
+  \node[draw, fill=orange!40, minimum width=0.4cm, minimum height=0.4cm] (c3) at (1.6,0) {$\phi_3$};
+  \node[draw, fill=orange!50, minimum width=0.4cm, minimum height=0.4cm] (c4) at (2.4,0) {$\phi_4$};
+  \draw[->, dashed] (0.4,0.3) -- (0.8,0.3) node[midway, above] {$T_s$};
+  \node at (1.2,-0.5) {4组时钟相位依次错开};
+  \node at (0.4,-0.9) {$T_s = 1/64\text{GHz} \approx 15.6\text{ps}$};
+  \foreach \x in {0,1,2,3} {
+    \node[font=\tiny] at (\x*0.8, -1.3) {CH\x+1};
+  }
+  \node[font=\tiny] at (2.8,-1.3) {...};
+  \node at (1.2,-1.7) {共64通道};
+\end{tikzpicture}
+};
+
+%% === Middle: Cross-correlation computation ===
+\node[block, fill=purple!10, right=2.5cm of chanbox] (corr) {\textbf{互相关计算}\\$R_k = A_o^{(k)} \cdot A_o^{(k+1)}$\\逐对相邻通道};
+\node[block, fill=purple!15, below=0.5cm of corr] (accum) {\textbf{分组累加}\\$A_1\!\sim\!A_{16}$ (每组4对)\\每组对应一时钟边界};
+
+\draw[path, thick] (chanbox.east) -- node[above]{$A_o[1..64]$} (corr.west);
+
+%% === Top right: Average and Error ===
+\node[block, fill=red!8, right=2.5cm of corr] (avgall) {\textbf{全局平均}\\$\displaystyle \bar{A} = \frac{1}{16}\sum_{m=1}^{16} A_m$};
+
+\node[block, fill=red!12, below=0.5cm of avgall] (error) {\textbf{误差计算}\\$e^{(t)} = -\displaystyle\sum_{m} \frac{A_o^{(t-1+4m)} \cdot A_o^{(t+4m)}}{s} \times 4 + \bar{A}$\\$t=2,3,4$};
+
+\draw[path] (corr.east) -- (avgall.west);
+\draw[path] (accum.east) -| (error.north);
+\draw[path] (avgall.south) -- node[right]{\scriptsize $\bar{A}$} (error.north);
+
+%% === Bottom: LMS and VDL ===
+\node[block, fill=blue!10, below=0.5cm of error] (lms) {\textbf{LMS 迭代更新}\\$\Delta t_k^{(n+1)} = \Delta t_k^{(n)} + u \cdot e^{(t)}$\\$u = 2^{9}$};
+\node[block, fill=yellow!15, right=2.2cm of lms] (ctrl) {\textbf{控制字截位}\\$\widehat{\Delta t} = \lfloor \Delta t / 2^{24} \rfloor$\\$\times$ 步长 $10^{-14}$s};
+
+\draw[path] (error.south) -- (lms.north);
+\draw[path] (lms) -- (ctrl);
+
+%% === Feedback: VDL to clock groups ===
+\draw[fback] (ctrl.north) -- ++(0,0.5) -| node[pos=0.7, above]{\scriptsize VDL 延迟控制} (chanbox.north);
+
+%% === Annotations ===
+\node[label, below=0.1cm of corr] {互相关};
+\node[label, below=0.1cm of avgall] {参考值};
+\node[label, below=0.1cm of error] {正负号指示偏移方向};
+\node[label, below=0.1cm of lms] {收敛};
+\node[label, below=0.1cm of ctrl] {硬件VDL};
+
+%% === Bottom note: clock group mapping ===
+\node[draw, fill=gray!5, rounded corners, inner sep=0.15cm, right=3.5cm of error, minimum width=3.5cm] (note) {
+\begin{tikzpicture}[scale=0.6]
+  \node[font=\tiny, align=left] at (0,0) {
+    $\phi_1$: CH1,5,9,...,61 (参考，无需校准)\\
+    $\phi_2$: CH2,6,10,...,62\\
+    $\phi_3$: CH3,7,11,...,63\\
+    $\phi_4$: CH4,8,12,...,64\\
+    仅需校准 $\Delta t_2, \Delta t_3, \Delta t_4$
+  };
+\end{tikzpicture}
+};
+\draw[->, thick, gray!50] (error.east) -- (note.west);
+
+%% === Legend ===
+\draw[path] (0,-1.0) -- (0.8,-1.0) node[right]{\scriptsize 信号路径};
+\draw[fback] (0,-1.4) -- (0.8,-1.4) node[right]{\scriptsize 反馈控制};
+
+\end{tikzpicture}
+\end{document}

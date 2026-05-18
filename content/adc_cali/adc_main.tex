@@ -1,0 +1,43 @@
+% Standalone ADC calibration main document (skeleton)
+\documentclass[11pt]{ctexart}
+\usepackage{graphicx}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{hyperref}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{booktabs}
+
+% 图片位于当前目录
+\graphicspath{{./}}
+
+\title{ADC 校准报告}
+\author{自动生成}
+\date{\today}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+本文件为 ADC 校准结果的汇总骨架，包含增益、偏移与时序三类校准图示与简要说明。
+\end{abstract}
+
+\tableofcontents
+\clearpage
+
+\section{简介}
+简要说明校准目的、测试条件与设备配置。
+
+\section{校准结果}
+以下为各类校准结果展示：
+
+\input{adc_cali.tex}
+
+\section{结论}
+对校准结果的简短总结和后续建议。
+
+\clearpage 
+\appendix
+\section{原始数据与脚本}
+原始数据与生成图表的脚本位于仓库相应目录。
+
+\end{document}

@@ -1,0 +1,114 @@
+% IC 设计流程中 LLM 介入点图 —— 流程 + 绿/黄/红标注
+\documentclass[border=5pt,tikz]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, backgrounds, calc, decorations.pathreplacing}
+\usepackage{xeCJK}
+\setCJKmainfont{STSong}
+
+\begin{document}
+\begin{tikzpicture}[
+    % 流程节点
+    node distance=0.6cm,
+    proc/.style={rectangle, draw=black!60, fill=white, minimum width=2.2cm,
+                 minimum height=0.9cm, font=\footnotesize\bfseries, align=center,
+                 rounded corners=2pt},
+    % 收益标记
+    greenlit/.style={circle, draw=green!50!black, fill=green!8, inner sep=0pt,
+                     minimum size=18pt, font=\tiny\bfseries, text=green!50!black},
+    yellowlit/.style={circle, draw=yellow!70!black, fill=yellow!8, inner sep=0pt,
+                      minimum size=18pt, font=\tiny\bfseries, text=yellow!70!black},
+    redlit/.style={circle, draw=red!50!black, fill=red!8, inner sep=0pt,
+                   minimum size=18pt, font=\tiny\bfseries, text=red!50!black},
+    % 箭头
+    arr/.style={-{Stealth[scale=0.8]}, line width=1pt, draw=black!40},
+    arrgreen/.style={-{Stealth[scale=0.8]}, line width=1.5pt, draw=green!60!black},
+    arryellow/.style={-{Stealth[scale=0.8]}, line width=1.5pt, draw=yellow!70!black},
+    arrred/.style={-{Stealth[scale=0.8]}, line width=1.5pt, draw=red!50!black},
+    % 标注框
+    annot/.style={font=\tiny, align=left, text=black!70},
+]
+
+% ==================== 模拟 IC 流程 (左列) ====================
+\node[font=\bfseries\small, text=blue!70!black] (atitle) {模拟 IC 设计};
+
+\node[proc] (spec) [below=of atitle] {设计规格\\制定};
+\node[proc] (arch) [below=of spec] {电路架构\\设计};
+\node[proc] (schem) [below=of arch] {Schematic\\设计};
+\node[proc] (sim)  [below=of schem] {SPICE\\仿真};
+\node[proc] (layout) [below=of sim] {Layout\\设计};
+\node[proc] (postsim) [below=of layout] {后仿\\验证};
+
+% ==================== 数字 IC 流程 (中列) ====================
+\node[font=\bfseries\small, text=blue!70!black] (dtitle) [right=1.5cm of atitle] {数字 IC 设计};
+
+\node[proc] (rtl) [below=of dtitle] {RTL 设计\\(Verilog/SV)};
+\node[proc] (verif) [below=of rtl] {UVM 验证};
+\node[proc] (syn) [below=of verif] {逻辑综合};
+\node[proc] (sta) [below=of syn] {STA 时序};
+\node[proc] (cdc) [below=of sta] {CDC / DFT};
+\node[proc] (fpga) [below=of cdc] {FPGA 原型};
+
+% ==================== 基础设施 (右列) ====================
+\node[font=\bfseries\small, text=blue!70!black] (ititle) [right=1.5cm of dtitle] {软件 / 基础设施};
+
+\node[proc] (devops) [below=of ititle] {Linux 运维\\DevOps};
+\node[proc] (cicd) [below=of devops] {CI/CD\\Pipeline};
+\node[proc] (script) [below=of cicd] {仿真脚本\\自动化};
+\node[proc] (sched) [below=of script] {仿真任务\\调度};
+\node[proc] (rag) [below=of sched] {文档 RAG\\知识库};
+\node[proc] (agent) [below=of rag] {Agent\\(实验性)};
+
+% ==================== 流程箭头 ====================
+% 模拟
+\draw[arr] (spec) -- (arch);
+\draw[arr] (arch) -- (schem);
+\draw[arr] (schem) -- (sim);
+\draw[arr] (sim) -- (layout);
+\draw[arr] (layout) -- (postsim);
+
+% 数字
+\draw[arr] (rtl) -- (verif);
+\draw[arr] (verif) -- (syn);
+\draw[arr] (syn) -- (sta);
+\draw[arr] (sta) -- (cdc);
+\draw[arr] (cdc) -- (fpga);
+
+% 基础设施 (独立流程，不串联)
+% 用虚线表示它们是平行场景
+
+% ==================== LLM 收益标记 (绿/黄/红 圆点) ====================
+% 模拟流程
+\node[greenlit] at ($(spec.east)+(0.4,0.3)$)  {G};   % spec 阅读
+\node[yellowlit] at ($(arch.east)+(0.4,0.3)$) {Y};   % 架构参考
+\node[redlit] at ($(schem.east)+(0.4,0.3)$)   {R};   % 不能替代SPICE
+\node[redlit] at ($(sim.east)+(0.4,0.3)$)     {R};   % 不能替代SPICE
+\node[greenlit] at ($(layout.east)+(0.4,0.3)$){G};   % 脚本自动化
+\node[greenlit] at ($(postsim.east)+(0.4,0.3)$){G};  % 脚本自动化
+
+% 数字流程
+\node[yellowlit] at ($(rtl.east)+(0.4,0.3)$)  {Y};   % RTL 骨架
+\node[greenlit] at ($(verif.east)+(0.4,0.3)$) {G};   % UVM 模板
+\node[redlit] at ($(syn.east)+(0.4,0.3)$)     {R};   % 不能替代综合
+\node[redlit] at ($(sta.east)+(0.4,0.3)$)     {R};   % 高风险
+\node[yellowlit] at ($(cdc.east)+(0.4,0.3)$)  {Y};   % 解释报告
+\node[yellowlit] at ($(fpga.east)+(0.4,0.3)$) {Y};   % 约束生成
+
+% 基础设施
+\node[greenlit] at ($(devops.east)+(0.4,0.3)$){G};
+\node[greenlit] at ($(cicd.east)+(0.4,0.3)$)  {G};
+\node[greenlit] at ($(script.east)+(0.4,0.3)$){G};
+\node[greenlit] at ($(sched.east)+(0.4,0.3)$) {G};
+\node[greenlit] at ($(rag.east)+(0.4,0.3)$)   {G};
+\node[yellowlit] at ($(agent.east)+(0.4,0.3)$){Y};
+
+% ==================== 图例 ====================
+\node[greenlit,  label={[annot]right:高收益 \textbf{安全} \\ (脚本/RAG/DevOps)}] (legG) [below=0.5cm of postsim] {G};
+\node[yellowlit, label={[annot]right:中收益 \textbf{需审查}\\ (RTL/UVM骨架/报告解读)}] (legY) [right=2.5cm of legG] {Y};
+\node[redlit,    label={[annot]right:高风险 \textbf{不能替代}\\ (SPICE/综合/STA关键路径)}] (legR) [right=2.8cm of legY] {R};
+
+% ==================== 标题 ====================
+\node[font=\bfseries\large, anchor=south] at ($(atitle.north)!0.5!(ititle.north)+(0,0.8)$)
+    {IC 设计流程中 LLM 介入点分析};
+
+\end{tikzpicture}
+\end{document}

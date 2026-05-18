@@ -1,0 +1,65 @@
+\documentclass[tikz,border=10pt]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{positioning,calc,shapes.geometric,arrows.meta,backgrounds,fit,math}
+\usepackage{amsmath,amssymb}
+\usepackage{xeCJK}
+\setCJKmainfont{STHeiti}
+\setCJKsansfont{STHeiti}
+
+\begin{document}
+\begin{tikzpicture}[
+    >=Latex,
+    every node/.style={font=\small},
+    block/.style={rectangle, draw, minimum width=2.3cm, minimum height=1.2cm, align=center, rounded corners=3pt, inner sep=3pt},
+    sum/.style={circle, draw, minimum size=0.7cm, inner sep=0pt},
+    mult/.style={circle, draw, minimum size=0.7cm, inner sep=0pt, font=\large},
+    path/.style={->, thick},
+    fback/.style={->, thick, red!70!black, dashed},
+    label/.style={font=\scriptsize, text=gray!70!black},
+    title/.style={font=\large\bfseries},
+]
+
+%% === Title ===
+\node[title] at (0,4.8) {TIADC 增益校准 (Gain Calibration)};
+
+%% === Top row: forward path ===
+\node[block, fill=blue!8] (input) {\textbf{输入}\\$V_{\text{in}}^{(k)} \cdot G_k$\\带增益误差};
+\node[mult, right=1.0cm of input] (mul) {$\times$};
+\node[block, fill=cyan!12, right=1.2cm of mul] (adc) {\textbf{子ADC}\\$A_o = \text{ADCF}(V_i)-128$};
+\node[block, fill=green!12, right=1.2cm of adc] (dout) {校准后输出\\$y_k[n]$};
+
+\draw[path] (input) -- node[below]{$V_i$} (mul);
+\draw[path] (mul)   -- node[above]{$V_i'$} (adc);
+\draw[path] (adc)   -- node[above]{$A_o$} (dout);
+
+%% === Middle row: power estimation ===
+\node[block, fill=orange!15, below=0.8cm of adc] (sqr) {\textbf{功率估计}\\$P_k = A_o^2$};
+\node[block, fill=purple!10, right=2.8cm of sqr] (avg) {\textbf{平均功率参考}\\$\displaystyle \bar{P} = \frac{1}{M}\sum_{m=1}^{M} P_m$};
+
+\draw[path] ($(adc.south)!0.3!(adc.south east)$) -- ++(0,-0.3) -| (sqr.north);
+\draw[path] (sqr) -- node[above]{$P_k$} (avg);
+
+%% === Bottom row: LMS iteration ===
+\node[block, fill=red!10, below=0.7cm of sqr] (lms) {\textbf{LMS 更新}\\$F_3^{(n+1)} = F_3^{(n)} - \beta \cdot (P_k - \bar{P})$\\$\beta = 2^{-26}$};
+\node[block, fill=yellow!15, right=3.0cm of lms] (quant) {\textbf{量化控制字}\\$F_4 = \lfloor F_3 \times 512 \rfloor$\\9位};
+
+\draw[path] (sqr.south) -- ++(0,-0.2) -| (lms.north);
+\draw[path] (avg.south) -- ++(0,-0.2) -| (lms.north);
+\draw[path, thick] (lms) -- (quant);
+
+%% === Feedback: control word -> multiplier ===
+\draw[fback] (quant.north) -- ++(0,0.3) -| node[pos=0.75, above]{\scriptsize $1 + F_4 \cdot \Delta$} (mul.south);
+
+%% === Step size annotation ===
+\node[block, fill=gray!8, minimum width=1.8cm, minimum height=0.8cm, right=1.2cm of quant] (step) {\textbf{步长}\\$\Delta = 0.05/31$\\6位控制字};
+\draw[->, thick, gray] (quant.east) -- (step.west);
+
+%% === Annotation box ===
+\node[draw, dashed, rounded corners, inner sep=0.2cm, fit=(sqr)(lms)(avg), label={[font=\scriptsize, text=red!60!black]below:{核心: LMS 迭代使各通道功率相等}}] (box) {};
+
+%% === Legend ===
+\draw[path] (0,-2.6) -- (0.8,-2.6) node[right]{\scriptsize 信号路径};
+\draw[fback] (0,-3.0) -- (0.8,-3.0) node[right]{\scriptsize 反馈补偿};
+
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,10 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Convert PDF to images",
+			"type": "shell",
+			"command": "python3 -c \"\nimport subprocess\n# Use macOS built-in tool to convert all pages\nfor pdf in ['offset__ loop.pdf', 'gain_loop.pdf', 'time_skew__ (13).pdf']:\n    print(f'Converting {pdf}...')\n    outdir = f'/tmp/{pdf.replace(\\\" \\\", \\\"_\\\").replace(\\\".pdf\\\", \\\"\\\")}'\n    subprocess.run(['mkdir', '-p', outdir])\n    result = subprocess.run(['sips', '-s', 'format', 'png', pdf, '--out', f'{outdir}/page_1.png'], capture_output=True, text=True, cwd='/Users/katsu/Downloads/ADC校准参考文档')\n    print(result.stdout)\n    print(result.stderr[:200])\n\""
+		}
+	]
+}

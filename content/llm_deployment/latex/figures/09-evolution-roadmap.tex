@@ -1,0 +1,136 @@
+% 三阶段演进路线图 —— 时间线
+% Phase 1 (0-6月) → Phase 2 (6-18月) → Phase 3 (18-36月)
+\documentclass[border=5pt,tikz]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, backgrounds, calc, decorations.pathreplacing}
+\usepackage{xeCJK}
+\setCJKmainfont{STSong}
+
+\begin{document}
+\begin{tikzpicture}[
+    phasebox/.style={rectangle, draw=#1!60!black, fill=#1!8, rounded corners=8pt,
+                     minimum width=5.0cm, minimum height=6.5cm, align=left, font=\footnotesize,
+                     text=black!75},
+    phasetitle/.style={font=\bfseries\large, text=#1!70!black},
+    dimlabel/.style={font=\small\bfseries, text=black!50},
+    arrow/.style={-{Stealth[scale=1.2]}, line width=2pt, draw=black!40},
+    milestone/.style={font=\footnotesize\bfseries, text=black!60, , draw=black!30,
+                      fill=white, inner sep=3pt},
+]
+
+    node distance=7cm,
+% ==================== 时间轴 ====================
+% Phase boxes will be placed relative, timeline spans from p1.west to p3.east
+
+% 时间刻度 will be placed along the timeline between the left edge of p1 and right edge of p3
+% nodes p1/p2/p3 are defined below; ticks are created after they exist
+
+% ==================== Phase 1 (0-6月) ====================
+\node[phasebox=blue, anchor=north] (p1) {
+    \textbf{硬件}\\
+    \footnotesize 1$\times$RTX 4090 24GB\\
+    \footnotesize 64GB RAM, 2TB NVMe\\
+    \footnotesize Ubuntu 24.04 LTS\\
+    \\
+    \textbf{推理框架}\\
+    \footnotesize vLLM + Ollama\\
+    \\
+    \textbf{模型}\\
+    \footnotesize Qwen2.5-Coder-32B-Q4\\
+    \\
+    \textbf{RAG}\\
+    \footnotesize Chroma + BGE-M3\\
+    \\
+    \textbf{能力}\\
+    \footnotesize 代码补全 · 文档问答\\
+    \footnotesize 脚本生成\\
+    \\
+    \textbf{团队}\\
+    \footnotesize 3--8 人 PoC
+};
+\node[phasetitle=blue, anchor=south] at (p1.north) {Phase 1: PoC 验证};
+\node[dimlabel] (d1) [below=of p1, yshift=0.2cm] {0 -- 6 个月};
+
+% ==================== Phase 2 (6-18月) ====================
+\node[phasebox=orange, anchor=north] (p2) [right=of p1] {
+    \textbf{硬件}\\
+    \footnotesize 2$\times$RTX 4090 / RTX 5090\\
+    \footnotesize 128GB RAM, 4TB NVMe\\
+    \footnotesize Ubuntu 24.04 LTS\\
+    \\
+    \textbf{推理框架}\\
+    \footnotesize vLLM + SGLang\\
+    \\
+    \textbf{模型}\\
+    \footnotesize Qwen2.5-72B-Q4 主力\\
+    \footnotesize DeepSeek-Coder-V2\\
+    \\
+    \textbf{RAG}\\
+    \footnotesize Qdrant + 全公司文档\\
+    \\
+    \textbf{能力}\\
+    \footnotesize 完整RAG · LoRA微调\\
+    \footnotesize Agent原型\\
+    \\
+    \textbf{团队}\\
+    \footnotesize 10--30 人正式使用
+};
+\node[phasetitle=orange, anchor=south] at (p2.north) {Phase 2: 团队部署};
+\node[dimlabel] (d2) [below=of p2, yshift=0.2cm] {6 -- 18 个月};
+
+% ==================== Phase 3 (18-36月) ====================
+\node[phasebox=green, anchor=north] (p3) [right=of p2] {
+    \textbf{硬件}\\
+    \footnotesize A100/H100 企业级\\
+    \footnotesize 多节点 + 负载均衡\\
+    \footnotesize K8s + GPU Operator\\
+    \\
+    \textbf{推理框架}\\
+    \footnotesize vLLM + TensorRT-LLM\\
+    \\
+    \textbf{模型}\\
+    \footnotesize 多模型服务\\
+    \footnotesize 自定义IC领域微调\\
+    \\
+    \textbf{RAG}\\
+    \footnotesize 全公司知识图谱\\
+    \\
+    \textbf{能力}\\
+    \footnotesize EDA流程深度集成\\
+    \footnotesize CI/CD嵌入LLM审查\\
+    \\
+    \textbf{团队}\\
+    \footnotesize 50+ 人全公司使用
+};
+\node[phasetitle=green, anchor=south] at (p3.north) {Phase 3: 企业平台};
+\node[dimlabel] (d3) [below=of p3, yshift=0.2cm] {18 -- 36 个月};
+
+% ==================== 阶段间箭头 ====================
+% draw timeline from left of p1 to right of p3
+\coordinate (timelineStart) at ($(p1.south west)+(-0.5,-0.51)$);
+\coordinate (timelineEnd)   at ($(p3.south east)+(0.5,-0.51)$);
+\draw[line width=2pt, black!20] (timelineStart) -- (timelineEnd);
+
+% 时间刻度（7 ticks）
+\foreach \i/\label in {0/现在,1/3月,2/6月,3/12月,4/18月,5/24月,6/36月} {
+    \coordinate (t\i) at ($(timelineStart)!\i/6!(timelineEnd)$);
+    \draw[black!30] (t\i) ++(0,-0.15) -- ++(0,0.3);
+    \node[font=\tiny, text=black!40, anchor=north] at ($(t\i)+(0,-0.22)$) {\label};
+}
+
+% arrows between phases
+\draw[arrow] (p1.east) -- (p2.west)
+    node[midway, above, milestone, yshift=0.5cm] {$\uparrow$ 积累数据};
+
+\draw[arrow] (p2.east) -- (p3.west)
+    node[midway, above, milestone, yshift=0.5cm] {$\uparrow$ 扩大规模};
+
+% ==================== 里程碑标记 ====================
+% 里程碑按时间线插值放置
+\node[milestone, anchor=north] at ($(timelineStart)!0.05!(timelineEnd) + (0,0.6)$) {RTX 4090 PoC 上线};
+\node[milestone, anchor=north] at ($(timelineStart)!0.33!(timelineEnd) + (0,0.6)$) {RAG 全文档接入};
+\node[milestone, anchor=north] at ($(timelineStart)!0.67!(timelineEnd) + (0,0.6)$) {Agent 非关键路径};
+\node[milestone, anchor=north] at ($(timelineStart)!0.90!(timelineEnd) + (0,0.6)$) {EDA CI/CD 集成};
+
+\end{tikzpicture}
+\end{document}

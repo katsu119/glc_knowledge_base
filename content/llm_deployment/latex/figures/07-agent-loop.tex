@@ -1,0 +1,81 @@
+% Agent 执行循环图
+% User Goal → Plan → Tool Call → Observe → 判断 → 完成 / 重规划
+\documentclass[border=5pt,tikz]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, backgrounds, calc, decorations.pathreplacing}
+\usepackage{xeCJK}
+\setCJKmainfont{STSong}
+
+\begin{document}
+\begin{tikzpicture}[
+    % 节点样式
+    node distance=0.6cm,
+    startstop/.style={rectangle, rounded corners=8pt, draw=green!60!black, fill=green!8,
+                      minimum width=2.8cm, minimum height=1.0cm, font=\bfseries\small, align=center},
+    process/.style={rectangle, rounded corners=4pt, draw=blue!60!black, fill=blue!6,
+                    minimum width=2.4cm, minimum height=1.1cm, font=\footnotesize\bfseries, align=center},
+    toolnode/.style={rectangle, rounded corners=4pt, draw=orange!70!black, fill=orange!6,
+                     minimum width=2.4cm, minimum height=0.9cm, font=\footnotesize, align=center},
+    decision/.style={diamond, draw=red!60!black, fill=red!5, aspect=1.5,
+                     minimum width=1.8cm, minimum height=1.0cm, font=\footnotesize\bfseries, align=center},
+    arr/.style={-{Stealth[scale=0.9]}, line width=1.2pt, draw=black!50},
+    arrback/.style={-{Stealth[scale=0.9]}, line width=1.2pt, draw=red!40, densely dashed},
+    annot/.style={font=\tiny, text=black!50},
+]
+
+% ==================== 主循环 ====================
+\node[startstop] (start) {用户目标\\(User Goal)};
+
+\node[process] (plan) [below=of start] {规划\\(Planning)};
+
+\node[decision] (decide) [below=of plan] {需要\\工具？};
+
+\node[process] (toolcall) [right=0.8cm of decide] {调用工具\\(Tool Call)};
+
+\node[process] (observe) [below=of decide] {观察结果\\(Observe)};
+
+\node[decision] (done) [below=of observe] {目标\\达成？};
+
+\node[startstop, fill=green!20] (finish) [below=of done] {完成\\(Complete)};
+
+% 工具示例
+\node[toolnode] (tool1) [above right =of toolcall] {\texttt{read\_file()}\\\footnotesize 读取仿真 log};
+\node[toolnode] (tool2) [below=of tool1] {\texttt{search\_kb()}\\\footnotesize 搜索知识库};
+\node[toolnode] (tool3) [below=of tool2] {\texttt{run\_sim()}\\\footnotesize 启动仿真};
+
+% ==================== 箭头 ====================
+\draw[arr] (start) -- (plan);
+\draw[arr] (plan) -- (decide);
+\draw[arr] (decide) -- (toolcall) node[midway, above, annot] {是};
+\draw[arr] (decide) -- (observe) node[midway, left, annot] {否};
+\draw[arr] (toolcall) |- (observe);
+\draw[arr] (observe) -- (done);
+\draw[arr] (done) -- (finish) node[midway, right, annot] {是};
+
+% 重规划回路
+\draw[arrback] (done.west) -- ++(-0.5,0) |- (plan.west)
+    node[pos=0, left, font=\tiny\bfseries, text=red!60!black] {否，重规划};
+
+% 工具连接
+\draw[->, draw=orange!40, thin, dashed] (toolcall.east) -- (tool1.west);
+\draw[->, draw=orange!40, thin, dashed] (toolcall.east) -- (tool2.west);
+\draw[->, draw=orange!40, thin, dashed] (toolcall.east) -- (tool3.west);
+
+% ==================== 标签 ====================
+% Memory 环
+\node[rectangle, draw=purple!40, fill=purple!3, rounded corners=6pt,
+    minimum width=1.8cm, minimum height=6.5cm, font=\footnotesize\bfseries, text=purple!70!black,
+    align=center] (memory) [left=4.2cm of toolcall] {记忆\\(Memory)};
+
+\draw[<->, draw=purple!30, thin] (memory.east) -- (plan.west);
+\draw[<->, draw=purple!30, thin] (memory.east) -- (observe.west);
+
+% ==================== 风险警告 ====================
+\node[font=\footnotesize\bfseries, text=red!70!black, align=left]
+    (warn) [below=of finish, yshift=0.2cm] {
+    ⚠ 风险：规划不可靠 · 工具调用不稳定 · 幻觉在多步中放大\\
+    \quad\; 在 EDA 场景中必须\textbf{强约束}：只读自动、写入审核、仿真需确认
+};
+
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,102 @@
+% RAG 工作流管道图
+% 文档 → 分块 → Embedding → 向量库 → 检索 → LLM → 回答
+% 上半：离线索引管道  /  下半：在线查询管道
+\documentclass[border=5pt,tikz]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, backgrounds, calc, decorations.pathreplacing}
+\usepackage{xeCJK}
+\setCJKmainfont{STSong}
+
+\begin{document}
+\begin{tikzpicture}[
+    % 索引节点
+    node distance=1.5cm,
+    idxnode/.style={rectangle, draw=orange!70!black, fill=orange!6, rounded corners=4pt,
+                    minimum width=2.4cm, minimum height=1.0cm, font=\footnotesize\bfseries, align=center},
+    % 查询节点
+    qnode/.style={rectangle, draw=blue!70!black, fill=blue!6, rounded corners=4pt,
+                  minimum width=2.4cm, minimum height=1.0cm, font=\footnotesize\bfseries, align=center},
+    % 数据节点
+    datanode/.style={rectangle, draw=green!60!black, fill=green!6, rounded corners=4pt,
+                     minimum width=2.2cm, minimum height=0.9cm, font=\footnotesize, align=center},
+    % 箭头
+    idxarr/.style={-{Stealth[scale=0.8]}, line width=1.2pt, draw=orange!60!black},
+    qarr/.style={-{Stealth[scale=0.8]}, line width=1.2pt, draw=blue!60!black},
+    % 标签
+    steplabel/.style={font=\tiny\bfseries, above,text=black!50, circle, draw=black!20, inner sep=2pt},
+]
+
+% ==============================
+% 上半：离线索引管道 (Indexing)
+% ==============================
+\node[idxnode] (docs) {内部文档\\\footnotesize PDF / Wiki / Log};
+\node[idxnode] (chunk) [right=of docs] {文档分块\\\footnotesize Chunking};
+\node[idxnode] (embed) [right=of chunk] {向量化\\\footnotesize Embedding};
+\node[idxnode] (store) [right=of embed] {向量数据库\\\footnotesize FAISS / Qdrant};
+\node[font=\bfseries\small, text=orange!70!black] (indextitle) [above= 0cm of embed] {离线索引管道 (Indexing)};
+
+\draw[idxarr] (docs) -- (chunk) node[midway, steplabel] {1};
+\draw[idxarr] (chunk) -- (embed) node[midway, steplabel] {2};
+\draw[idxarr] (embed) -- (store) node[midway, steplabel] {3};
+
+% Chunking 细节标注
+\node[font=\tiny, text=black!50, align=center, anchor=north] at (chunk.south) {
+    \footnotesize 按模块/章节/段落\\
+    \footnotesize 父-子块策略
+};
+
+% Embedding 细节
+\node[font=\tiny, text=black!50, align=center, anchor=north] at (embed.south) {
+    \footnotesize BGE-M3 / text2vec\\
+    \footnotesize 768$\sim$1024 维向量
+};
+
+% ==============================
+% 下半：在线查询管道 (Query)
+% ==============================
+\node[font=\bfseries\small, text=blue!70!black, yshift=0.5cm] (qtitle) [below=of embed] {在线查询管道 (Query)};
+
+\node[qnode] (user) [below=of docs] {用户提问\\\footnotesize Engineering Q};
+\node[qnode] (qembed) [right=of user] {问题向量化\\\footnotesize Embedding};
+\node[qnode] (search) [right=of qembed] {相似检索\\\footnotesize Top-K};
+\node[qnode] (llm) [right=of search] {LLM 生成\\\footnotesize 增强回答};
+
+\draw[qarr] (user) -- (qembed) node[midway, steplabel,] {A};
+\draw[qarr] (qembed) -- (search) node[midway, steplabel] {B};
+\draw[qarr] (search) -- (llm) node[midway, steplabel] {C};
+
+% ==============================
+% 连接：向量库 → 检索
+% ==============================
+\draw[->, line width=1.5pt, draw=purple!60!black, densely dashed]
+    (store.south) -- (search.north)
+    node[midway, right, font=\tiny\bfseries, text=purple!60!black] {检索};
+
+% ==============================
+% 数据源框
+% ==============================
+\node[datanode, anchor=south] (data1) [above=of docs] {IP 手册};
+\node[datanode, anchor=south] (data2) [above=of chunk] {Bug DB};
+\node[datanode, anchor=south] (data3) [above=of embed] {Spec 文档};
+\node[datanode, anchor=south] (data4) [above=of store] {Tapeout 经验};
+
+% ==============================
+% 背景框
+% ==============================
+\begin{scope}[on background layer]
+        \node[draw=orange!30, fill=orange!3, rounded corners=8pt, inner sep=6pt,
+            fit=(docs)(chunk)(embed)(store)] (idxbox) {};
+        \node[draw=blue!30, fill=blue!2, rounded corners=8pt, inner sep=6pt,
+            fit=(user)(qembed)(search)(llm)] (qbox) {};
+\end{scope}
+
+% ==============================
+% 底部注释
+% ==============================
+\node[font=\footnotesize, text=black!60, align=left, ] (foot) [below = 0cm of qbox] {
+    \textbf{核心价值：} LLM 基于检索到的真实文档回答，而非"参数记忆"。\\
+    在 IC 设计中，一个编造的寄存器地址足以导致芯片失效。
+};
+
+\end{tikzpicture}
+\end{document}

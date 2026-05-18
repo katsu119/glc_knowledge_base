@@ -1,0 +1,168 @@
+%"ADC_dynamic" -Produced by Jerome Cool, 11.28.2010
+%ADC动态特性测试，包含SINAD,ENOB,SNR,THD,SFDR,HD(1~9次谐波功率)
+%输入信号为单音正弦，建议进行测量时施加信号幅度为-2dBFs～-1dBFs
+
+function [SNR,SINAD,SFDR,ENOB]=ADC_dynamic_with_figure(ADC_output,fs,dataLen,titleName)
+%--请使用者根据实际情况修改以下部分--
+% filePath='data1.txt'; %示波器产生的原始数据文件所在路径和文件名
+dataType = 0; %数据内容类型，1=编码结果，0=模拟电压(Volt)
+%注意！目前版本仅能处理普通二进制编码结果。
+resolution=8;      %ADC设计比特数
+%startPoint=2^23-65536;       %用于进行FFT起始点编号
+startPoint=46970-1024;       %用于进行FFT起始点编号
+needWindow=0;       %是否对数据加窗，1=是，0=否，默认为hanning window
+%---------------------------------
+% figure(3)
+% plot(1:length(ADC_output),ADC_output)
+% title('whole point PLOT'); 
+%------------------------
+transpose=size(ADC_output);     %将数据转换为列向量，size函数得到（行，列）
+if transpose(1)<transpose(2)
+    ADC_output=ADC_output';
+end
+max(ADC_output(:,1));%取列向量中最大值
+min(ADC_output(:,1));%取列向量中最小值
+clear transpose; %如果输入数据格式不对，转置一下
+if dataType==1 
+    ADC_output=round(ADC_output); 
+end                %对编码数据取整
+if dataLen==0
+    dataLen=size(ADC_output);
+    dataLen=2^(floor(log10(dataLen(1)-startPoint+1)./log10(2)));
+end                                                       %选取合适的FFT点数
+dataFFT=ADC_output(startPoint:startPoint+dataLen-1,1);       %截取作FFT的数据点
+
+dataFFT=dataFFT-mean(dataFFT);                            %滤除直流分量
+signal_amp=sqrt(8*mean(dataFFT.^2));                      %计算输入信号强度，这里为什么是乘8
+if needWindow==1 
+    dataFFT=dataFFT.*hanning(dataLen);
+end   %加窗
+clear startPoint dataOrg needWindow;
+
+dataFFT=awgn(dataFFT,(6.02*resolution+1.76+20),'measured'); %在输入信号上叠加少量噪声，防止噪底过低，使图形美观
+dataSpect=fft(dataFFT);
+dataLen=dataLen/2;                                %取采样点数的一半，相当于Fs的一半
+dataSpect=abs(dataSpect(1:dataLen));
+dataSpectdB=20*log10(dataSpect);
+maxdB=max(dataSpectdB);
+%maxdB=132.45;
+dataSpectdB=dataSpectdB-maxdB;
+clear dataFFT;
+
+figure; 
+plot([0:dataLen-1]./dataLen.*(fs/2),dataSpectdB); 
+%grid on; 
+% title(strcat(num2str(2*dataLen),' point FFT PLOT')); 
+axis([0 fs/2 -(6.02*resolution+1.76+10*log10(dataLen/2)+40) 0]);
+xlabel('ANALOG INPUT FREQUENCY (MHz)');
+ylabel('AMPLITUDE (dB)');
+title(titleName);
+
+%计算信号、谐波、噪声功率
+span=max((dataLen/1024),2); %设定各次谐波的搜索范围，以及各次谐波所包括的FFT谱线数目
+dataSpect(1:1+span)=dataSpect(1:1+span)*0;        %去除直流分量
+fin=find(dataSpect==max(dataSpect));
+fin=round(mean(fin)); %查找功率最大的频率即为单音频率
+HarFreq=zeros(9,1);
+HarPwr=zeros(9,1);
+finCali=fin;
+for harIndex=1:9
+    fCenter=round(rem(finCali*harIndex,2*dataLen));
+    if fCenter>dataLen 
+        fCenter=2*dataLen-fCenter;  
+    end
+    spanL=max(fCenter-span,1);
+    spanR=min(fCenter+span,dataLen); 
+    if rem(harIndex,2)==1                       %根据谐波所在频率重新计算基频所在频率
+        fCenterFact=find(dataSpect(spanL:spanR)==max(dataSpect(spanL:spanR)));
+        fCenterFact=round(mean(fCenterFact));
+        fCenterFact=spanL+fCenterFact-1;
+        finCali=finCali+(fCenterFact-fCenter)/harIndex;
+    else
+        fCenterFact=fCenter;
+    end
+    HarFreq(harIndex)=fCenterFact;              %查找各次谐波所在频率
+    HarPwr(harIndex)=sum(dataSpect(spanL:spanR).*dataSpect(spanL:spanR));
+    dataSpect(spanL:spanR)=dataSpect(spanL:spanR).*0;
+    dataSpectdB(spanL:spanR)=min(dataSpectdB);
+    if harIndex==1 
+        SFDR=-max(dataSpectdB); 
+    end
+end
+
+%各项指标计算
+if dataType==1
+    signal_amp=20*log10(signal_amp/(2^resolution));
+end
+noisePwr=sum(dataSpect.*dataSpect);
+SINAD=10*log10(HarPwr(1)/(noisePwr+sum(HarPwr(2:9))));
+ENOB=(SINAD-1.76)/6.02;
+SNR=10*log10(HarPwr(1)/(noisePwr));
+THD=10*log10(sum(HarPwr(2:9))/HarPwr(1));
+HD=10*log10(HarPwr);
+HD=(HD-max(HD))';
+
+% HD=HD+3;
+% hold on; 
+% HarFreq=(HarFreq-1)./dataLen.*(fs/2);
+% plot(HarFreq(2),HD(2),'mo',HarFreq(3),HD(3),'r*',HarFreq(4),HD(4),'rx',HarFreq(5),HD(5),'g+', ...
+%     HarFreq(6),HD(6),'bs',HarFreq(7),HD(7),'bd',HarFreq(8),HD(8),'kv',HarFreq(9),HD(9),'r^');
+% legend('1st','2nd','3rd','4th','5th','6th','7th','8th','9th');
+% hold off; 
+% HD=HD-3;
+
+%各项指标显示--------------------------------
+% figure; 
+% plot(HD);
+% hold on;
+% plot(HD,'*');
+% %grid on; 
+% title('Harmonic Power'); 
+% axis([1 9 min(HD)-10 0]);
+% xlabel('Harmonic count');
+% ylabel('AMPLITUDE (dB)');
+% hold off;
+% 
+% dispstr=strcat('ADC Spec.: Resolution =',char(20),num2str(resolution),' bits, Sampling rate =',char(20),num2str(fs),' Msps.');
+% disp(dispstr);
+% if dataType==1
+%     dispstr=strcat('Input signal amplitude =',char(20),num2str(signal_amp),' dBFs @ Frequency =',char(20),num2str(HarFreq(1)),' MHz.');
+% else
+%     dispstr=strcat('Input signal amplitude =',char(20),num2str(signal_amp),' Vpp @ Frequency =',char(20),num2str(HarFreq(1)),' MHz.');
+% end
+% disp(dispstr);
+% disp('----Calculated Results----');
+% dispstr=strcat('ENOB =',char(20),num2str(ENOB),' bits');
+% disp(dispstr);
+% dispstr=strcat('SINAD =',char(20),num2str(SINAD),' dB');
+% disp(dispstr);
+% dispstr=strcat('SNR =',char(20),num2str(SNR),' dB');
+% disp(dispstr);
+% dispstr=strcat('SFDR =',char(20),num2str(SFDR),' dB');
+% disp(dispstr);
+% dispstr=strcat('THD =',char(20),num2str(THD),' dB');
+% disp(dispstr);
+% dispstr=strcat('HD(1st~9th) in dB =',char(20),num2str(HD));
+% disp(dispstr);
+
+clear dataType HarPwr dataLen dataSpect dataSpectdB span spanL spanR ans dispstr;
+clear fCenter fCenterFact fin finCali harIndex maxdB noisePwr signal_amp;
+
+
+% figure(1)
+%text(0.1,-10,[ 'filePath '],'FontSize',13);
+% text(0.3,-4,['fs         =' num2str(round(fs*100)/100) ' M'],'FontSize',12);
+% text(0.3,-12,['fin        =' num2str(HarFreq(1)) ' M'],'FontSize',12);
+text(0.3,-20,['SINAD =' num2str(round(SINAD*10)/10) ' dB'],'FontSize',12);
+text(0.3,-28,['SFDR  =' num2str(round(SFDR*10)/10) ' dB'],'FontSize',12);
+text(0.3,-36,['SNR    =' num2str(round(SNR*10)/10) ' dB'],'FontSize',12);
+text(0.3,-12,['ENOB  =' num2str(round(ENOB*100)/100)],'FontSize',12);
+% text(0.3,-40,['ENOB =' num2str(round(ENOB*100)/100)],'FontSize',12);
+% clear dataType HarPwr dataLen dataSpect dataSpectdB span spanL spanR ans dispstr;
+% clear fCenter fCenterFact fin finCali harIndex maxdB noisePwr signal_amp;
+% figure(2)
+% close %close figure 2
+% figure(3)
+% close
+% figure(4)
+% close

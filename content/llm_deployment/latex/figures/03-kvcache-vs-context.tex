@@ -1,0 +1,75 @@
+% KV Cache 随上下文长度增长曲线
+% 展示 7B / 32B / 70B 模型在不同上下文长度下的 KV Cache 占用
+\documentclass[border=5pt,tikz]{standalone}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{xeCJK}
+\setCJKmainfont{STSong}
+
+\begin{document}
+\begin{tikzpicture}
+\begin{axis}[
+    width=16cm, height=9cm,
+    xlabel={上下文长度 (K tokens)},
+    ylabel={KV Cache 占用 (GB)},
+    title={KV Cache 随上下文长度增长（FP16 精度）},
+    title style={font=\bfseries\large},
+    grid=major,
+    legend style={at={(0.62,0.58)}, anchor=north west, font=\small},
+    xmin=0, xmax=132,
+    ymin=0, ymax=75,
+    xtick={0,8,16,32,64,96,128},
+    ytick={0,10,20,30,40,50,60,70},
+]
+
+% ---- 背景标注区域 (先绘制，置于底层) ----
+% 实用区
+\fill[green!10] (axis cs:4,0) rectangle (axis cs:32,70);
+\node[green!60!black, font=\footnotesize\bfseries] at (axis cs:18,67) {实用上下文区};
+
+% 高配区
+\fill[yellow!10] (axis cs:32,0) rectangle (axis cs:64,70);
+\node[yellow!60!black, font=\footnotesize\bfseries] at (axis cs:48,67) {高配上下文区};
+
+% 超长上下文区
+\fill[red!5] (axis cs:64,0) rectangle (axis cs:128,70);
+\node[red!50!black, font=\footnotesize\bfseries] at (axis cs:96,67) {超长上下文区 (需大显存)};
+
+% 7B: 32 layers × 32 heads × 128 dim → ~0.5 GB/K tokens
+\addplot[blue!70, very thick, mark=*, mark size=2pt]
+    coordinates {
+        (0,0)(4,2)(8,4)(16,8)(32,16)(64,32)(96,48)(128,64)
+    };
+\addlegendentry{7B 模型 (32层, 32头, 128维)}
+
+% 32B: ~48 layers × 40 heads × 128 dim → ~1.0 GB/K tokens  
+\addplot[orange!80, very thick, mark=square*, mark size=2pt]
+    coordinates {
+        (0,0)(4,4)(8,8)(16,16)(32,32)(64,64)(96,96)(128,128)
+    };
+\addlegendentry{32B 模型 (48层, 40头, 128维)}
+
+% 70B: ~80 layers × 64 heads × 128 dim → ~2.6 GB/K tokens
+\addplot[red!70, very thick, mark=triangle*, mark size=2pt]
+    coordinates {
+        (0,0)(4,10.4)(8,20.8)(16,41.6)(32,83.2)(64,166.4)(96,249.6)(128,332.8)
+    };
+\addlegendentry{70B 模型 (80层, 64头, 128维)}
+
+% ---- 关键显存边界线 ----
+\draw[red!50, thick, dashed] (axis cs:0,24) -- (axis cs:130,24)
+    node[pos=0.95, below, font=\tiny\bfseries, red!60] {RTX 4090 24GB (仅 KV)};
+\draw[red!50, thick, dashed] (axis cs:0,80) -- (axis cs:130,80)
+    node[pos=0.95, below, font=\tiny\bfseries, red!60] {A100 80GB (仅 KV)};
+
+% 重要注释
+\node[anchor=north west, font=\footnotesize, align=left, text=black!70]
+    at (axis cs:44,20) {
+    \textbf{注意：} 以上仅为 KV Cache 占用，\\
+    还需加上权重 + 框架开销。\\
+    7B@128K: KV=64GB + 权重14GB $\approx$ 78GB $\rightarrow$ 需 A100 80GB
+};
+
+\end{axis}
+\end{tikzpicture}
+\end{document}

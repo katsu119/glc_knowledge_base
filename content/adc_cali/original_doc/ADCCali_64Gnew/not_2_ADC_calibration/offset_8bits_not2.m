@@ -1,0 +1,174 @@
+clc;
+clear;
+fs = 16*10^9;   %采样频率16GHz
+T = 1/fs;       %采样间隔
+fin1 = 22783/2^16*fs; %输入正弦波频率
+fin2 = 8131/65536*fs;
+fin3 = 9413/65536*fs;
+fin4 = 10111/65536*fs;
+fin5 = 11137/65536*fs;
+fin6 = 12239/65536*fs;
+fin7 = 13477/65536*fs;
+fin8 = 14379/65536*fs;
+fin9 = 15479/65536*fs;
+fin10 = 16573/65536*fs;
+
+Tin = 1/(fin1);     %输入正弦波间隔 
+
+N = 2^24;                    %采样点数
+s=N/16;
+M = 16;                      %采样通道：16
+t = 0:1/fs:(N-1)/fs;         %采样时刻,中间为采样间隔
+
+%%  generate random mismatch variable
+skew_mismatch = zeros(1,M);      %偏移失配
+gain_mismatch = zeros(1,M);      %增益失配
+%offset_mismatch = zeros(1,M);    %失调失配
+%for i = 1:M
+    %generate random mismatch variable for each channel
+    %skew_mismatch(i) = randn(1,1) * 0.01*T*8;
+    %gain_mismatch(i) = 1+randn(1,1) * 0.01;
+%    gain_mismatch(i) = 1;
+%    offset_mismatch(i) = randn(1,1) * 0.01;
+%end
+%skew_mismatch=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+%offset_mismatch=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+%gain_mismatch=[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1];
+%gain_mismatch=[0.991887503020774,1.01300148465590,0.994576539575034,0.996336265137245,0.981216938204290,1.00496433047322,0.995051238568253,1.01192478195326,0.994329693357975,1.00282349589059,1.01534902874259,0.994490723528908,0.995716693376054,0.987881100025152,1.01287431110972,0.991022806984492];
+%40mv_offset
+%offset_mismatch=[-0.0225884686100365,-0.0130768829630527,0.0357839693972576,0.0303492346633185,0.00714742903826096,0.0148969760778546,0.00671497133608081,0.0163023528916473,0.00726885133383238,-0.00787282803758638,-0.0106887045816803,0.0143838029281510,0.0137029854009523,-0.00241447041607358,-0.00864879917324457,0.00627707287528727];
+%20mv_offset
+offset_mismatch=[0.00216855990585554,-0.0129542156382229,0.00200255861354737,0.00748091512289529,0.0152633943160118,-0.0136529392958583,0.00576532659383278,-0.00822004313859303,-0.00248219450326367,-0.00277537739812483,-0.0071452634256301,0.000369503804489841,-0.00267406198087474,0.000453181831691423,0.0102554853904953,-0.0177135464092140];
+
+%% Before CAL
+Vi=zeros(N,1);
+Vi1=zeros(N,1);
+Vi2=zeros(N,1);
+j=300000;
+Ao=zeros(j,M);
+V_out=zeros(N,1);
+offset_cal=zeros(1,M);
+
+int=zeros(M,j);
+int_limit=zeros(M,j);
+Ao1=zeros(N,1);
+Ao2=zeros(N,1);
+Ao3=zeros(j,M);
+w=[2^-10,2^-11,2^-12,2^-13,2^-14,2^-15];  %10HZ~10MHZ 10^-8~10^-2
+count_or=0;
+up_down=zeros(50,1);
+sum_64=zeros(200000,1);
+int_0=0;
+p=1;
+t=4;
+statue=0;
+for i = 1:j-1
+    
+    for r=1:M
+        Vi1(16*(i-1)+r,1) = 0.6*cos(2*pi*fin1*(T*(16*(i-1)+r)))+ offset_mismatch(r);
+%           Vi1(16*(i-1)+r,1) = offset_mismatch(r)+ (0.4*cos(2*pi*fin1*(T*(16*(i-1)+r)))+0.45)/10+(0.4*cos(2*pi*fin2*(T*(16*(i-1)+r)))+0.45)/10 ...
+%          + (0.4*cos(2*pi*fin3*(T*(16*(i-1)+r)))+0.45)/10+(0.4*cos(2*pi*fin4*(T*(16*(i-1)+r)))+0.45)/10 ...
+%         + (0.4*cos(2*pi*fin5*(T*(16*(i-1)+r)))+0.45)/10+(0.4*cos(2*pi*fin6*(T*(16*(i-1)+r)))+0.45)/10 ...
+%           + (0.4*cos(2*pi*fin7*(T*(16*(i-1)+r)))+0.45)/10+(0.4*cos(2*pi*fin8*(T*(16*(i-1)+r)))+0.45)/10 ...
+%           + (0.4*cos(2*pi*fin9*(T*(16*(i-1)+r)))+0.45)/10+(0.4*cos(2*pi*fin10*(T*(16*(i-1)+r)))+0.45)/10;
+        Vi(16*(i-1)+r,1) = 0.6*cos(2*pi*fin1*(T*(16*(i-1)+r))) + offset_mismatch(r)-int_limit(r,i)/256;
+%           Vi(16*(i-1)+r,1) = offset_mismatch(r)+ (0.4*cos(2*pi*fin1*(T*(16*(i-1)+r)))+0.45)/10+(0.4*cos(2*pi*fin2*(T*(16*(i-1)+r)))+0.45)/10 ...
+%          + (0.4*cos(2*pi*fin3*(T*(16*(i-1)+r)))+0.45)/10+(0.4*cos(2*pi*fin4*(T*(16*(i-1)+r)))+0.45)/10 ...
+%           + (0.4*cos(2*pi*fin5*(T*(16*(i-1)+r)))+0.45)/10+(0.4*cos(2*pi*fin6*(T*(16*(i-1)+r)))+0.45)/10 ...
+%           + (0.4*cos(2*pi*fin7*(T*(16*(i-1)+r)))+0.45)/10+(0.4*cos(2*pi*fin8*(T*(16*(i-1)+r)))+0.45)/10 ...
+%           + (0.4*cos(2*pi*fin9*(T*(16*(i-1)+r)))+0.45)/10+(0.4*cos(2*pi*fin10*(T*(16*(i-1)+r)))+0.45)/10-int_limit(r,i)/256;
+        
+       Ao(i,r)=ADCF(Vi(16*(i-1)+r,1))-128;%int_limit(r,i);
+       % Ao(i,r)=ADCF(Vi(16*(i-1)+r,1)/0.9,8,1,0)*1024-512-int_limit(r,i);%int_limit(r,i);
+      
+        V_out(16*(i-1)+r,1)=Ao(i,r);
+        int(r,i+1)=int(r,i)+w(1)*Ao(i,r);
+        int_limit(r,i+1)=floor(int(r,i+1)*4)/4;%小数点后只有两位        
+        
+        if r==t
+            s=mod(p,2);
+            if s==0
+                s=2;
+            end
+           if int_limit(t,i+1)>int_0
+              up_down(s,1)=1;
+              p=p+1;
+              statue=0;
+           elseif int_limit(t,i+1)<int_0
+              up_down(s,1)=0;
+              statue=0;
+               p=p+1;
+           else
+               statue=1;                %状态锁，防止数据不变但是不断累加。
+           end
+           int_0=int_limit(t,i+1);
+           
+           sum_1=sum(up_down);
+           sum_0=2-sum_1;
+           if abs(sum_1-sum_0)==0&&sum_64(i,1)<512&&statue==0
+               sum_64(i+1,1)=sum_64(i,1)+1;
+           elseif abs(sum_1-sum_0)>=1&&statue==0&&sum_64(i,1)>=1
+              % sum_64(i+1,1)=0;
+               sum_64(i+1,1)=0;
+           else 
+               sum_64(i+1,1)=sum_64(i,1);
+           end
+
+           if sum_64(i,1)==512&&count_or==0
+               disp(i);
+               disp("3");
+               count_or=1;
+           end
+
+        end
+
+    end
+
+end
+figure(1);
+for i=1:M
+    
+    plot(int(i,1:j-1));
+    xlabel('迭代次数')
+    ylabel('offset估计值')
+    title([texlabel('alpha'),' is 2^{-12}时offset的收敛图']);
+    hold on
+end
+
+%figure(2);
+%for i=1:M
+    
+%    plot(offset_mismatch(i)-int(i,1:j-1)\256);
+  %  xlabel('迭代次数')
+  %  ylabel('offset-估计值')
+   % title([texlabel('alpha'),' is 2^{-18}时offset-估计值']);
+  %  hold on
+%end
+number=zeros(16,1);
+for r=1:M
+    number(r,1)=int_limit(r,150000);
+
+end
+for i = 1:j-1
+    for r=1:M
+        
+        Ao1(16*(i-1)+r,1)=ADCF(Vi1(16*(i-1)+r,1))-128;
+      %  Ao1(16*i+r,1)=floor(Ao1(16*i+r,1));
+       
+       Vi2(16*(i-1)+r,1) = 0.4*cos(2*pi*fin1*(T*(16*(i-1)+r)))+0.45  + offset_mismatch(r)-number(r,1)/256;
+      Ao2(16*(i-1)+r,1)=ADCF(Vi2(16*(i-1)+r,1))-128;%int_limit(r,r);
+    end
+end
+
+
+
+[SNR,SINAD,SFDR,ENOB]=ADC_dynamic_with_figure(rot90(Ao1),fs,2^16,"校准前");
+%ADC输出放大了4096倍
+hold on
+ 
+
+[SNR,SINAD,SFDR,ENOB]=ADC_dynamic_with_figure(rot90(V_out),fs,2^16,"校准后");
+%hold on;
+
+mean(Ao1)
+mean(Vi(1:10000,1))

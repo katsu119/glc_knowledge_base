@@ -1,0 +1,17 @@
+clc;
+clear;
+N = 2^14;             
+Vi1=zeros(N,1);
+Vi2=zeros(N,1);
+
+fs = 16*10^9;   %采样频率16GHz
+T = 1/fs;       %采样间隔
+fin1 = 22783/2^16*fs; %输入正弦波频率
+Tin = 1/(fin1);     %输入正弦波间隔
+for i = 1:100-1
+    
+    for r=1:16
+        Vi1(16*(i-1)+r,1) = 0.6*cos(2*pi*fin1*(T*(16*(i-1)+r)))+ offset_mismatch(r);
+        Vi(16*(i-1)+r,1)=ADCF(Vi(16*(i-1)+r,1))-128;
+    end
+end

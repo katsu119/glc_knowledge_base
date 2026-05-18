@@ -1,0 +1,82 @@
+% EDA Agent 安全边界 —— 同心圆图
+% 绿圈(只读自动) / 黄圈(写需审核) / 红圈(禁止)
+\documentclass[border=5pt,tikz]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, backgrounds, calc, decorations.text}
+\usepackage{xeCJK}
+\setCJKmainfont{STSong}
+
+\begin{document}
+\begin{tikzpicture}[
+    item/.style={font=\footnotesize, align=center},
+]
+
+% ==================== 同心圆 ====================
+% 绿圈 (最外层，安全自动)
+\fill[green!6] (0,0) circle (6.2cm);
+\draw[green!50!black, line width=1.2pt] (0,0) circle (6.2cm);
+% 黄圈 (中间层，需审核)
+\fill[yellow!8] (0,0) circle (4.2cm);
+\draw[yellow!70!black, line width=1.2pt, dashed] (0,0) circle (4.2cm);
+% 红圈 (最内层，禁止区)
+\fill[red!12] (0,0) circle (2.2cm);
+\draw[red!60!black, line width=1.5pt] (0,0) circle (2.2cm);
+
+% ==================== 圈标签 ====================
+\node[font=\bfseries\large, red!70!black] at (0,0.8) {禁止};
+\node[font=\bfseries\large, red!70!black] at (0,0.2) {自动化};
+
+\node[font=\bfseries, yellow!70!black] at (0,3.2) {需人工审核};
+
+\node[font=\bfseries, green!50!black] at (0,5.2) {安全自动化};
+
+% ==================== 红圈内容 (禁止) ====================
+\node[item, text=red!70!black] at (0,-0.7) {修改 RTL};
+\node[item, text=red!70!black] at (1.2,0.3) {修改 SDC};
+\node[item, text=red!70!black] at (-1.2,0.3) {Tapeout};
+\node[item, text=red!70!black] at (-0.6,-1.3) {覆盖仿真};
+\node[item, text=red!70!black] at (0.6,-1.3) {自动提交};
+
+% ==================== 黄圈内容 (需审核) ====================
+\node[item, text=yellow!70!black] at (0,3.7) {启动仿真};
+\node[item, text=yellow!70!black] at (2.5,2.7) {RTL 骨架};
+\node[item, text=yellow!70!black] at (-2.5,2.7) {CDC 约束};
+\node[item, text=yellow!70!black] at (3.0,1.3) {UVM 模板};
+\node[item, text=yellow!70!black] at (-3.0,1.3) {综合建议};
+\node[item, text=yellow!70!black] at (2.2,-2.2) {代码审查};
+\node[item, text=yellow!70!black] at (-2.2,-2.2) {DFT 脚本};
+\node[item, text=yellow!70!black] at (0.8,-3.5) {修改脚本};
+\node[item, text=yellow!70!black] at (-0.8,-3.5) {报告生成};
+
+% ==================== 绿圈内容 (安全) ====================
+\node[item, text=green!50!black] at (0,5.6) {读仿真 log};
+\node[item, text=green!50!black] at (4.2,3.8) {搜索文档};
+\node[item, text=green!50!black] at (-4.2,3.8) {解释报告};
+\node[item, text=green!50!black] at (5.2,1.8) {代码补全};
+\node[item, text=green!50!black] at (-5.2,1.8) {生成脚本};
+\node[item, text=green!50!black] at (5.5,-1.0) {知识库检索};
+\node[item, text=green!50!black] at (-5.5,-1.0) {DevOps 自动化};
+\node[item, text=green!50!black] at (4.5,-3.5) {语法检查};
+\node[item, text=green!50!black] at (-4.5,-3.5) {CI/CD 脚本};
+\node[item, text=green!50!black] at (2.0,-5.5) {格式转换};
+\node[item, text=green!50!black] at (-2.0,-5.5) {数据可视化};
+
+% ==================== 原则标注 ====================
+\node[font=\bfseries\footnotesize, text=black!60, align=center, anchor=north]
+    at (0,-7.5) {
+    \textbf{核心原则}\\
+    AI 辅助决策，不替代决策\\
+    Deterministic 流程不可让 AI 进入关键路径\\
+    所有操作必须有审计日志
+};
+
+% 图例
+\node[rectangle, fill=green!6, draw=green!50!black, minimum width=1.2cm,
+      minimum height=0.5cm, font=\tiny, anchor=north east] at (6.5,-6.2) {只读自动};
+\node[rectangle, fill=yellow!8, draw=yellow!70!black, minimum width=1.2cm,
+      minimum height=0.5cm, font=\tiny, anchor=south east] at (6.5,-6.2) {写需审核};
+\node[rectangle, fill=red!12, draw=red!60!black, minimum width=1.2cm,
+      minimum height=0.5cm, font=\tiny, anchor=south east] at (6.5,-5.0) {禁止};
+
+\end{tikzpicture}
+\end{document}

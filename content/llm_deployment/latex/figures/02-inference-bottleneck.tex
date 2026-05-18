@@ -1,0 +1,81 @@
+% 推理瓶颈分析 —— 显存带宽 vs 算力对比
+% 展示各GPU的带宽与算力关系，标注 Decode 阶段为带宽瓶颈
+\documentclass[border=5pt,tikz]{standalone}
+\usepackage{pgfplots}
+\usepackage{amsmath}
+\pgfplotsset{compat=1.18}
+\usepackage{xeCJK}
+\setCJKmainfont{STSong}
+
+\begin{document}
+\begin{tikzpicture}
+\begin{axis}[
+    width=16cm, height=9cm,
+    xlabel={显存带宽 (GB/s)},
+    ylabel={FP16 算力 (TFLOPS)},
+    title={GPU 推理瓶颈分析：带宽 vs 算力},
+    title style={font=\bfseries\large},
+    grid=major,
+    legend style={at={(0.02,0.98)}, anchor=north west, font=\small},
+    xmin=0, xmax=3600,
+    ymin=0, ymax=1050,
+]
+
+% ---- 带宽瓶颈区域标注 (左下角) ----
+\fill[orange!12] (axis cs:0,0) rectangle (axis cs:1200,120);
+\node[orange!80!black, font=\tiny\bfseries]
+    at (axis cs:600,325) {\textbf{带宽瓶颈区 (Decode)}};
+
+% ---- 7B 模型 token/s 参考虚线 ----
+\draw[blue!40, thick, dashed] (axis cs:140,5) -- (axis cs:140,60)
+    node[pos=1, above right, font=\tiny, blue!60] {10 tok/s (7B)};
+\draw[blue!40, thick, dashed] (axis cs:700,25) -- (axis cs:700,130)
+    node[pos=1, above, font=\tiny, blue!60] {50 tok/s (7B)};
+
+% ---- 数据点 (按类别分组) ----
+% Enterprise GPUs
+\addplot[only marks, mark=square*, blue!80!black, mark size=2pt]
+    coordinates {(2035,312)(3350,990)(1555,156)};
+\addlegendentry{企业级 (A100/H100/A10)}
+
+% Consumer GPUs
+\addplot[only marks, mark=triangle*, green!60!black, mark size=2pt]
+    coordinates {(1008,82.6)(936,35.6)(672,22.1)};
+\addlegendentry{消费级 (RTX 4090/3090/4060Ti)}
+
+% Apple Silicon
+\addplot[only marks, mark=diamond*, purple!80!black, mark size=2pt]
+    coordinates {(800,27.2)(400,13.6)};
+\addlegendentry{Apple Silicon}
+
+% CPU
+\addplot[only marks, mark=*, red!60!black, mark size=2pt]
+    coordinates {(76,1.5)};
+\addlegendentry{CPU (DDR5)}
+
+% ---- 标签 ----
+\node[font=\tiny\bfseries, anchor=south, blue!80!black] at (axis cs:2035,318) {A100 80G};
+\node[font=\tiny\bfseries, anchor=south, blue!80!black] at (axis cs:3350,996) {H100};
+\node[font=\tiny\bfseries, anchor=south west, blue!80!black] at (axis cs:1555,162) {A10};
+\node[font=\tiny\bfseries, anchor=south, green!60!black] at (axis cs:1008,90) {RTX 4090};
+\node[font=\tiny\bfseries, anchor=south west, green!60!black] at (axis cs:936,43) {RTX 3090};
+\node[font=\tiny\bfseries, anchor=south, green!60!black] at (axis cs:672,28) {RTX 4060Ti};
+\node[font=\tiny\bfseries, anchor=south, purple!80!black] at (axis cs:800,33) {M2 Ultra};
+\node[font=\tiny\bfseries, anchor=south, purple!80!black] at (axis cs:400,19) {M4 Pro};
+\node[font=\tiny\bfseries, anchor=south, red!60!black] at (axis cs:76,8) {DDR5};
+
+% 7B 带宽需求箭头
+\draw[->, thick, blue!60] (axis cs:390,185) -- (axis cs:1150,230)
+    node[midway, above, font=\tiny, blue!80] {7B FP16: 10 $\rightarrow$ 50 tok/s 需要更高带宽};
+
+% ---- 右下角注释 ----
+\node[anchor=south east, font=\tiny, align=left, text=black!60]
+    at (axis cs:3400,100) {
+    $\text{最大 tok/s} \approx \dfrac{\text{显存带宽}}{\text{模型权重 GB}}$\\
+    越靠左上 = 算力过剩，带宽不足\\
+    越靠右下 = 带宽充足，算力瓶颈
+};
+
+\end{axis}
+\end{tikzpicture}
+\end{document}

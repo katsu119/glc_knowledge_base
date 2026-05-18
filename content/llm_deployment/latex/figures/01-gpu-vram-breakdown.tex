@@ -1,0 +1,71 @@
+% GPU 显存占用分解图 —— 堆叠柱状图
+% 展示不同模型/精度组合下：权重(静态) + KV Cache(@8K) + 框架开销
+\documentclass[border=5pt,tikz]{standalone}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{xeCJK}
+\setCJKmainfont{STSong}
+
+\begin{document}
+\begin{tikzpicture}
+\begin{axis}[
+    ybar stacked,
+    width=18cm, height=9cm,
+    ylabel={显存占用 (GB)},
+    xlabel={模型配置},
+    xtick=data,
+    xticklabels={
+        7B FP16, 7B INT4,
+        14B FP16, 14B INT4,
+        32B FP16, 32B INT8, 32B INT4,
+        70B FP16, 70B INT4
+    },
+    xticklabel style={rotate=35, anchor=east, font=\small},
+    ymin=0, ymax=150,
+    bar width=0.7cm,
+    legend style={at={(0.02,0.98)}, anchor=north west, font=\small},
+    grid=major,
+    title={GPU 显存占用分解（8K 上下文）},
+    title style={font=\bfseries\large},
+    % Draw GPU VRAM limit lines
+    extra y ticks={16,24,32,48,80},
+    extra y tick labels={16GB,24GB,32GB,48GB,80GB},
+    extra y tick style={grid=major, grid style={dashed, red!50, line width=0.5pt}},
+]
+
+% 模型权重 (静态)
+\addplot[fill=blue!60] coordinates {
+    (0,14.0)(1,3.5)(2,28.0)(3,7.0)(4,64.0)(5,32.0)(6,16.0)(7,140.0)(8,35.0)
+};
+\addlegendentry{模型权重}
+
+% KV Cache @ 8K
+\addplot[fill=orange!70] coordinates {
+    (0,4.3)(1,4.3)(2,6.5)(3,6.5)(4,10.0)(5,10.0)(6,10.0)(7,18.0)(8,18.0)
+};
+\addlegendentry{KV Cache (8K)}
+
+% 推理框架开销
+\addplot[fill=gray!40] coordinates {
+    (0,2.0)(1,2.0)(2,2.0)(3,2.0)(4,2.5)(5,2.5)(6,2.5)(7,3.0)(8,3.0)
+};
+\addlegendentry{框架开销}
+
+% GPU 显存上限标注
+\draw[red!70, thick, dashed] (axis cs:-0.5,24) -- (axis cs:8.5,24)
+    node[pos=0.08, above, font=\tiny\bfseries, red!70] {RTX 4090 24GB};
+\draw[red!70, thick, dashed] (axis cs:-0.5,32) -- (axis cs:8.5,32)
+    node[pos=0.08, above, font=\tiny\bfseries, red!70] {RTX 5090 32GB};
+\draw[red!70, thick, dashed] (axis cs:-0.5,48) -- (axis cs:8.5,48)
+    node[pos=0.08, above, font=\tiny\bfseries, red!70] {A6000 48GB};
+\draw[red!70, thick, dashed] (axis cs:-0.5,80) -- (axis cs:8.5,80)
+    node[pos=0.08, above, font=\tiny\bfseries, red!70] {A100 80GB};
+
+\end{axis}
+
+% 注解：超出 24GB 的红色标记
+\node[anchor=north west, font=\footnotesize, red!80!black] at (4.2,-1.8)
+    {\textbf{红色虚线} = 常见 GPU 显存上限，柱体超过虚线则需降级精度或换卡};
+
+\end{tikzpicture}
+\end{document}
