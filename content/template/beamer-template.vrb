@@ -1,0 +1,16 @@
+\frametitle{常见编译问题与解决}
+\begin{warningblock}
+        \textbf{\xelatex 编译常见问题}：
+        \begin{enumerate}
+            \item \textbf{中文不显示}：检查是否用了 \xelatex（不是 pdflatex）
+            \item \textbf{字体找不到}：根据操作系统更换中文字体名
+            \item \textbf{引用显示 ??}：需要编译两次
+            \item \textbf{Overfull box}：内容超出页宽，考虑换行或缩小字号
+            \item \textbf{lstlisting 出错}：fragile frame 需要加 \verb|[fragile]| 选项
+        \end{enumerate}
+    \end{warningblock}
+
+    \begin{tip}
+        结论：含有 \verb|\verb|、\verb|lstlisting| 等内容的帧，
+        \important{必须在 \texttt{\textbackslash begin\{frame\}} 后加 \texttt{[fragile]} 选项}。
+    \end{tip}

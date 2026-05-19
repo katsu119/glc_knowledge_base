@@ -1,0 +1,1062 @@
+% =============================================================================
+% TIADC 校准技术深度分析 —— 从 Verilog ASIC 到 SoC C 语言实现
+% 基于原始 MD 报告重新整理，新增 SoC 可行性分析
+% 编译: latexmk -xelatex tiadc_cali_soc.tex
+% =============================================================================
+\documentclass[UTF8,a4paper,11pt]{ctexart}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage[table]{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{positioning, calc, shapes.geometric, arrows.meta, backgrounds, fit}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{hyperref}
+
+% listings 代码风格
+\lstset{
+  basicstyle=\small\ttfamily,
+  breaklines=true,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny,
+  keywordstyle=\color{blue!70},
+  commentstyle=\color{gray!50},
+  stringstyle=\color{red!50},
+  tabsize=2
+}
+
+\title{TIADC 校准技术深度分析\\{\large ——从 Verilog ASIC 到 SoC C 语言实现}}
+\author{综合整理自 MATLAB 行为模型、Verilog 设计文档与 SoC 可行性分析}
+\date{\today}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+本报告基于 64 通道 64 GSa/s 时间交织 ADC (TIADC) 校准系统的原始技术文档与 MATLAB 行为模型，系统梳理了 Offset / Gain / Timing Skew 三类校准的数学原理与实现细节。在此基础上，深入分析了在 SoC（FPGA + ARM）平台上使用 C 语言替代纯 ASIC Verilog 方案进行校准的可行性，包括计算复杂度评估、实时性约束、定点化策略，并给出了完整的 C 语言参考实现与推荐架构方案。
+\end{abstract}
+
+\tableofcontents
+\clearpage
+
+\section{TIADC 校准技术：从 ASIC 到 SoC 的迁移分析}
+\label{sec:tiadc_soc}
+
+\subsection{绪论：时间交织 ADC 的前世今生}
+\label{sec:intro}
+
+\subsubsection{为什么需要 TIADC？}
+
+在现代电子系统中，模数转换器（ADC）是连接模拟世界与数字世界的桥梁。随着5G/6G通信、高速示波器、雷达系统和电子战技术的发展，对ADC采样率的要求已从 GSa/s（千兆采样/秒）迈向数十 GSa/s。
+
+单个ADC的采样率受限于：
+\begin{itemize}
+    \item \textbf{工艺限制}: CMOS工艺的晶体管特征频率有限
+    \item \textbf{功耗限制}: 高速ADC的功耗随采样率超线性增长
+    \item \textbf{精度限制}: 高精度（高位宽）与高速度之间存在根本性矛盾
+\end{itemize}
+
+\textbf{时间交织 ADC (TIADC)} 应运而生——通过 $M$ 个低速率子ADC并行工作，在不牺牲精度的前提下成倍提升采样率。
+
+\subsubsection{本报告关注的 TIADC 系统}
+
+\begin{table}[ht]
+\centering
+\caption{两套TIADC系统参数对比}
+\begin{tabular}{ccc}
+\toprule
+\textbf{系统} & \textbf{通道数} & \textbf{采样率} \\
+\midrule
+16通道系统 & 16路 & 16 GSa/s \\
+64通道系统 & 64路 & 64 GSa/s \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+核心设计思路：每个子ADC以 $f_s/M$ 的速率采样，但采样时钟相位依次错开 $T = 1/f_s$。结果，整体采样率等效为 $f_s$，是单个子ADC的 $M$ 倍。
+
+\subsubsection{失配问题——理想与现实的差距}
+
+理论上，$M$ 个完全一致的子ADC并行工作就能实现完美的 $M$ 倍采样率提升。但现实中的芯片制造存在\textbf{工艺偏差 (Process Variation)}，导致各通道之间存在三种失配：
+
+\begin{enumerate}
+    \item \textbf{失调失配 (Offset Mismatch)} —— 各通道直流偏置不同
+    \item \textbf{增益失配 (Gain Mismatch)} —— 各通道放大倍数不同
+    \item \textbf{时钟偏斜失配 (Timing Skew Mismatch)} —— 各通道采样时刻偏离理想位置
+\end{enumerate}
+
+\textbf{如果不校准，TIADC 的动态性能甚至不如单个子ADC。}
+
+一个形象的比喻：想象 $M$ 个人排成一排传递水桶。如果每个人的身高（失调）、臂力（增益）和出手时机（时钟偏斜）都不一样，那么整个传递链条的效率会大打折扣。校准就是要让所有人的动作协调一致。
+
+% =============================================================================
+\subsection{TIADC 的三种失配误差：从理论到现象}
+\label{sec:mismatch}
+
+\subsubsection{失调失配 (Offset Mismatch)}
+
+\textbf{物理本质}: 每个子ADC内部都有输入偏置电压（由比较器失调、电荷注入等引起）。即使是完全相同的版图设计，制造完成后每个通道的偏置电压也会略有不同。
+
+\textbf{数学描述}——第 $k$ 通道的输出：
+\begin{equation}
+    y_k[n] = x_k[n] + O_k
+\end{equation}
+其中 $O_k$ 为第 $k$ 通道的失调误差。
+
+\textbf{频谱影响}: 失调失配在频域引入位于 $f_s/M$ 及其整数倍处的杂散 (spur)：
+\begin{equation}
+    f_{\text{spur}} = k \cdot \frac{f_s}{M}, \quad k = 0, 1, 2, \ldots, M-1
+\end{equation}
+这些杂散与输入信号频率无关——它们是\textbf{固定图案噪声}。
+
+\subsubsection{增益失配 (Gain Mismatch)}
+
+\textbf{物理本质}: 各通道ADC的参考电压、电容阵列匹配程度不同，导致对同一输入信号的增益不同。
+
+\textbf{数学描述}——第 $k$ 通道的输出：
+\begin{equation}
+    y_k[n] = (1 + \Delta G_k) \cdot x_k[n]
+\end{equation}
+
+\textbf{频谱影响}: 同样在 $f_s/M$ 整数倍处引入杂散，但\textbf{杂散幅度与输入信号幅度成正比}——输入信号越大，增益失配的影响越严重。
+
+\subsubsection{时钟偏斜失配 (Timing Skew Mismatch)}
+
+\textbf{物理本质}: 时钟分配网络的不理想导致每个子ADC的采样时钟边沿相位不能精确地间隔 $T_s$。
+
+\textbf{为什么时钟偏斜最棘手？} 时钟偏斜引入的误差幅度与输入信号频率成正比：
+\begin{equation}
+    \epsilon_k \approx A \cdot 2\pi f_{in} \cdot \Delta t_k \cdot \cos(2\pi f_{in} t_k)
+\end{equation}
+
+这意味着：
+\begin{itemize}
+    \item 对于低频信号，误差很小，可以忽略
+    \item 对于高频信号（接近奈奎斯特频率），微小的时钟偏差会导致巨大的采样误差
+    \item 这是限制TIADC在高频应用中的\textbf{最主要瓶颈}
+\end{itemize}
+
+时钟偏移分为两类：
+\begin{itemize}
+    \item \textbf{时钟延时 (Clock Delay)}: 固定的相位偏移，\textbf{可以被校准} $\checkmark$
+    \item \textbf{时钟抖动 (Clock Jitter)}: 随机的相位噪声，\textbf{无法被校准} $\times$
+\end{itemize}
+
+\subsubsection{三种失配对比总结}
+
+\begin{table}[ht]
+\centering
+\caption{三种失配误差对比}
+\begin{tabular}{p{2.5cm}p{2.8cm}p{2.8cm}p{3cm}}
+\toprule
+\textbf{特性} & \textbf{失调失配} & \textbf{增益失配} & \textbf{时钟偏斜失配} \\
+\midrule
+物理根源 & 偏置电压不匹配 & 参考电压/器件不匹配 & 时钟分配不匹配 \\
+数学形式 & 加法性误差 $+O_k$ & 乘法性误差 $\times G_k$ & 时间位移 $\Delta t_k$ \\
+杂散位置 & $f_s/M$ 整数倍 & $f_s/M$ 整数倍 & $f_s/M$ 整数倍 \\
+与输入频率关系 & 无关 & 正比于信号幅度 & \textbf{正比于信号频率} \\
+校准难度 & $\star\star$ 中等 & $\star\star$ 中等 & $\star\star\star$ 最难 \\
+校准顺序 & 第1步 & 第2步 & 第3步 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% =============================================================================
+\subsection{ADC 行为模型：校准算法的试验场}
+\label{sec:behavioral}
+
+在实际芯片流片之前，需要用 MATLAB 行为模型来验证校准算法。原始项目提供了多种 ADC 行为模型：
+
+\subsubsection{非二进制（冗余）SAR ADC 模型 —— \texttt{ADCF.m}}
+
+传统二进制 SAR ADC 每一位的权重是2的幂次，而非二进制 ADC 采用\textbf{冗余权重}设计——权重之和大于满量程范围，给比较器判决留出了纠错空间。
+
+权重序列为 $[60, 28, 16, 10, 6, 4, 2, 1, 0.5]$，对应输出码字权重为 $[120, 56, 32, 20, 12, 8, 4, 2, 1]$。
+
+\textbf{关键洞察}: 由于权重之和 $(127.5) > $ 满量程范围 $(128)$，比较器在前面的判决即使出错，后续位还能纠回来。而二进制 ADC 一旦高位判决错误，误差无法挽回。
+
+\subsubsection{二进制 SAR ADC 模型 —— \texttt{ADCF\_2.m}}
+
+标准二进制逐次逼近 ADC，从 MSB 到 LSB 依次判断。例如8位 ADC 的判断阈值依次为：
+$FS/2, FS/4, FS/8, FS/16, FS/32, FS/64, FS/128, FS/256$。
+
+\subsubsection{模型对比}
+
+\begin{table}[ht]
+\centering
+\caption{ADC行为模型对比}
+\begin{tabular}{p{3cm}p{4.5cm}p{4.5cm}}
+\toprule
+\textbf{特性} & \textbf{ADCF.m (非二进制)} & \textbf{ADCF\_2.m (二进制)} \\
+\midrule
+权重序列 & $[60,28,16,10,6,4,2,1,0.5]$ & 标准的2的幂次 \\
+输出码字权重 & $[120,56,32,20,12,8,4,2,1]$ & 标准的二进制 \\
+冗余度 & 有（权重和$>$范围） & 无 \\
+适用场景 & 非二进制ADC校准 & 二进制ADC校准 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% =============================================================================
+\subsection{第一步：Offset 校准原理与实现}
+\label{sec:offset_cali}
+
+\subsubsection{核心原理}
+
+\textbf{基本思想}: 对正弦信号大量采样，理论上均值为0。但由于存在失调偏移，均值不为0——这个均值就是失调误差的估计值。
+
+本项目采用\textbf{指数平均法}（一阶 IIR 低通滤波器）：
+\begin{equation}
+    \bar{x}(n) = \bar{x}(n-1) + \alpha [x(n) - \bar{x}(n-1)]
+\end{equation}
+
+具有以下优点：
+\begin{itemize}
+    \item 输出连续，每次采样都更新
+    \item 平滑度高，没有突变
+    \item 硬件实现简单（只需加法器 + 移位寄存器，无需乘法器）
+\end{itemize}
+
+\subsubsection{MATLAB 实现核心代码}
+
+% 用 listings 展示伪代码
+\begin{lstlisting}[language=Matlab, caption={Offset校准核心迭代}]
+for i = 1:j-1
+    for r = 1:M   % M=16通道
+        % 生成带失调误差的输入信号
+        Vi = 0.6*cos(2*pi*fin1*t) + offset_mismatch(r);
+        
+        % ADC量化
+        Ao(i,r) = ADCF(Vi) - 128;
+        
+        % 指数平均迭代
+        int(r,i+1) = int(r,i) + w(1) * Ao(i,r);
+        
+        % 截取整数部分（模拟硬件中的位宽限制）
+        int_limit(r,i+1) = floor(int(r,i+1) * 4) / 4;
+    end
+end
+\end{lstlisting}
+
+\subsubsection{收敛判断}
+
+通过监测 offset 估计值的变化方向来判断收敛：
+\begin{itemize}
+    \item 统计增大和减小的次数
+    \item 当两者相等时，认为已收敛
+\end{itemize}
+
+\subsubsection{溢出保护}
+
+由于硬件寄存器位宽有限，offset 估计值可能溢出。在 ASIC 实现中通过符号位检测实现饱和处理。在 SoC 软件实现中可直接用条件判断，更灵活。
+
+% =============================================================================
+\subsection{第二步：Gain 校准原理与实现}
+\label{sec:gain_cali}
+
+\subsubsection{核心原理}
+
+增益校准的目标不是消除每个通道的绝对增益误差，而是\textbf{消除通道间的相对增益误差}——即让所有通道的增益相等。
+
+引入增益补偿系数 $g'_1, g'_2, \ldots, g'_{M}$ 后，需要满足：
+\begin{equation}
+    1 + g_1 + g'_1 = 1 + g_2 + g'_2 = \cdots = 1 + g_M + g'_M
+\end{equation}
+
+\subsubsection{LMS 迭代算法}
+
+通过比较各通道输出信号的\textbf{平均功率}与\textbf{参考功率 $T_h$}来调整增益补偿系数：
+\begin{equation}
+    g'_i[n+1] = g'_i[n] + \alpha (T_h[n] - y_i[n]^2)
+\end{equation}
+
+\begin{itemize}
+    \item 如果 $y_i[n]^2 > T_h$ → 减小增益补偿系数
+    \item 如果 $y_i[n]^2 < T_h$ → 增大增益补偿系数
+    \item 当各通道输出功率都收敛到 $T_h$ 时，相对增益误差被消除
+\end{itemize}
+
+\subsubsection{参考值选取的两种模式}
+
+\begin{table}[ht]
+\centering
+\caption{参考值选取模式}
+\begin{tabular}{cp{5cm}p{5cm}}
+\toprule
+\textbf{模式} & \textbf{描述} & \textbf{特点} \\
+\midrule
+模式0 & 以通道1的瞬时功率为参考 & 简单，但通道1的误差会传播 \\
+模式1 & 以所有通道瞬时功率均值为参考 & 更鲁棒，是默认选择 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{MATLAB 实现核心代码}
+
+\begin{lstlisting}[language=Matlab, caption={Gain校准核心迭代}]
+beta = 1/2^26;        % 带宽控制
+step_size = 0.05/31;  % 增益补偿系数步长（6位控制字）
+
+for i = 1:j-1
+    for r = 1:M
+        % 应用增益补偿
+        Vi = (1+F4(r,i)*step_size) * gain_mismatch(r) * 0.4*cos(...) + 0.45;
+        Ao(i,r) = ADCF_2(Vi, 8, 0.9, 0) * 256 - 128;
+        
+        % 瞬时功率
+        F1(r,i+1) = Ao(i,r) * Ao(i,r);
+        
+        % LMS迭代
+        F3(r,i+1) = F3(r,i) - beta * (F1(r,i+1) - th_fl(1,i));
+        
+        % 提取增益补偿系数（截取前9位）
+        F4(r,i+1) = floor(F3(r,i+1) * 512);
+    end
+end
+\end{lstlisting}
+
+% =============================================================================
+\subsection{第三步：Timing Skew 校准原理与实现}
+\label{sec:timing_cali}
+
+\subsubsection{核心原理 —— 基于自相关算法}
+
+\textbf{这是三种校准中最复杂、也最精妙的一种。}
+
+从2路交织开始理解：考虑2路交织ADC，通道1为参考（理想），通道2存在时间偏斜 $\Delta T$。
+
+\textbf{关键观察}: 如果通道2的采样时刻偏左（$\Delta T < 0$），则 $y_1[k-1]$ 与 $y_2[k-1]$ 的相关性增强；如果偏右，则 $y_2[k-1]$ 与 $y_1[k]$ 的相关性增强。
+
+\textbf{数学表达}——自相关差值：
+\begin{equation}
+    D_{\Delta t} = R_x(T_{ck} - \Delta T) - R_x(T_{ck} + \Delta T)
+\end{equation}
+
+利用自相关函数的偶函数特性，当 $\Delta T$ 足够小时，用泰勒展开：
+\begin{equation}
+    D_{\Delta t} = -2\Delta T \left.\frac{dR_x}{d\tau}\right|_{\tau=T_{ck}}
+\end{equation}
+
+\textbf{结论}: $D_{\Delta t}$ 的符号指示了偏移方向，大小指示了偏移程度。
+
+\subsubsection{从2路扩展到64路}
+
+在64通道系统中，通道被组织为4组，每组由同一个16GHz时钟驱动：
+
+\begin{table}[ht]
+\centering
+\caption{64通道时钟分组}
+\begin{tabular}{cc}
+\toprule
+\textbf{时钟组} & \textbf{通道编号} \\
+\midrule
+$\phi_1$ (参考) & 1, 5, 9, 13, \dots, 61 \\
+$\phi_2$ & 2, 6, 10, 14, \dots, 62 \\
+$\phi_3$ & 3, 7, 11, 15, \dots, 63 \\
+$\phi_4$ & 4, 8, 12, 16, \dots, 64 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+由于4组时钟共享同一时钟源，只需校准3个时钟偏斜参数（$\Delta t_2, \Delta t_3, \Delta t_4$），通道1的时钟组 $\phi_1$ 作为参考。
+
+\subsubsection{MATLAB 实现核心代码}
+
+\begin{lstlisting}[language=Matlab, caption={Timing Skew校准核心迭代}]
+for i = 1:N/64-1
+    for t = 1:64
+        % 生成带时间偏斜的输入信号
+        if mod(t,4) == 0
+            Vi = cos(2*pi*f*(t + skew(4) - mismatch_1(i,4)*step_size));
+        elseif mod(t,4) == 1
+            Vi = cos(2*pi*f*(t + skew(1)));  % 参考组
+        else
+            Vi = cos(2*pi*f*(t + skew(mod(t,4)) - mismatch_1(i,mod(t,4))*step_size));
+        end
+        Ao(i,t) = ADCF(Vi) - 128;
+    end
+    
+    % 计算64个通道两两相邻的自相关之和
+    % 共16组：A1~A16
+    A17 = A1 + A2 + ... + A16;  % 总自相关和
+    
+    % 计算每个非参考通道的误差
+    for t = 2:4
+        % LMS迭代更新时间补偿参数
+        mismatch(i+1,t) = mismatch(i,t) + u * e(i,t);
+        mismatch_1(i+1,t) = floor(mismatch(i+1,t) / 2^24);
+    end
+end
+\end{lstlisting}
+
+\subsubsection{多种实现变体}
+
+\begin{table}[ht]
+\centering
+\caption{Timing Skew校准的实现变体}
+\begin{tabular}{p{2.5cm}p{1.5cm}p{3cm}p{5cm}}
+\toprule
+\textbf{文件} & \textbf{通道数} & \textbf{ADC类型} & \textbf{特点} \\
+\midrule
+\texttt{time\_loop.m} & 16 & 通用ADC & 步长极小 $u=2^{-70}$，精度极高但收敛慢 \\
+\texttt{time\_not2.m} & 64 & 非二进制 & 仅含时间校准，4组时钟 \\
+\texttt{time\_not2\_1.m} & 64 & 二进制 & 二进制ADC版本，带直流偏置 \\
+\texttt{time\_onlyone.m} & 64 & 非二进制 & 简化为8通道相关 \\
+\texttt{all\_cali.m} & 64 & 两者皆支持 & \textbf{最完整版本}，三重校准同时进行 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% =============================================================================
+\subsection{综合校准：三管齐下}
+\label{sec:combined}
+
+\subsubsection{\texttt{all\_cali.m} —— 完整的校准流水线}
+
+\texttt{all\_cali.m} 是项目中最综合的校准脚本，在一次仿真中同时实现三种校准。校准顺序至关重要，不可调换：
+
+\begin{enumerate}
+    \item \textbf{Offset 校准}：如果存在直流偏移，后续的功率计算（用于增益校准）会引入偏差
+    \item \textbf{Gain 校准}：增益误差会影响信号幅度，进而影响自相关计算的准确性
+    \item \textbf{Timing Skew 校准}：时间偏斜不影响幅度和直流偏置，放在最后
+\end{enumerate}
+
+\subsubsection{校准效果验证}
+
+所有校准脚本都使用 FFT 频谱分析进行校准前后的对比。典型改善效果：
+
+\begin{table}[ht]
+\centering
+\caption{校准前后性能对比（典型值）}
+\begin{tabular}{cccc}
+\toprule
+\textbf{指标} & \textbf{校准前} & \textbf{校准后} & \textbf{改善} \\
+\midrule
+SNR  & $\sim$25 dB & $\sim$48 dB & +23 dB \\
+SFDR & $\sim$35 dBc & $\sim$60 dBc & +25 dB \\
+ENOB & $\sim$4 bits & $\sim$7.5 bits & +3.5 bits \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% =============================================================================
+\subsection{性能评估体系：如何衡量校准好坏}
+\label{sec:metrics}
+
+\subsubsection{\texttt{ADC\_dynamic\_with\_figure.m} —— 动态性能测试}
+
+这是项目中最重要的评估函数，通过 FFT 分析计算 ADC 的关键性能指标。
+
+\textbf{步骤}: 去直流 $\to$ 加窗（可选） $\to$ FFT $\to$ 搜索基频 $\to$ 搜索谐波（2$\sim$9次） $\to$ 计算指标 $\to$ 绘图。
+
+\subsubsection{关键指标定义}
+
+\begin{itemize}
+    \item \textbf{SNR（信噪比）}: $\displaystyle SNR = 10 \log_{10} \left(\frac{P_{signal}}{P_{noise}}\right)$，排除谐波分量
+    \item \textbf{SINAD（信纳比）}: $\displaystyle SINAD = 10 \log_{10} \left(\frac{P_{signal}}{P_{noise} + P_{distortion}}\right)$，含噪声和谐波
+    \item \textbf{ENOB（有效位数）}: $\displaystyle ENOB = \frac{SINAD - 1.76}{6.02}$，理想的 $N$ 位 ADC 能达到 $N$ 位 ENOB
+    \item \textbf{SFDR（无杂散动态范围）}: 信号与最大杂散之间的差距，是 TIADC 校准\textbf{最直观的指标}
+    \item \textbf{THD（总谐波失真）}: $\displaystyle THD = 10 \log_{10} \left(\frac{\sum_{k=2}^{9} P_{harmonic_k}}{P_{signal}}\right)$
+\end{itemize}
+
+% =============================================================================
+% =============================================================================
+\subsection{SoC C 语言实现可行性分析}
+\label{sec:soc_feasibility}
+
+\subsubsection{问题定义：从 ASIC 到 SoC 的范式转换}
+
+原始 TIADC 校准方案基于 Verilog 硬件描述语言，面向 ASIC（专用集成电路）实现。其核心设计理念是：
+\begin{itemize}
+    \item 全硬件并行处理 —— 每个通道拥有独立的校准运算单元
+    \item 定点数运算 —— 位宽严格受限（如 offset 29位、gain 9位控制字）
+    \item 多档位 $\alpha$ 自动切换 —— 通过硬件状态机实现
+    \item 硬件溢出保护 —— 通过门级逻辑实现饱和处理
+\end{itemize}
+
+\textbf{本报告的目标}是分析在 SoC（片上系统）平台上，使用 C 语言实现同样校准算法的可行性和约束条件。
+
+\subsubsection{关键洞察：校准参数估计 $\neq$ 校准参数应用}
+
+在讨论 C 语言可行性之前，必须先澄清一个极易混淆的概念——这也是 ASIC 方案和 C 方案之争的根节点：
+
+\begin{table}[ht]
+\centering
+\caption{校准参数估计 vs 校准参数应用}
+\begin{tabular}{p{2.8cm}p{4.5cm}p{4.5cm}}
+\toprule
+\textbf{维度} & \textbf{校准参数应用} & \textbf{校准参数估计} \\
+\midrule
+做什么 & 每采样点减去 offset、乘以 gain、调整时钟相位 & 从数据中估算 offset/gain/skew 的真实值 \\
+频率要求 & \textbf{必须每采样一次}（64 GHz） & \textbf{可以大幅降采样}（kHz 级即可） \\
+单次运算量 & 极轻（1次加减+1次移位/通道） & 较重（LMS迭代、自相关、FFT） \\
+适合什么 & FPGA 硬连线（PL） & \textbf{C 代码在 CPU 上跑（PS）} \\
+核心原因 & 确定性强、延迟低 & 灵活性强、逻辑复杂 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{核心结论}: 失配参数（offset、gain、timing skew）的变化源是温度漂移和器件老化，时间常数是\textbf{秒到分钟级别}。完全不需要每 15.6 ps 就重新估计一次——每毫秒估计一次都绰绰有余。
+
+\paragraph{为什么校准参数估计可以大幅降采样？}
+
+以三种校准分别分析：
+
+\textbf{Offset 校准（指数平均法）}: $\bar{x}(n) = \bar{x}(n-1) + \alpha [x(n) - \bar{x}(n-1)]$ 本质是一阶 IIR 低通滤波器，提取 DC 分量。即使每 1024 个采样才喂入一个点，只要适当调整 $\alpha$，最终收敛值完全一样。
+
+\textbf{Gain 校准（LMS 功率均衡）}: 需要的是长期平均功率而非瞬时功率。可以用 C 代码累加 1024 个 $y_i^2$ 值，算平均后做一次 LMS 更新，更新频率降到 $\sim$62.5 kHz。
+
+\textbf{Timing Skew 校准（自相关法）}: 自相关的估计需要大量样本才准确——本来就该用大量采样点做统计。每 64$\times$1024 个采样（约 1 $\mu$s 的数据）做一次互相关计算，更新频率 $\sim$1 MHz。
+
+\paragraph{降采样后的 CPU 负载分析}
+
+假设降采样比为 1024:1，64 通道，ARM Cortex-A53 @1.2 GHz：
+
+\begin{table}[ht]
+\centering
+\caption{降采样后 C 代码 CPU 负载估算}
+\begin{tabular}{lccc}
+\toprule
+\textbf{任务} & \textbf{有效输入率} & \textbf{运算量/次} & \textbf{CPU 负载} \\
+\midrule
+Offset IIR（64通道） & 62.5 kHz & $\sim$5 指令/通道 & $<$ 0.02\% \\
+Gain LMS（64通道） & 62.5 kHz & $\sim$10 指令/通道 & $<$ 0.04\% \\
+Timing 自相关 & $\sim$1 MHz & $\sim$200 指令 & $<$ 0.02\% \\
+FFT 监测（16K点） & 10 Hz & $\sim$500K 指令 & $<$ 0.5\% \\
+\midrule
+\textbf{总计} & & & \textbf{$<$ 1\% CPU} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{结论：C 代码在 ARM Cortex-A53 上的 CPU 占用不到 1\%。} 大部分时间 CPU 在休眠。
+
+\paragraph{高采样率校准是否必须？}
+
+\begin{table}[ht]
+\centering
+\caption{不同场景对校准参数估计频率的需求}
+\begin{tabular}{p{3.5cm}p{4cm}p{5cm}}
+\toprule
+\textbf{场景} & \textbf{需要高采样率估计？} & \textbf{原因} \\
+\midrule
+芯片出厂校准 & $\times$ 不需要 & 一次性的，可用外部仪器辅助 \\
+上电启动校准 & $\times$ 不需要 & 数据静止，毫秒级收敛即可 \\
+温度漂移跟踪 & $\times$ 不需要 & 温度变化是秒级，kHz 远超需求 \\
+老化补偿 & $\times$ 不需要 & 老化是月/年尺度 \\
+\textbf{实时数据补偿} & \textbf{$\checkmark$ 必须} & 每个采样点都要修正，但这是「应用」不是「估计」 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{推荐数据流架构}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+    >=Latex,
+    every node/.style={font=\small},
+    block/.style={rectangle, draw, minimum width=2.5cm, minimum height=1.0cm, align=center, rounded corners=3pt},
+    plblock/.style={rectangle, draw, fill=blue!5, minimum width=2.5cm, minimum height=1.0cm, align=center, rounded corners=3pt},
+    psblock/.style={rectangle, draw, fill=green!5, minimum width=2.5cm, minimum height=1.0cm, align=center, rounded corners=3pt},
+    path/.style={->, thick},
+]
+
+\node[block, fill=orange!10] (adc) {64路 ADC\\@ 64 GSa/s};
+
+\node[plblock, right=1.0cm of adc] (pl_apply) {PL: 校准参数应用\\Offset/Gain/Timing\\每采样一次};
+\node[block, fill=blue!15, right=1.0cm of pl_apply] (out) {校准后\\数据输出};
+
+\draw[path] (adc) -- (pl_apply);
+\draw[path] (pl_apply) -- (out);
+
+% Decimation branch
+\draw[path] (pl_apply.south) -- ++(0,-0.5) -| node[pos=0.3,left,font=\footnotesize]{$\downarrow$1024 降采样} ++(0,-1.5);
+
+\node[psblock, below=1.5cm of pl_apply] (ps_est) {PS: C 代码参数估计\\$\bullet$ Offset IIR @ 62.5kHz\\$\bullet$ Gain LMS @ 62.5kHz\\$\bullet$ Timing 自相关 @ 1MHz};
+
+\node[psblock, right=1.0cm of ps_est] (ps_mon) {PS: C 代码监测\\$\bullet$ FFT @ 10Hz\\$\bullet$ $\alpha$ 档位切换\\$\bullet$ 温度补偿};
+
+\draw[path] (ps_est) -- (ps_mon);
+
+% Parameters back to PL
+\draw[path, dashed, red!70!black, thick] (ps_est.west) -- ++(-0.5,0) |- node[pos=0.25,left,font=\footnotesize]{参数更新} (pl_apply.west);
+
+\node[draw, dashed, inner sep=0.25cm, fit=(pl_apply)(out), label={[font=\small]above:FPGA (PL) — 纳秒级确定性}] (pl_box) {};
+\node[draw, dashed, inner sep=0.25cm, fit=(ps_est)(ps_mon), label={[font=\small]below:ARM (PS) — 微秒级灵活性}] (ps_box) {};
+
+\end{tikzpicture}
+\caption{推荐数据流架构：参数应用和参数估计完全解耦}
+\label{fig:decoupled_arch}
+\end{figure}
+
+\textbf{这就是 PL + PS 混合架构的核心价值}: 把高频简单操作留给 FPGA（每采样应用校准参数），把低频复杂决策留给 C 代码（降采样后估计校准参数）。两者解耦后，C 代码的实时性要求从 15.6 ps 骤降到 $\sim$16 $\mu$s（降采样 1024 倍），变得完全可行。
+
+\subsubsection{计算复杂度分析}
+
+\paragraph{Offset 校准（每个通道、每次采样）}
+
+\begin{table}[ht]
+\centering
+\caption{Offset校准单次迭代运算量}
+\begin{tabular}{lcc}
+\toprule
+\textbf{运算} & \textbf{操作} & \textbf{说明} \\
+\midrule
+指数平均 & 1次乘法 + 1次加法 & $I = I + w \cdot A_o$ \\
+截位量化 & 1次乘/移位 + 1次截断 & $\hat{O} = \lfloor I \times 4 \rfloor / 4$ \\
+减法补偿 & 1次减法 & $y = A_o - \hat{O}$ \\
+\midrule
+\textbf{合计/通道/采样} & \textbf{2次乘法 + 2次加法} & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Gain 校准（每个通道、每次采样）}
+
+\begin{table}[ht]
+\centering
+\caption{Gain校准单次迭代运算量}
+\begin{tabular}{lcc}
+\toprule
+\textbf{运算} & \textbf{操作} & \textbf{说明} \\
+\midrule
+功率计算 & 1次乘法 & $P = A_o^2$ \\
+LMS更新 & 1次减法 + 1次乘法 + 1次加法 & $F_3 = F_3 - \beta \cdot (P - \bar{P})$ \\
+控制字提取 & 1次乘法/移位 + 1次截断 & $F_4 = \lfloor F_3 \times 512 \rfloor$ \\
+增益补偿 & 1次乘法 + 1次加法 & $y = (1 + F_4 \cdot \Delta) \cdot x$ \\
+\midrule
+\textbf{合计/通道/采样} & \textbf{4次乘法 + 3次加法} & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Timing Skew 校准（每64次采样更新一次）}
+
+\begin{table}[ht]
+\centering
+\caption{Timing Skew校准每次更新运算量}
+\begin{tabular}{lcc}
+\toprule
+\textbf{运算} & \textbf{操作} & \textbf{说明} \\
+\midrule
+64通道互相关 & 64次乘法 + 64次加法 & 所有相邻通道对 \\
+16组累加 & 48次加法 & $A_1 \sim A_{16}$ \\
+全局平均 & 15次加法 + 1次移位 & $\bar{A} = \sum A_m / 16$ \\
+误差计算（$\times$3组） & 6次乘法 + 6次加法 & 每组需乘法和加法 \\
+LMS更新（$\times$3组） & 3次乘法 + 3次加法 & $\Delta t = \Delta t + u \cdot e$ \\
+控制字截位 & 3次移位 + 3次截断 & \\
+\midrule
+\textbf{合计/64采样} & \textbf{73次乘法 + 139次加法} & \textbf{折算: $\sim$1.1次乘法/采样} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{总运算量汇总}
+
+\begin{table}[ht]
+\centering
+\caption{64通道系统总运算量（每采样周期）}
+\begin{tabular}{lccc}
+\toprule
+\textbf{校准类型} & \textbf{乘法/采样} & \textbf{加法/采样} & \textbf{更新频率} \\
+\midrule
+Offset  & $64 \times 2 = 128$ & $64 \times 2 = 128$ & 每采样 \\
+Gain    & $64 \times 4 = 256$ & $64 \times 3 = 192$ & 每采样 \\
+Timing  & $\sim 1.1$ & $\sim 2.2$ & 每64采样 \\
+\midrule
+\textbf{总计} & \textbf{$\sim$385} & \textbf{$\sim$322} & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{实时性约束与带宽分析}
+
+\paragraph{时间预算}
+
+对于 64 GSa/s TIADC 系统，每个采样的时间预算为：
+\begin{equation}
+    T_s = \frac{1}{64 \times 10^9} \approx 15.6 \text{ ps}
+\end{equation}
+这是一个极为苛刻的时间约束。
+
+对于 16 GSa/s 系统，时间预算相对宽松：
+\begin{equation}
+    T_s = \frac{1}{16 \times 10^9} \approx 62.5 \text{ ps}
+\end{equation}
+
+\paragraph{C 语言在 SoC 上的实时性分析}
+
+现代 SoC（如 Zynq UltraScale+、Kria K26 等）的 ARM Cortex-A53 主频约 1.2–1.5 GHz，单周期约 0.7–0.8 ns。在如此紧张的时隙内，纯软件方案面临巨大挑战：
+
+\begin{table}[ht]
+\centering
+\caption{实时性方案对比}
+\begin{tabular}{p{3.5cm}p{3.5cm}p{4cm}}
+\toprule
+\textbf{方案} & \textbf{每采样可用周期数} & \textbf{可行性} \\
+\midrule
+64 GSa/s + 纯CPU & $15.6\text{ps} / 0.7\text{ns} \approx 0.02$ 周期 & \textbf{完全不可行} \\
+16 GSa/s + 纯CPU & $62.5\text{ps} / 0.7\text{ns} \approx 0.09$ 周期 & \textbf{不可行} \\
+1 GSa/s + 纯CPU & $1\text{ns} / 0.7\text{ns} \approx 1.4$ 周期 & 勉强，需SIMD优化 \\
+\textbf{推荐方案} & \textbf{FPGA 硬件加速 + CPU} & \textbf{可行} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{推荐的 SoC 架构方案}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+    >=Latex,
+    every node/.style={font=\small},
+    block/.style={rectangle, draw, minimum width=2.2cm, minimum height=1.0cm, align=center, rounded corners=3pt},
+    plblock/.style={rectangle, draw, fill=blue!5, minimum width=2.2cm, minimum height=1.0cm, align=center, rounded corners=3pt},
+    psblock/.style={rectangle, draw, fill=green!5, minimum width=2.2cm, minimum height=1.0cm, align=center, rounded corners=3pt},
+    path/.style={->, thick},
+]
+
+\node[block, fill=orange!10] (adc) {64通道\\TIADC 模拟前端};
+\node[plblock, right=1.2cm of adc] (pl_offset) {PL: Offset校准\\定点乘法+累加};
+\node[plblock, right=1.2cm of pl_offset] (pl_gain) {PL: Gain校准\\LMS + 功率估计};
+\node[plblock, right=1.2cm of pl_gain] (pl_timing) {PL: Timing校准\\自相关+VDL控制};
+
+\draw[path] (adc) -- (pl_offset);
+\draw[path] (pl_offset) -- (pl_gain);
+\draw[path] (pl_gain) -- (pl_timing);
+
+\node[psblock, below=1.2cm of pl_offset] (ps_ctrl) {PS: 校准控制\\$\alpha$档位切换\\收敛判断};
+\node[psblock, below=1.2cm of pl_gain] (ps_mon) {PS: 性能监测\\FFT/SNR/SFDR\\日志记录};
+\node[psblock, below=1.2cm of pl_timing] (ps_adapt) {PS: 自适应\\温度补偿\\参数持久化};
+
+\draw[path, <->, dashed] (pl_offset.south) -- (ps_ctrl.north);
+\draw[path, <->, dashed] (pl_gain.south) -- (ps_mon.north);
+\draw[path, <->, dashed] (pl_timing.south) -- (ps_adapt.north);
+
+\node[draw, dashed, inner sep=0.3cm, fit=(pl_offset)(pl_gain)(pl_timing), label={[font=\small]above:FPGA 可编程逻辑 (PL)}] (pl_box) {};
+\node[draw, dashed, inner sep=0.3cm, fit=(ps_ctrl)(ps_mon)(ps_adapt), label={[font=\small]below:ARM 处理器系统 (PS)}] (ps_box) {};
+
+\node[right=0.5cm of pl_timing, align=center] (out) {校准后\\数据输出};
+\draw[path] (pl_timing) -- (out);
+
+\end{tikzpicture}
+\caption{推荐SoC架构：PL（FPGA）负责实时校准运算，PS（ARM）负责控制与监测}
+\label{fig:soc_arch}
+\end{figure}
+
+\textbf{架构分工}:
+\begin{itemize}
+    \item \textbf{PL (Programmable Logic)}: 用 Verilog/HLS 实现 Offset/Gain/Timing Skew 的实时校准运算数据通路。这些运算具有高度规则性和并行性，适合 FPGA 实现
+    \item \textbf{PS (Processing System)}: ARM 核运行 C 代码，负责：
+    \begin{itemize}
+        \item $\alpha$ 档位切换策略（根据收敛状态动态调整步长）
+        \item 收敛检测（统计增大/减小次数）
+        \item 周期性的 FFT 性能监测
+        \item 温度补偿与参数持久化
+        \item 与上位机的通信（如通过 Ethernet/UART 上报校准状态）
+    \end{itemize}
+\end{itemize}
+
+\subsubsection{C 语言实现的定点化策略}
+
+在 SoC 的 PS 端或纯粹嵌入式 MCU 上实现校准逻辑时，定点化是关键。下面给出 Offset 校准的 C 语言参考实现。
+
+\paragraph{Offset 校准 C 实现}
+
+\begin{lstlisting}[language=C, caption={Offset校准：C语言定点实现}]
+#include <stdint.h>
+
+#define M_CHANNELS   64        // 通道数
+#define ALPHA_SHIFT  12        // alpha = 2^{-12}
+#define QUANT_SHIFT  2         // 截位: *4 >> 2
+
+typedef struct {
+    int32_t accum;             // 29位累加器 (Q4.25)
+    int8_t  offset_est;        // 8位失调估计值
+} offset_calib_t;
+
+// 每个通道一个实例
+offset_calib_t offset_ctx[M_CHANNELS];
+
+// 每采样调用一次（ISR 或 DMA 回调中）
+static inline int16_t offset_calibrate(uint8_t ch, int16_t adc_raw)
+{
+    offset_calib_t *ctx = &offset_ctx[ch];
+    
+    // 指数平均: accum += alpha * adc_raw
+    // alpha = 2^{-12}, 用算术右移实现除法
+    ctx->accum += (int32_t)adc_raw >> ALPHA_SHIFT;  // Q4.25
+    
+    // 截位: 取 accum[28:21] 作为 8-bit offset
+    // 等效于 floor(accum * 4) / 4
+    ctx->offset_est = (int8_t)((ctx->accum >> 21) & 0xFF);
+    
+    // 补偿输出
+    return adc_raw - ctx->offset_est;
+}
+\end{lstlisting}
+
+\paragraph{Gain 校准 C 实现}
+
+\begin{lstlisting}[language=C, caption={Gain校准：C语言定点实现}]
+#define GAIN_BETA_SHIFT  26       // beta = 2^{-26}
+#define GAIN_CTRL_SHIFT  9        // 9位控制字
+#define GAIN_STEP_Q      16       // step_size = 0.05/31, 用Q16定点
+
+typedef struct {
+    int32_t lms_accum;            // LMS累加器
+    int16_t gain_ctrl;            // 9位增益控制字 (-256..255)
+} gain_calib_t;
+
+gain_calib_t gain_ctx[M_CHANNELS];
+
+// 参考功率由PS端周期性更新
+static int32_t ref_power = 0;
+
+static inline int16_t gain_calibrate(uint8_t ch, int16_t adc_val)
+{
+    gain_calib_t *ctx = &gain_ctx[ch];
+    
+    // 瞬时功率
+    int32_t power = (int32_t)adc_val * adc_val;
+    
+    // LMS: lms_accum -= beta * (power - ref_power)
+    int32_t delta = power - ref_power;                   // 功率差
+    ctx->lms_accum -= delta >> GAIN_BETA_SHIFT;          // LMS更新
+    
+    // 提取控制字
+    ctx->gain_ctrl = (int16_t)(ctx->lms_accum >> GAIN_CTRL_SHIFT);
+    
+    // 增益补偿: y = (1 + gain_ctrl * step) * adc_val
+    int32_t gain = (1 << GAIN_STEP_Q) + 
+                   (ctx->gain_ctrl * GAIN_STEP_CONST);   // Q16
+    return (int16_t)(((int32_t)adc_val * gain) >> GAIN_STEP_Q);
+}
+\end{lstlisting}
+
+\paragraph{Timing Skew 校准 C 实现}
+
+\begin{lstlisting}[language=C, caption={Timing Skew校准：C语言实现}]
+#define N_GROUPS     4            // 时钟组数
+#define CH_PER_GROUP 16           // 每组16通道 (64/4)
+#define LMS_U_SHIFT  9            // u = 2^9 (注意是正幂!)
+#define CTRL_SHIFT   24           // 控制字截位
+
+typedef struct {
+    int64_t skew_accum;           // 时间偏斜累加器 (宽位宽)
+    int32_t skew_ctrl;            // 截位后的控制字
+} timing_calib_t;
+
+timing_calib_t timing_ctx[N_GROUPS];  // 组1为参考，只校准2/3/4
+
+// 存储64通道最新采样值
+static int16_t sample_buf[64];
+
+// 每64采样调用一次
+void timing_skew_calibrate(void)
+{
+    // 1. 计算16组互相关 (A1~A16)
+    int32_t A[16] = {0};
+    for (int m = 0; m < 16; m++) {
+        int base = m * 4;
+        // 组内4对: (0,1) (1,2) (2,3) (3,0)
+        A[m] = (int32_t)sample_buf[base+0] * sample_buf[base+1]
+             + (int32_t)sample_buf[base+1] * sample_buf[base+2]
+             + (int32_t)sample_buf[base+2] * sample_buf[base+3]
+             + (int32_t)sample_buf[base+3] * sample_buf[(base+4) % 64];
+    }
+    
+    // 2. 全局平均
+    int32_t avg = 0;
+    for (int m = 0; m < 16; m++) avg += A[m];
+    avg >>= 4;  // /16
+    
+    // 3. 对每组(2,3,4)计算误差并LMS更新
+    for (int g = 1; g < 4; g++) {  // g=1即phi2, g=2即phi3, g=3即phi4
+        // 计算该组在所有16个位置的互相关
+        int32_t corr_sum = 0;
+        for (int m = 0; m < 16; m++) {
+            int idx1 = g - 1 + m * 4;       // 前一个通道
+            int idx2 = g + m * 4;            // 后一个通道
+            corr_sum += (int32_t)sample_buf[idx1] 
+                      * sample_buf[idx2 % 64];
+        }
+        
+        // 误差信号
+        int32_t err = avg - corr_sum;
+        
+        // LMS更新
+        timing_ctx[g].skew_accum += (int64_t)err << LMS_U_SHIFT;
+        
+        // 控制字截位
+        timing_ctx[g].skew_ctrl = 
+            (int32_t)(timing_ctx[g].skew_accum >> CTRL_SHIFT);
+    }
+}
+\end{lstlisting}
+
+\subsubsection{PS 端控制逻辑 C 实现}
+
+\begin{lstlisting}[language=C, caption={PS端：alpha档位切换与收敛检测}]
+typedef enum { ALPHA_COARSE, ALPHA_MEDIUM, ALPHA_FINE } alpha_level_t;
+
+#define CONVERGE_WINDOW  512   // 收敛检测窗口
+
+typedef struct {
+    alpha_level_t level;
+    uint32_t      up_count;     // 估计值增大的次数
+    uint32_t      down_count;   // 估计值减小的次数
+    int32_t       last_est;
+    uint16_t      sample_cnt;
+} converge_detector_t;
+
+// 每个通道每个校准类型一个检测器
+converge_detector_t offset_det[M_CHANNELS];
+
+alpha_level_t check_convergence(converge_detector_t *det, 
+                                 int32_t current_est)
+{
+    if (current_est > det->last_est) 
+        det->up_count++;
+    else if (current_est < det->last_est) 
+        det->down_count++;
+    
+    det->last_est = current_est;
+    det->sample_cnt++;
+    
+    if (det->sample_cnt >= CONVERGE_WINDOW) {
+        // 当增大和减小次数接近相等时，认为收敛
+        int32_t diff = abs((int32_t)det->up_count 
+                         - (int32_t)det->down_count);
+        
+        if (diff < (CONVERGE_WINDOW / 32)) {  // 3%以内
+            switch (det->level) {
+                case ALPHA_COARSE:  
+                    det->level = ALPHA_MEDIUM; break;
+                case ALPHA_MEDIUM:  
+                    det->level = ALPHA_FINE;   break;
+                case ALPHA_FINE:    
+                    break;  // 已是最精细档位
+            }
+        }
+        
+        // 重置计数器
+        det->up_count = 0;
+        det->down_count = 0;
+        det->sample_cnt = 0;
+    }
+    
+    return det->level;
+}
+\end{lstlisting}
+
+\subsubsection{SoC 与纯 ASIC 方案对比}
+
+\begin{table}[ht]
+\centering
+\caption{ASIC vs SoC 方案全面对比}
+\begin{tabular}{p{2.8cm}p{3.5cm}p{4cm}}
+\toprule
+\textbf{维度} & \textbf{ASIC (原方案)} & \textbf{SoC (本文方案)} \\
+\midrule
+\textbf{实现方式} & Verilog 硬件描述 & PL端 Verilog/HLS + PS端 C语言 \\
+\textbf{并行度} & 全并行（每通道独立运算单元） & PL端全并行，PS端串行 \\
+\textbf{位宽控制} & 硬件固定位宽（29位/9位） & PL同ASIC，PS可用更宽位宽 \\
+\textbf{$\alpha$档位切换} & 硬件状态机 & C语言软件灵活控制 \\
+\textbf{收敛检测} & 逻辑门计数比较 & C语言灵活统计 \\
+\textbf{FFT性能监测} & 不支持（需外部仪器） & 软件FFT，在线监测 \\
+\textbf{温度补偿} & 需额外硬件 & 软件查表/插值 \\
+\textbf{开发周期} & 长（流片$\sim$数月） & 短（FPGA可快速迭代） \\
+\textbf{修改灵活性} & 低（改版需重新流片） & \textbf{高（软件更新即可）} \\
+\textbf{单位成本（量产）} & \textbf{低} & 较高 \\
+\textbf{功耗} & \textbf{低}（定制优化） & 较高（FPGA + ARM） \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{关键结论与建议}
+
+\begin{enumerate}
+    \item \textbf{纯C语言方案不可行}: 对于 64 GSa/s TIADC，15.6 ps 的采样间隔远小于单条C指令的执行时间。纯软件方案仅对采样率 $\ll$ 1 GSa/s 的系统可行。
+
+    \item \textbf{推荐 PL + PS 混合架构}: 
+    \begin{itemize}
+        \item PL (FPGA)：用 Verilog 或 HLS 实现 Offset/Gain/Timing Skew 的实时数据通路。这部分与原始 ASIC 方案基本一致，可直接复用 Verilog 代码
+        \item PS (ARM)：用 C 语言实现 $\alpha$ 档位切换、收敛检测、性能监测、温度补偿等控制逻辑
+    \end{itemize}
+
+    \item \textbf{C 语言的独特价值}:
+    \begin{itemize}
+        \item \textbf{灵活的参数调整}: 不需要重新综合/流片即可修改校准参数
+        \item \textbf{在线FFT分析}: 可在PS端周期性地对校准后数据进行FFT，实时监测 SNR/SFDR/ENOB
+        \item \textbf{自适应策略}: 可实现比硬件状态机更复杂的收敛策略（如卡尔曼滤波、机器学习方法）
+        \item \textbf{远程调试与固件升级}: 通过 OTA 更新校准算法
+    \end{itemize}
+
+    \item \textbf{对于低采样率场景（$\le$ 500 MSa/s）}: 可考虑在 Cortex-M4/M7 级别 MCU 上用纯C语言 + CMSIS-DSP 库实现校准。此时每采样有 $\ge 2 \mu s$ 的处理时间，足够完成定点运算。
+
+    \item \textbf{推荐的开发流程}:
+    \begin{enumerate}
+        \item MATLAB 行为级仿真验证算法（已完成，见前文）
+        \item Vivado HLS / Vitis HLS 将 C 代码综合为 FPGA IP 核
+        \item 在 Zynq / Kria / Versal 平台上进行硬件在环验证
+        \item PS 端开发 C 控制逻辑与性能监测
+        \item 迭代优化至满足目标性能指标
+    \end{enumerate}
+\end{enumerate}
+
+% =============================================================================
+\subsection{总结与展望}
+\label{sec:conclusion}
+
+\subsubsection{项目整体架构回顾}
+
+本报告的 TIADC 校准系统通过\textbf{三步递进式校准}，系统地解决了时间交织 ADC 的三大失配问题。从 PDF 文档中的数学推导和 Verilog 硬件设计，到 MATLAB 代码中的行为级仿真验证，再到 FFT 频谱分析，形成了一个完整的理论 → 仿真 → 验证闭环。
+
+\subsubsection{关键技术总结}
+
+\begin{table}[ht]
+\centering
+\caption{三种校准技术总结}
+\begin{tabular}{p{2cm}p{2.5cm}p{2.5cm}p{3.5cm}}
+\toprule
+\textbf{校准类型} & \textbf{核心算法} & \textbf{ASIC实现方式} & \textbf{SoC实现方式} \\
+\midrule
+Offset & 指数平均 (IIR滤波) & 加法器+移位寄存器 & PL定点乘加 + PS档位控制 \\
+Gain & LMS迭代+功率比较 & 乘法器+累加器 & PL LMS引擎 + PS参考功率计算 \\
+Timing Skew & 自相关+LMS & 乘法器+VDL控制 & PL互相关+PS误差方向判读 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{改进方向}
+
+\begin{enumerate}
+    \item \textbf{多档位 $\alpha$ 自适应切换}: 当前代码多使用单档位，SoC PS 端可灵活实现完整的8档自动切换逻辑
+    \item \textbf{后台校准}: 当前实现为前台校准（需中断正常数据流），实际系统可能需要后台校准（不中断）。SoC 的 PS 端可以在数据流旁路中非侵入式地分析校准质量
+    \item \textbf{温度补偿}: 温度变化会引起失配漂移，PS 端可维护温度-参数查找表，实现动态补偿
+    \item \textbf{盲校准}: 无需已知输入信号的校准技术，适用于实际工作场景。C 语言的灵活性使盲校准算法更易实现
+    \item \textbf{机器学习增强}: 在 PS 端可运行轻量级 ML 模型（如微型 RNN），预测失配参数漂移趋势，实现预测性校准
+\end{enumerate}
+
+\subsubsection{结语}
+
+64 通道 64 GSa/s 的 TIADC 系统代表了当前高速数据转换器的前沿技术方向。通过 SoC（FPGA+ARM）混合架构，可以结合 ASIC 的实时处理能力和 C 语言的灵活性，构建比纯 ASIC 方案更易迭代、更智能的校准系统。PL 端负责确定性的实时运算，PS 端负责策略性的控制与优化——这一分工最大限度地发挥了两种计算范式的优势。
+
+\end{document}
+
+\subsubsection{结语}
+
+64通道 64 GSa/s 的 TIADC 系统代表了当前高速数据转换器的前沿技术方向。通过 SoC（FPGA+ARM）混合架构，可以结合 ASIC 的实时处理能力和 C 语言的灵活性，构建比纯 ASIC 方案更易迭代、更智能的校准系统。PL 端负责确定性的实时运算，PS 端负责策略性的控制与优化——这一分工最大限度地发挥了两种计算范式的优势。
+
+\end{document}

@@ -1,103 +1,163 @@
-% 推理框架生态架构图 —— 分层架构
-% 前端层 → 推理引擎层 → 硬件后端层
-\documentclass[border=5pt,tikz]{standalone}
+% 推理框架生态架构图 —— 双路径分层架构
+% 左侧「轻量路径」(个人/Mac) ←→ 右侧「生产路径」(团队/NVIDIA)
+\documentclass[border=8pt,tikz]{standalone}
 \usepackage{tikz}
-\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, backgrounds, calc}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, backgrounds, calc, decorations.pathreplacing}
 \usepackage{xeCJK}
 \setCJKmainfont{STSong}
 
 \begin{document}
 \begin{tikzpicture}[
-    node distance=1.3cm,
-    % 样式定义
-    frontend/.style={rectangle, rounded corners=4pt, draw=green!60!black, fill=green!10,
-                     text=green!70!black, minimum width=2.4cm, minimum height=0.8cm,
+    node distance=1.4cm,
+    % ---- 颜色体系 ----
+    % 轻量路径 (绿/青)
+    lw_front/.style={rectangle, rounded corners=4pt, draw=teal!70!black, fill=teal!8,
+                     minimum width=2.6cm, minimum height=0.85cm,
                      font=\footnotesize\bfseries, align=center},
-    engine/.style={rectangle, rounded corners=4pt, draw=blue!60!black, fill=blue!8,
-                   minimum width=2.6cm, minimum height=0.9cm,
-                   font=\footnotesize\bfseries, align=center},
-    engineprod/.style={rectangle, rounded corners=4pt, draw=blue!80!black, fill=blue!20,
-                       minimum width=2.8cm, minimum height=0.9cm,
+    lw_engine/.style={rectangle, rounded corners=4pt, draw=teal!80!black, fill=teal!18,
+                      minimum width=2.8cm, minimum height=0.9cm,
+                      font=\footnotesize\bfseries, align=center},
+    lw_hw/.style={rectangle, rounded corners=3pt, draw=teal!60!black, fill=teal!5,
+                  minimum width=2.6cm, minimum height=0.8cm,
+                  font=\footnotesize\bfseries, align=center},
+    % 生产路径 (蓝/靛)
+    prod_front/.style={rectangle, rounded corners=4pt, draw=blue!70!black, fill=blue!8,
+                       minimum width=2.8cm, minimum height=0.85cm,
                        font=\footnotesize\bfseries, align=center},
-    hardware/.style={rectangle, rounded corners=2pt, draw=orange!70!black, fill=orange!8,
-                     minimum width=2.4cm, minimum height=0.75cm,
-                     font=\footnotesize\bfseries, align=center},
-    hwprime/.style={rectangle, rounded corners=2pt, draw=orange!90!black, fill=orange!22,
+    prod_engine/.style={rectangle, rounded corners=4pt, draw=blue!80!black, fill=blue!22,
+                        minimum width=3.0cm, minimum height=0.9cm,
+                        font=\footnotesize\bfseries, align=center},
+    prod_engine_sec/.style={rectangle, rounded corners=4pt, draw=blue!60!black, fill=blue!8,
+                            minimum width=2.8cm, minimum height=0.85cm,
+                            font=\footnotesize\bfseries, align=center},
+    prod_hw/.style={rectangle, rounded corners=3pt, draw=blue!70!black, fill=blue!5,
                     minimum width=2.8cm, minimum height=0.8cm,
                     font=\footnotesize\bfseries, align=center},
-    arrow/.style={-{Stealth[scale=0.7]}, line width=0.6pt, draw=gray!50},
-    recbox/.style={draw=black!30, line width=0.8pt, rounded corners=6pt, inner sep=8pt},
-    label/.style={font=\small\bfseries},
+    % 通用
+    yaxis_label/.style={font=\small\bfseries, text=black!55, align=center, anchor=center},
+    arrow_lw/.style={-{Stealth[scale=0.8]}, line width=0.8pt, draw=teal!50},
+    arrow_prod/.style={-{Stealth[scale=0.8]}, line width=0.8pt, draw=blue!50},
+    arrow_cross/.style={-{Stealth[scale=0.7]}, line width=0.5pt, draw=gray!45, dashed},
 ]
 
-% ==================== 硬件后端层 (底层) ====================
-\node[hwprime] (nvidia) {NVIDIA GPU\\(CUDA)};
-\node[hardware] (apple) [right=of nvidia] {Apple Silicon\\(Metal)};
-\node[hardware] (cpu)  [right=of apple]  {x86 CPU\\(AVX2)};
+% ============================================================
+% 硬件后端层 (底层) — 两大列
+% ============================================================
+% ---- 左侧: 轻量硬件 ----
+\node[lw_hw] (apple)  {Apple Silicon\\(Metal / UMA)};
+\node[lw_hw] (cpu)    [below=0.5cm of apple]  {x86 CPU\\(AVX2, 回退方案)};
 
-% ==================== 推理引擎层 (中层) ====================
-\node[engineprod] (vllm) [above=of nvidia] {vLLM\\\footnotesize PagedAttention};
-\node[engine] (sglang) [right=of vllm] {SGLang\\\footnotesize RadixAttention};
-\node[engine] (trtllm) [right=of sglang] {TensorRT-LLM\\\footnotesize NVIDIA 官方};
-\node[engine] (tgi) [right=of trtllm] {HuggingFace\\TGI};
-\node[engineprod] (llamacpp) [below=of vllm] {llama.cpp\\\footnotesize GGUF / CPU-GPU混合};
-\node[engine] (ollama) [right=of llamacpp] {Ollama\\\footnotesize 封装 llama.cpp};
+% ---- 右侧: 生产硬件 ----
+\node[prod_hw] (nvidia) [right=5.0cm of apple] {NVIDIA GPU\\(CUDA / TensorRT)};
 
-% ==================== 前端层 (顶层) ====================
-\node[frontend] (openwebui) [above=of vllm] {Open WebUI\\\footnotesize Web 界面};
-\node[frontend] (lmstudio)  [right=of openwebui] {LM Studio\\\footnotesize 桌面GUI};
-\node[frontend] (anything)  [right=of lmstudio] {AnythingLLM\\\footnotesize 内置RAG};
-\node[frontend] (ooba)     [right=of anything] {text-gen-webui\\\footnotesize 全功能};
+% 左侧 Y 轴标签: 硬件层
+\node[yaxis_label, rotate=90]
+    at ($(apple.west)!0.5!(cpu.west) + (-1.2,0)$) {硬件后端层};
 
-\node[frontend, fill=green!20] (continue) [above=of lmstudio] {Continue.dev\\\footnotesize IDE 插件};
+% ============================================================
+% 推理引擎层 (中层)
+% ============================================================
+% ---- 左侧: 轻量引擎 ----
+\node[lw_engine] (ollama)    [above=1.8cm of apple] {Ollama\\\footnotesize 封装 llama.cpp};
+\node[lw_engine] (llamacpp)  [above=0.5cm of ollama]    {llama.cpp\\\footnotesize GGUF / CPU-GPU混合};
 
-% ==================== 分层背景框 ====================
-\begin{scope}[on background layer]
-    \node[recbox, fit=(openwebui)(lmstudio)(anything)(ooba)(continue), label={[label]north west:{\textbf{前端 / Web UI 层}}}] (fbox) {};
-    \node[recbox, fit=(vllm)(sglang)(trtllm)(tgi)(ollama)(llamacpp), label={[label]north west:{\textbf{推理引擎层}}}] (ebox) {};
-    \node[recbox, fit=(nvidia)(apple)(cpu), label={[label]north west:{\textbf{硬件后端层}}}] (hbox) {};
-\end{scope}
+% ---- 右侧: 生产引擎 ----
+\node[prod_engine] (vllm)       [above=1.8cm of nvidia] {vLLM\\\footnotesize PagedAttention};
+\node[prod_engine] (sglang)     [left=0.4cm of vllm]         {SGLang\\\footnotesize RadixAttention};
+\node[prod_engine_sec] (trtllm) [right=0.4cm of vllm]        {TensorRT-LLM\\\footnotesize 图优化 / FP8};
+\node[prod_engine_sec] (tgi)    [right=0.4cm of trtllm]      {HuggingFace TGI\\\footnotesize 连续批处理};
 
-% ==================== 连接箭头 ====================
-% 前端 → 引擎
-\draw[arrow] (openwebui.south) -- (vllm.north);
-\draw[arrow] (openwebui.south) -- (ollama.north);
-\draw[arrow] (continue.south) -- (ollama.north east);
-\draw[arrow] (continue.south) -- (vllm.north east);
-\draw[arrow] (lmstudio.south) -- (ollama.north);
-\draw[arrow] (anything.south) -- (ollama.north);
-\draw[arrow] (anything.south) -- (vllm.north);
-\draw[arrow] (ooba.south) -- (tgi.north);
-\draw[arrow] (ooba.south) -- (ollama.north);
+% Ollama→llama.cpp 包含关系
+\draw[arrow_lw, thick] (ollama.north) -- (llamacpp.south)
+    node[midway, right, font=\footnotesize\itshape, text=teal!60] {封装};
 
-% 引擎 → 硬件
-\draw[arrow] (vllm.south) -- (nvidia.north);
-\draw[arrow] (sglang.south) -- (nvidia.north);
-\draw[arrow] (trtllm.south) -- (nvidia.north);
-\draw[arrow] (tgi.south) -- (nvidia.north);
-\draw[arrow] (llamacpp.south) -- (nvidia.north west);
-\draw[arrow] (llamacpp.south) -- (apple.north west);
-\draw[arrow] (llamacpp.south) -- (cpu.north west);
-\draw[arrow] (ollama.south) -- (nvidia.north east);
-\draw[arrow] (ollama.south) -- (apple.north);
-\draw[arrow] (ollama.south) -- (cpu.north);
+% 左侧 Y 轴标签: 引擎层
+\node[yaxis_label, rotate=90]
+    at ($(llamacpp.west)!0.5!(ollama.west) + (-0.8,0)$) {推理引擎层};
 
-% ==================== 图例 ====================
-\node[font=\footnotesize, anchor=north west, align=left, text=black!60]
-    at (current bounding box.south west) {
-    \textbf{图例：} 蓝色填充 = 生产级推荐 \quad
-    绿色填充 = 团队推荐 \quad
-    箭头 = 兼容关系
+% ============================================================
+% 前端 / UI 层 (顶层)
+% ============================================================
+% ---- 左侧: 轻量前端 ----
+\node[lw_front] (lmstudio)   [above=0.8cm of llamacpp] {LM Studio\\\footnotesize 桌面GUI};
+\node[lw_front] (continue)   [above=0.5cm of lmstudio]    {Continue.dev\\\footnotesize IDE 插件};
+
+% ---- 右侧: 生产/团队前端 ----
+\node[prod_front] (openwebui) [above=1.8cm of vllm] {Open WebUI\\\footnotesize 团队 Web 界面};
+\node[prod_front] (anything)  [left=0.4cm of openwebui]      {AnythingLLM\\\footnotesize 内置 RAG};
+\node[prod_front] (ooba)      [right=0.4cm of openwebui]     {text-gen-webui\\\footnotesize 全功能 WebUI};
+
+% 左侧 Y 轴标签: 前端层
+\node[yaxis_label, rotate=90]
+    at ($(continue.west)!0.5!(lmstudio.west) + (-1.2,0)$) {前端 / Web UI 层};
+
+% ============================================================
+% 连接箭头: 前端 → 引擎层
+% ============================================================
+% 轻量路径 (solid teal)
+% \draw[arrow_lw] (continue.south)  -- (llamacpp.north);
+% \draw[arrow_lw] (continue.south)  -- (ollama.north);
+% \draw[arrow_lw] (lmstudio.south)  -- (ollama.north);
+
+% 生产路径 (solid blue)
+\draw[arrow_prod] (anything.south)  -- (vllm.north);
+\draw[arrow_prod] (openwebui.south) -- (vllm.north);
+\draw[arrow_prod] (openwebui.south) -- (sglang.north);
+\draw[arrow_prod] (ooba.south)      -- (tgi.north);
+\draw[arrow_prod] (ooba.south)      -- (vllm.north);
+
+% 跨路径连接 (dashed gray) — Open WebUI 也能用 Ollama
+\draw[arrow_cross] (openwebui.south west) -- (ollama.north east);
+
+% ============================================================
+% 连接箭头: 引擎 → 硬件
+% ============================================================
+% llama.cpp 跨硬件 (唯一支持三平台的引擎)
+% \draw[arrow_lw] (llamacpp.south) -- (apple.north);
+% \draw[arrow_lw] (llamacpp.south) -- (cpu.north);
+\draw[arrow_cross] (llamacpp.south east) -- (nvidia.north west);
+
+% Ollama → Apple / CPU
+% \draw[arrow_lw] (ollama.south) -- (apple.north);
+% \draw[arrow_lw] (ollama.south) -- (cpu.north);
+
+% 生产引擎 → NVIDIA (全部仅支持 CUDA)
+\draw[arrow_prod] (sglang.south)  -- (nvidia.north);
+\draw[arrow_prod] (vllm.south)    -- (nvidia.north);
+\draw[arrow_prod] (trtllm.south)  -- (nvidia.north);
+\draw[arrow_prod] (tgi.south)     -- (nvidia.north);
+
+% ============================================================
+% 推荐路径标注 (绿色虚线框)
+% ============================================================
+% 推荐路径 1: Continue.dev + Ollama/llama.cpp + Apple Silicon
+\node[draw=green!55!black, very thick, dashed, rounded corners=8pt,
+      fit=(continue)(lmstudio)(ollama)(llamacpp)(apple)(cpu),
+      inner sep=6pt] (rec_personal) {};
+\node[green!55!black, font=\footnotesize\bfseries, anchor=north west,
+      , fill opacity=0.85, text opacity=1]
+    at ($(rec_personal.north east)+(0.3,0.2)$) {$\leftarrow$ 个人 / Mac 推荐};
+
+% 推荐路径 2: Open WebUI / AnythingLLM + vLLM / SGLang + NVIDIA
+\node[draw=green!55!black, very thick, dashed, rounded corners=8pt,
+      fit=(anything)(openwebui)(sglang)(vllm)(nvidia),
+      inner sep=3pt] (rec_prod) {};
+\node[green!55!black, font=\footnotesize\bfseries, anchor=north west,
+      , fill opacity=0.85, text opacity=1]
+    at ($(rec_prod.north east)+(0.3,0.4)$) {$\leftarrow$ 团队 / 生产推荐};
+
+% ============================================================
+% 图例
+% ============================================================
+\node[font=\footnotesize, anchor=north west, align=left, text=black!55]
+    at ($(current bounding box.south west)+(0,-0.6)$) {
+    \textbf{图例：}
+    \tikz{\node[lw_engine, minimum width=0.7cm, minimum height=0.35cm, font=\tiny] {};} 轻量/个人路径 \quad
+    \tikz{\node[prod_engine, minimum width=0.7cm, minimum height=0.35cm, font=\tiny] {};} 生产/团队路径 \quad
+    --- 主连接 \quad
+    -\,-\,- 跨路径兼容 \quad
+    \tikz{\draw[green!55!black, very thick, dashed] (0,0) -- (0.8,0);} 推荐组合
 };
-
-% 标注推荐路径
-\node[draw=green!60!black, very thick, dashed, rounded corners=6pt, fit=(continue)(vllm)(ollama)] (rec1) {};
-\node[green!60!black, font=\footnotesize\bfseries, anchor=west]
-    at ($(rec1.east)+(0.5,0)$) {$\leftarrow$ 推荐组合};
-
-\node[draw=green!60!black, very thick, dashed, rounded corners=6pt, fit=(anything)(ollama)] (rec2) {};
-\node[green!60!black, font=\footnotesize\bfseries, anchor=west]
-    at ($(rec2.east)+(0.5,0)$) {$\leftarrow$ 小团队组合};
 
 \end{tikzpicture}
 \end{document}

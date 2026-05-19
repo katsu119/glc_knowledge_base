@@ -10,7 +10,8 @@
 \setCJKmonofont{STFangsong}
 
 % ---------- 主题 ----------
-\usetheme{Madrid}
+% \usetheme{Madrid}
+\usetheme{Darmstadt}       % 带有平滑导航栏
 \usecolortheme{whale}
 \usefonttheme{professionalfonts}
 
@@ -22,6 +23,18 @@
 \usepackage[table]{xcolor}
 \usepackage{tikz}
 \usepackage{hyperref}
+
+% ---------- Twemoji + LaTeX 命令符号方案 ----------
+\usepackage{twemojis}
+% 以下 Unicode 字符已全部替换为 LaTeX 命令 / twemoji：
+%   U+00A5 ¥  -> \textyen{}         U+2014 -- -> ---
+%   U+2192 -> -> $\rightarrow$       U+2194 <-> -> $\leftrightarrow$
+%   U+25CF ●  -> \twemoji{black circle}
+%   U+2605 ★  -> \twemoji{glowing star}
+%   U+2606 ☆  -> $\star$
+%   U+2713 ✓  -> \twemoji{check mark}
+%   U+2717 ✗  -> \twemoji{cross mark}
+%   U+26A0 ⚠ -> \twemoji{warning}
 
 % ---------- 信息 ----------
 \title[LLM 部署研究]{LLM 部署研究与资源安排}
@@ -43,7 +56,7 @@
 }
 
 \newenvironment{warningblock}{
-  \begin{alertblock}{\textbf{⚠ 注意}}
+  \begin{alertblock}{\textbf{\twemoji{warning} 注意}}
 }{
   \end{alertblock}
 }
@@ -78,7 +91,7 @@
 
 \begin{frame}{为什么先讲原理？}
   \begin{alertblock}{常见误区}
-    看别人说「RTX 4090 能跑 70B 模型」就行——\textbf{能跑 $\neq$ 能用}，这之间差了一整个工程体系。
+    看别人说「RTX 4090 能跑 70B 模型」就行------\textbf{能跑 $\neq$ 能用}，这之间差了一整个工程体系。
   \end{alertblock}
 
   \vspace{0.5em}
@@ -141,7 +154,7 @@
                                  &\approx \mathbf{512\text{ MB}}
     \end{aligned}
     \]
-    \textbf{128K 上下文：$0.5 \times 128 = \mathbf{64\text{ GB}}$ ——仅 KV Cache 部分！}
+    \textbf{128K 上下文：$0.5 \times 128 = \mathbf{64\text{ GB}}$ ------仅 KV Cache 部分！}
   \end{block}
 \end{frame}
 
@@ -207,9 +220,9 @@
     \column{0.52\textwidth}
     \textbf{32B 模型各精度显存需求}
     \begin{itemize}
-      \item FP16：$32\times 2 = 64\text{ GB}$ — A100 80GB 或双卡
-      \item INT8：$32\times 1 = 32\text{ GB}$ — 单张 A100 或 2$\times$4090
-      \item INT4：$32\times 0.5 = 16\text{ GB}$ — 单张 RTX 4090
+      \item FP16：$32\times 2 = 64\text{ GB}$ --- A100 80GB 或双卡
+      \item INT8：$32\times 1 = 32\text{ GB}$ --- 单张 A100 或 2$\times$4090
+      \item INT4：$32\times 0.5 = 16\text{ GB}$ --- 单张 RTX 4090
     \end{itemize}
   \end{columns}
 
@@ -253,7 +266,7 @@
     \begin{itemize}
       \item 每次生成 1 token：读 14 GB 权重 $\rightarrow$ 做微小矩阵乘法 $\rightarrow$ 写 KV Cache
       \item H100 (3.35 TB/s) > A100 (2 TB/s) > RTX 4090 (1 TB/s)
-      \item Apple M2 Ultra (800 GB/s 统一内存) — 推理大模型表现好的根本原因
+      \item Apple M2 Ultra (800 GB/s 统一内存) --- 推理大模型表现好的根本原因
     \end{itemize}
   \end{block}
 \end{frame}
@@ -348,7 +361,7 @@
       代码理解/审查        & Qwen2.5-Coder-32B            & 32B 是甜点              & DeepSeek-Coder-V2           & 24 GB (Q4)       \\
       中文文档/RAG         & Qwen2.5-14B                  & 中文最好                & Qwen2.5-32B                 & 16 GB (Q4)       \\
       通用助手             & Llama-3.1-8B                 & 生态最好                & Mistral-7B                  & 16 GB            \\
-      最高代码质量         & Qwen2.5-Coder-32B / DSC-V2   & 顶级                    & —                           & 40 GB+ (FP16)     \\
+      最高代码质量         & Qwen2.5-Coder-32B / DSC-V2   & 顶级                    & ---                           & 40 GB+ (FP16)     \\
       \bottomrule
     \end{tabular}
   \end{table}
@@ -360,7 +373,7 @@
 % -------------------- 推理框架 --------------------
 \begin{frame}{推理框架对比（一）：入门与引擎}
   \begin{columns}[T]
-    \column{0.48\textwidth}
+    \column{0.40\textwidth}
     \begin{block}{Ollama}
       \begin{itemize}
         \item 封装 llama.cpp，Docker 式体验
@@ -379,7 +392,7 @@
       \end{itemize}
     \end{block}
 
-    \column{0.48\textwidth}
+    \column{0.55\textwidth}
     \begin{block}{vLLM（生产首选）}
       \begin{itemize}
         \item \textbf{PagedAttention}：KV Cache 利用率 $\approx$ 100\%
@@ -443,7 +456,7 @@
       个人实验               & Ollama + Open WebUI        & 5 分钟上手             & LM Studio    \\
       3--10 人团队            & vLLM + Open WebUI          & 并发支持好             & Ollama       \\
       生产部署               & vLLM 或 SGLang             & 工业级稳定             & TensorRT-LLM \\
-      Apple Silicon          & llama.cpp + Ollama         & Metal 加速最好         & —            \\
+      Apple Silicon          & llama.cpp + Ollama         & Metal 加速最好         & ---            \\
       NVIDIA 多卡            & vLLM（张量并行）           & 开箱即用               & TensorRT-LLM \\
       \bottomrule
     \end{tabular}
@@ -498,7 +511,7 @@
     \end{block}
 
     \column{0.32\textwidth}
-    \begin{alertblock}{层次二：低成本 PoC（\textasciitilde ¥15K, 1--2 天）}
+    \begin{alertblock}{层次二：低成本 PoC（\textasciitilde \textyen{}15K, 1--2 天）}
       \textbf{甜点方案！}
       \begin{itemize}
         \item RTX 4090 24GB + 64GB RAM
@@ -510,7 +523,7 @@
     \end{alertblock}
 
     \column{0.32\textwidth}
-    \begin{block}{层次三：准生产 PoC（\textasciitilde ¥60K--¥120K）}
+    \begin{block}{层次三：准生产 PoC（\textasciitilde \textyen{}60K--\textyen{}120K）}
       \begin{itemize}
         \item 2$\times$RTX 4090/5090 + 128GB
         \item vLLM 张量并行
@@ -525,7 +538,7 @@
 \begin{frame}{Mac Mini 是否够？}
   \begin{alertblock}{坦白说：对于企业 PoC，不推荐 Mac Mini}
     \begin{itemize}
-      \item M4 Pro Mac mini 64GB 统一内存（约 ¥20K+）——不如二手 RTX 4090 工作站
+      \item M4 Pro Mac mini 64GB 统一内存（约 \textyen{}20K+）------不如二手 RTX 4090 工作站
       \item Metal 加速在 vLLM/SGLang 等生产框架中支持不完善
       \item 无法扩展到多卡/多机
       \item 企业中最终还是 Linux + NVIDIA，PoC 阶段就应用最终平台
@@ -533,7 +546,7 @@
   \end{alertblock}
 
   \vspace{0.3em}
-  \textbf{唯一例外}：已有 Mac Studio M2 Ultra 192GB，可顺手跑 PoC——但不应「为此购买」。
+  \textbf{唯一例外}：已有 Mac Studio M2 Ultra 192GB，可顺手跑 PoC------但不应「为此购买」。
 \end{frame}
 
 \begin{frame}{PoC 方案成本对比}
@@ -544,18 +557,18 @@
       \toprule
       \textbf{方案}                 & \textbf{硬件成本} & \textbf{满载功耗} & \textbf{月电费} & \textbf{模型}   & \textbf{速度} \\
       \midrule
-      MacBook Pro M4 Pro 24GB       & ¥18K     & 30W             & ¥17             & 7B Q4           & 15--20 t/s    \\
+      MacBook Pro M4 Pro 24GB       & \textyen{}18K     & 30W             & \textyen{}17             & 7B Q4           & 15--20 t/s    \\
       \rowcolor{green!15}
-      RTX 4090 工作站               & ¥25K             & 500W            & ¥288            & 32B Q4          & 30--50 t/s    \\
-      2$\times$RTX 4090              & ¥40K             & 800W            & ¥460            & 70B Q4          & 15--25 t/s    \\
-      A100 80GB 二手               & ¥50K             & 400W            & ¥230            & 70B FP16        & 40--60 t/s    \\
+      RTX 4090 工作站               & \textyen{}25K             & 500W            & \textyen{}288            & 32B Q4          & 30--50 t/s    \\
+      2$\times$RTX 4090              & \textyen{}40K             & 800W            & \textyen{}460            & 70B Q4          & 15--25 t/s    \\
+      A100 80GB 二手               & \textyen{}50K             & 400W            & \textyen{}230            & 70B FP16        & 40--60 t/s    \\
       \bottomrule
     \end{tabular}
   \end{table}
 
   \vspace{0.3em}
   \begin{keypoint}
-    自建 RTX 4090 方案在 3 个月内回本（对比云 GPU 月费 ¥5K--¥8K）。
+    自建 RTX 4090 方案在 3 个月内回本（对比云 GPU 月费 \textyen{}5K--\textyen{}8K）。
   \end{keypoint}
 \end{frame}
 
@@ -570,17 +583,17 @@
   \end{center}
 
   \begin{itemize}
-    \item \textcolor{darkgreen}{● 绿色(G)} = 高收益安全区：脚本/RAG/DevOps
-    \item \textcolor{gold}{● 黄色(Y)} = 中收益需审查：RTL 骨架/报告解读
-    \item \textcolor{darkred}{● 红色(R)} = 高风险不能替代：SPICE/综合/STA 关键路径
+    \item \textcolor{darkgreen}{\twemoji{black circle} 绿色(G)} = 高收益安全区：脚本/RAG/DevOps
+    \item \textcolor{gold}{\twemoji{black circle} 黄色(Y)} = 中收益需审查：RTL 骨架/报告解读
+    \item \textcolor{darkred}{\twemoji{black circle} 红色(R)} = 高风险不能替代：SPICE/综合/STA 关键路径
   \end{itemize}
 \end{frame}
 
 % -------------------- 模拟 IC --------------------
-\begin{frame}{模拟 IC 设计：电路与架构 ★★☆☆☆}
+\begin{frame}{模拟 IC 设计：电路与架构 \twemoji{glowing star}\twemoji{glowing star}$\star$$\star$$\star$}
   \begin{columns}[T]
     \column{0.5\textwidth}
-    \begin{block}{能做什么 ✓}
+    \begin{block}{能做什么 \twemoji{check mark}}
       \begin{itemize}
         \item 读网表，解释电路拓扑
         \item 识别常见结构：Bandgap、运放、比较器、LDO
@@ -591,12 +604,12 @@
     \end{block}
 
     \column{0.5\textwidth}
-    \begin{alertblock}{不能做什么 ✗（危险区域）}
+    \begin{alertblock}{不能做什么 \twemoji{cross mark}（危险区域）}
       \begin{itemize}
-        \item \textbf{不能替代 SPICE 仿真}——LLM 不知物理
+        \item \textbf{不能替代 SPICE 仿真}------LLM 不知物理
         \item 不了解具体工艺 PDK
         \item 高频/RF EM 效应无法处理
-        \item SerDes CDR/DFE/CTLE 参数——核心 IP，无训练数据
+        \item SerDes CDR/DFE/CTLE 参数------核心 IP，无训练数据
       \end{itemize}
     \end{alertblock}
   \end{columns}
@@ -605,10 +618,10 @@
   架构参考有用，设计迭代必须靠仿真和工程师经验。
 \end{frame}
 
-\begin{frame}{模拟 IC 设计：脚本与工具链 ★★★★★}
+\begin{frame}{模拟 IC 设计：脚本与工具链 \twemoji{glowing star}\twemoji{glowing star}\twemoji{glowing star}\twemoji{glowing star}\twemoji{glowing star}}
   \begin{block}{模拟 IC 中 LLM 收益最高的场景}
     \begin{itemize}
-      \item 生成 Cadence Skill/Ocean 脚本 — 文档稀缺，AI 辅助编写价值巨大
+      \item 生成 Cadence Skill/Ocean 脚本 --- 文档稀缺，AI 辅助编写价值巨大
       \item 生成 HSPICE/Spectre 仿真 deck
       \item 生成 Python/Matlab 数据处理脚本
       \item 生成 Perl/Tcl EDA 流程自动化脚本
@@ -623,10 +636,10 @@
 \end{frame}
 
 % -------------------- 数字 IC --------------------
-\begin{frame}{数字 IC 设计：RTL 代码 ★★★☆☆}
+\begin{frame}{数字 IC 设计：RTL 代码 \twemoji{glowing star}\twemoji{glowing star}\twemoji{glowing star}$\star$$\star$}
   \begin{columns}[T]
     \column{0.5\textwidth}
-    \begin{block}{能做什么 ✓}
+    \begin{block}{能做什么 \twemoji{check mark}}
       \begin{itemize}
         \item 根据规格生成 RTL 模块骨架
         \item 生成 FSM 的 RTL 实现
@@ -637,11 +650,11 @@
     \end{block}
 
     \column{0.5\textwidth}
-    \begin{alertblock}{不能做什么 ✗}
+    \begin{alertblock}{不能做什么 \twemoji{cross mark}}
       \begin{itemize}
         \item 生成 RTL 不能直接综合（须审查时序/面积/功耗）
         \item 不理解综合约束（clock gating, retiming, pipeline balance）
-        \item CDC 容易出错——数字设计最危险区域
+        \item CDC 容易出错------数字设计最危险区域
         \item 不理解 SDC（false path, multicycle path）
       \end{itemize}
     \end{alertblock}
@@ -651,7 +664,7 @@
   RTL 骨架有用，\textbf{必须人工审查}。
 \end{frame}
 
-\begin{frame}{数字 IC 设计：UVM 验证 ★★★★☆}
+\begin{frame}{数字 IC 设计：UVM 验证 \twemoji{glowing star}\twemoji{glowing star}\twemoji{glowing star}\twemoji{glowing star}$\star$}
   \begin{block}{UVM 是数字 IC 中 LLM 收益最高的场景}
     \begin{itemize}
       \item 根据接口定义自动生成 UVM driver/monitor/scoreboard 骨架
@@ -664,8 +677,8 @@
 
   \vspace{0.3em}
   \begin{keypoint}
-    UVM 模板代码量大、重复性高——\textbf{这正是 LLM 擅长的事}。\\
-    SVA 语法复杂、容易写错——LLM 辅助可降低门槛。\\
+    UVM 模板代码量大、重复性高------\textbf{这正是 LLM 擅长的事}。\\
+    SVA 语法复杂、容易写错------LLM 辅助可降低门槛。\\
     风险：可能生成「看起来对但测不到关键场景」的 testbench。
   \end{keypoint}
 \end{frame}
@@ -673,7 +686,7 @@
 \begin{frame}{软件/基础设施场景}
   \begin{columns}[T]
     \column{0.5\textwidth}
-    \begin{block}{Linux 运维与 DevOps ★★★★★}
+    \begin{block}{Linux 运维与 DevOps \twemoji{glowing star}\twemoji{glowing star}\twemoji{glowing star}\twemoji{glowing star}\twemoji{glowing star}}
       \begin{itemize}
         \item Shell/Python 自动化脚本
         \item Dockerfile, docker-compose.yml
@@ -684,7 +697,7 @@
     \end{block}
 
     \column{0.5\textwidth}
-    \begin{block}{仿真任务调度 ★★★★☆}
+    \begin{block}{仿真任务调度 \twemoji{glowing star}\twemoji{glowing star}\twemoji{glowing star}\twemoji{glowing star}$\star$}
       \begin{itemize}
         \item LSF/SGE/Slurm 任务提交脚本
         \item Regression 管理脚本
@@ -717,9 +730,9 @@
     \column{0.48\textwidth}
     \begin{block}{为什么不能仅靠模型参数记忆？}
       \begin{itemize}
-        \item 压缩是有损的——细节会丢失
+        \item 压缩是有损的------细节会丢失
         \item 无法区分记忆中的正确/错误信息
-        \item 「知识截止日期」——训练后发布的文档不知道
+        \item 「知识截止日期」------训练后发布的文档不知道
         \item \textbf{幻觉 (Hallucination)}：编造看似合理的答案
       \end{itemize}
     \end{block}
@@ -749,8 +762,8 @@
     \column{0.48\textwidth}
     \begin{block}{Embedding：语义映射}
       \begin{itemize}
-        \item 「时钟域交叉」↔「CDC」→ 相近向量
-        \item 「Bandgap 温度系数」↔「TC」→ 相近向量
+        \item 「时钟域交叉」$\leftrightarrow$「CDC」$\rightarrow$ 相近向量
+        \item 「Bandgap 温度系数」$\leftrightarrow$「TC」$\rightarrow$ 相近向量
         \item 推荐：BGE-M3 或 text2vec-large-chinese（多语言）
       \end{itemize}
     \end{block}
@@ -788,7 +801,7 @@
 
   \begin{block}{推荐}
     PoC 阶段：Chroma 或 FAISS；生产阶段：Qdrant 或 pgvector。\\
-    \textbf{不推荐 Milvus 给初创}——依赖太多（etcd + MinIO + Pulsar），运维负担过重。
+    \textbf{不推荐 Milvus 给初创}------依赖太多（etcd + MinIO + Pulsar），运维负担过重。
   \end{block}
 \end{frame}
 
@@ -807,7 +820,7 @@
   \]
 
   \begin{enumerate}
-    \item 用户目标 → Agent 规划步骤 → 调用工具 → 观察结果 → 调整计划 → 循环至完成
+    \item 用户目标 $\rightarrow$ Agent 规划步骤 $\rightarrow$ 调用工具 $\rightarrow$ 观察结果 $\rightarrow$ 调整计划 $\rightarrow$ 循环至完成
   \end{enumerate}
 \end{frame}
 
@@ -842,9 +855,9 @@
   \end{center}
 
   \begin{itemize}
-    \item \textcolor{darkgreen}{● 绿圈} = 只读自动化（安全）：读 log、读报告、搜索文档
-    \item \textcolor{gold}{● 黄圈} = 写入需人工审核：修改 constraint/RTL/提交代码
-    \item \textcolor{darkred}{● 红圈} = 禁止自动化：自动修改 tapeout 数据
+    \item \textcolor{darkgreen}{\twemoji{black circle} 绿圈} = 只读自动化（安全）：读 log、读报告、搜索文档
+    \item \textcolor{gold}{\twemoji{black circle} 黄圈} = 写入需人工审核：修改 constraint/RTL/提交代码
+    \item \textcolor{darkred}{\twemoji{black circle} 红圈} = 禁止自动化：自动修改 tapeout 数据
   \end{itemize}
 
   \vspace{0.3em}
@@ -884,13 +897,13 @@
 \section{最终建议方案}
 
 % -------------------- 方案 A --------------------
-\begin{frame}{方案 A：最低成本 PoC（¥25K--¥35K）}
+\begin{frame}{方案 A：最低成本 PoC（\textyen{}25K--\textyen{}35K）}
   \small
   \begin{columns}[T]
     \column{0.45\textwidth}
     \begin{block}{硬件配置}
       \begin{itemize}
-        \item \textbf{GPU}：1$\times$RTX 4090 24GB（约 ¥13K）
+        \item \textbf{GPU}：1$\times$RTX 4090 24GB（约 \textyen{}13K）
         \item \textbf{CPU}：Ryzen 9 7950X 或 i9-14900K
         \item \textbf{RAM}：64GB DDR5
         \item \textbf{存储}：2TB NVMe SSD
@@ -917,7 +930,7 @@
 \end{frame}
 
 % -------------------- 方案 B --------------------
-\begin{frame}{方案 B：初创公司推荐方案（¥60K--¥100K）}
+\begin{frame}{方案 B：初创公司推荐方案（\textyen{}60K--\textyen{}100K）}
   \small
   \begin{columns}[T]
     \column{0.45\textwidth}
@@ -978,9 +991,9 @@
       \toprule
       \textbf{维度}     & \textbf{自建（RTX 4090）}    & \textbf{云 GPU（A10 等效）} \\
       \midrule
-      硬件成本           & ¥13K（一次性）              & ¥0                         \\
-      月费               & ¥300（电费）                & ¥5K--¥8K（24/7）          \\
-      回本周期           & —                           & \textbf{2--3 个月}          \\
+      硬件成本           & \textyen{}13K（一次性）              & \textyen{}0                         \\
+      月费               & \textyen{}300（电费）                & \textyen{}5K--\textyen{}8K（24/7）          \\
+      回本周期           & ---                           & \textbf{2--3 个月}          \\
       数据安全           & 完全本地                    & 需评估（VPC 内可接受）      \\
       运维               & 需要 Linux 基础             & 云厂商负责                  \\
       扩展性             & 有限（加卡即可）            & 弹性                        \\
@@ -1000,13 +1013,13 @@
   \end{center}
 
   \begin{enumerate}
-    \item \textbf{RAG 知识库建设}（最高优先级，即刻开始）— 投入产出比最高
-    \item \textbf{代码补全（IDE 集成）}（高优先级）— 工程师每天可感受到的提效
-    \item \textbf{UVM/验证自动化}（高优先级）— 验证代码量大且模式化
-    \item \textbf{脚本/DevOps 自动化}（高优先级）— 安全、高效、通用
-    \item \textbf{Agent（log 分析/报告）}（中优先级）— 非关键路径实验
-    \item \textbf{微调 Fine-tuning}（中低优先级）— 积累够 IC 领域数据后再做
-    \item \textbf{RTL 自动生成}（低优先级，高风险）— 当前不推荐
+    \item \textbf{RAG 知识库建设}（最高优先级，即刻开始）--- 投入产出比最高
+    \item \textbf{代码补全（IDE 集成）}（高优先级）--- 工程师每天可感受到的提效
+    \item \textbf{UVM/验证自动化}（高优先级）--- 验证代码量大且模式化
+    \item \textbf{脚本/DevOps 自动化}（高优先级）--- 安全、高效、通用
+    \item \textbf{Agent（log 分析/报告）}（中优先级）--- 非关键路径实验
+    \item \textbf{微调 Fine-tuning}（中低优先级）--- 积累够 IC 领域数据后再做
+    \item \textbf{RTL 自动生成}（低优先级，高风险）--- 当前不推荐
   \end{enumerate}
 \end{frame}
 
@@ -1015,7 +1028,7 @@
   \begin{alertblock}{这些不是工程，是科幻}
     \begin{itemize}
       \item \textbf{「AI 自动设计芯片」}：芯片涉及物理约束、工艺特性、多物理场仿真，LLM 无法替代
-      \item \textbf{「AI 替代 SPICE 仿真」}：SPICE 解微分方程，LLM 做概率性 token 预测——本质不同
+      \item \textbf{「AI 替代 SPICE 仿真」}：SPICE 解微分方程，LLM 做概率性 token 预测------本质不同
       \item \textbf{「AI 自动发现新电路拓扑」}：目前没有可信证据
       \item \textbf{「AI 替代资深工程师」}：AI 是工具，放大工程师能力，不是替代判断
     \end{itemize}
@@ -1039,7 +1052,7 @@
       \textbf{结论：AI 不是壁垒。你的电路设计能力、IP 积累、工程师经验、内部知识体系才是壁垒。}
 
       \vspace{0.5em}
-      AI 是一个 \textbf{force multiplier}——它让强者更强，但不能让弱者变成强者。
+      AI 是一个 \textbf{force multiplier}------它让强者更强，但不能让弱者变成强者。
 
       \begin{itemize}
         \item 没有深厚设计积累的公司，用了 AI 也不会突然设计出好的 SerDes。
@@ -1055,17 +1068,17 @@
 % -------------------- 最后建议 --------------------
 \begin{frame}{最后的话：行动起来}
   \begin{enumerate}
-    \item \textbf{先花 ¥25K 做 PoC}。买 RTX 4090，装 Ubuntu，部署 vLLM + Qwen2.5-Coder-32B + Open WebUI。3--5 个工程师试用一个月。
+    \item \textbf{先花 \textyen{}25K 做 PoC}。买 RTX 4090，装 Ubuntu，部署 vLLM + Qwen2.5-Coder-32B + Open WebUI。3--5 个工程师试用一个月。
 
-    \item \textbf{反馈正面} → 升级方案 B（双卡或 RTX 5090），建设 RAG 知识库。
+    \item \textbf{反馈正面} $\rightarrow$ 升级方案 B（双卡或 RTX 5090），建设 RAG 知识库。
 
-    \item \textbf{反馈负面} → ¥25K 显卡给工程师当深度学习工作站，不会浪费。
+    \item \textbf{反馈负面} $\rightarrow$ \textyen{}25K 显卡给工程师当深度学习工作站，不会浪费。
 
-    \item \textbf{不要 PoC 前就规划「企业级 AI 平台」}——过度设计是初创公司最常见错误。
+    \item \textbf{不要 PoC 前就规划「企业级 AI 平台」}------过度设计是初创公司最常见错误。
 
-    \item \textbf{不要低估「整理内部文档」的价值}——对新人培训、知识传承、设计复用都有巨大价值。
+    \item \textbf{不要低估「整理内部文档」的价值}------对新人培训、知识传承、设计复用都有巨大价值。
 
-    \item \textbf{AI 是 2026 年的基础设施}——就像 2010 年的 Git、2015 年的 CI/CD。早投入、早受益，但不要期待奇迹。
+    \item \textbf{AI 是 2026 年的基础设施}------就像 2010 年的 Git、2015 年的 CI/CD。早投入、早受益，但不要期待奇迹。
   \end{enumerate}
 \end{frame}
 
@@ -1088,7 +1101,7 @@
     \rule{0.5\textwidth}{0.4pt}
 
     \vspace{0.5em}
-    \textit{文档版本：v1.0 — 2026-05-17}
+    \textit{文档版本：v1.0 --- 2026-05-17}
 
     \textit{适用对象：初创 IC 设计公司技术决策者}
 

@@ -1,0 +1,1155 @@
+% ============================================================
+%  LaTeX Beamer 演示模板 —— 完整功能教学版
+%  编译引擎：XeLaTeX（支持中文，UTF-8 编码）
+%  编译命令：xelatex beamer-template.tex
+%  屏幕比例：16:9（宽屏）
+%  作者：GitHub Copilot
+%  日期：2026-05-18
+%
+%  本模板涵盖 Beamer 的绝大多数常用功能，每个部分均有
+%  详细的注释说明，适合 LaTeX 初学者系统学习 Beamer。
+% ============================================================
+
+% ============================================================
+%  第 1 部分：文档类（Document Class）
+% ============================================================
+%
+%  Beamer 是 LaTeX 的演示文稿文档类。
+%  关键选项说明：
+%   - UTF8          : 启用 UTF-8 编码支持（配合 xelatex）
+%   - 11pt          : 正文默认字号，可选 8pt/9pt/10pt/11pt/12pt/14pt/17pt/20pt
+%   - aspectratio=169 : 屏幕比例，可选 43(4:3) / 169(16:9) / 1610(16:10) / 32(3:2) / 149(14:9)
+%   - handout       : （已注释）生成讲义版本，无动画叠层
+%   - t / trans     : （可选）使用 transparency 模式
+%   - compress      : （可选）压缩导航栏
+%
+\documentclass[UTF8,11pt,aspectratio=169]{beamer}
+% 如需生成讲义版本（去掉逐层动画，所有叠层合并），取消下一行注释：
+% \documentclass[UTF8,11pt,aspectratio=169,handout]{beamer}
+
+% ============================================================
+%  第 2 部分：中文与字体设置
+% ============================================================
+%
+%  xeCJK 是在 XeLaTeX 下处理中日韩文字的标准方案。
+%  字体名称是 macOS 系统自带的——Windows/Linux 用户需
+%  替换为对应平台的字体名。
+%
+\usepackage{xeCJK}                          % 中日韩文字支持
+\setCJKmainfont{Songti SC}                  % 正文中文字体：宋体（macOS）
+% \setCJKmainfont{SimSun}                   % Windows：宋体
+\setCJKsansfont{Heiti SC}                   % 无衬线中文字体：黑体（macOS）
+% \setCJKsansfont{SimHei}                   % Windows：黑体
+\setCJKmonofont{STFangsong}                 % 等宽中文字体：仿宋（macOS）
+% \setCJKmonofont{FangSong}                 % Windows：仿宋
+
+% ============================================================
+%  第 3 部分：主题（Theme）与配色（Color Theme）
+% ============================================================
+%
+%  Beamer 通过三层设定来控制外观：
+%   1. 整体主题（Theme）      —— 布局、导航栏、标题样式
+%   2. 配色主题（Color Theme）—— 各元素的颜色
+%   3. 字体主题（Font Theme） —— 字体组合
+%
+%  ---- 常用整体主题（取消注释即可切换） ----
+% \usetheme{Madrid}            % 经典蓝色导航栏，简洁专业（当前使用）
+% \usetheme{Berlin}          % 顶部有导航点的横向条
+% \usetheme{Copenhagen}      % 类似 Madrid 但更柔和
+% \usetheme{Singapore}       % 极简风格
+% \usetheme{Warsaw}          % 有阴影效果的大导航栏
+% \usetheme{AnnArbor}        % 蓝色与黄色搭配
+% \usetheme{Pittsburgh}      % 右侧竖条
+% \usetheme{Rochester}       % 宽横幅导航
+% \usetheme{Boadilla}        % 简洁优雅
+\usetheme{Darmstadt}       % 带有平滑导航栏
+%
+%  特别推荐：metropolis 是一个现代扁平化主题（需单独安装）
+% \usetheme{metropolis}      % 需先安装：https://github.com/matze/mtheme
+
+% ---- 配色主题（与 Madrid 配合良好） ----
+\usecolortheme{whale}        % 深蓝色调（当前使用）
+% 其他常用配色：dolphin / seahorse / orchid / crane / beaver
+
+% ---- 字体主题 ----
+\usefonttheme{professionalfonts}  % 使用系统安装的字体，而非 Beamer 默认替换
+% 其他可选：serif / structurebold / structureitalicserif
+
+% ---- 自定义颜色（可用于文本、block、表格等） ----
+\definecolor{darkgreen}{RGB}{0,128,0}       % 深绿色
+\definecolor{darkred}{RGB}{180,0,0}         % 深红色
+\definecolor{darkblue}{RGB}{0,0,139}        % 深蓝色
+\definecolor{gold}{RGB}{200,150,0}          % 金色
+\definecolor{mygray}{RGB}{245,245,245}      % 浅灰色（代码块背景）
+
+% ---- 图标设置（调整导航符号显示） ----
+% \setbeamertemplate{navigation symbols}{}    % 隐藏右下角导航符号（更简洁）
+% \setbeamertemplate{navigation symbols}[vertical]  % 垂直排列
+\setbeamertemplate{navigation symbols}[horizontal] % 水平排列（默认）
+
+% ---- 调整标题页和帧标题的样式 ----
+% \setbeamercolor{frametitle}{fg=white,bg=darkblue}  % 帧标题白字蓝底
+
+% ============================================================
+%  第 4 部分：常用宏包
+% ============================================================
+%
+%  以下按功能分组列出，注释说明了每个宏包的核心用途。
+%
+
+% ---------- 图形与绘图 ----------
+\usepackage{graphicx}        % 插入外部图片 \includegraphics
+\usepackage{tikz}            % 矢量绘图引擎
+\usetikzlibrary{
+    positioning,             % 相对定位（above=of, right=of 等）
+    calc,                    % 坐标计算（$...$）
+    shapes.geometric,        % 几何形状节点（椭圆、菱形等）
+    arrows.meta,             % 新版箭头样式（Stealth, Latex 等）
+    backgrounds,             % 背景层（用于衬底）
+    fit,                     % 包围盒（fit 多个节点）
+    chains                   % 链式节点排列
+}
+% \usepackage{subcaption}      % ⚠️ 不要在 Beamer 中使用 subcaption！与 Beamer 冲突
+
+% ---------- 表格 ----------
+\usepackage{booktabs}        % 三线表：\toprule \midrule \bottomrule
+\usepackage{tabularx}        % 可伸缩列宽的表格
+\usepackage{multirow}        % 纵向合并单元格
+\usepackage{array}           % 增强列格式（>{\centering}m{2cm} 等）
+\usepackage[table]{xcolor}   % 表格行/列/单元格着色
+
+% ---------- 数学 ----------
+\usepackage{amsmath,amssymb} % AMS 数学宏包（公式对齐、数学符号）
+\usepackage{mathtools}       % 增强数学排版（\coloneqq, \DeclarePairedDelimiter 等）
+
+% ---------- 代码与列表 ----------
+\usepackage{listings}        % 源代码语法高亮
+\lstset{                     % 全局代码块样式设定
+    basicstyle=\ttfamily\small,          % 代码字体：等宽小号
+    keywordstyle=\color{blue}\bfseries,  % 关键字：蓝色加粗
+    commentstyle=\color{darkgreen},      % 注释：深绿色
+    stringstyle=\color{darkred},         % 字符串：深红色
+    numbers=left,                        % 行号在左侧
+    numberstyle=\tiny\color{gray},       % 行号样式
+    backgroundcolor=\color{mygray},      % 背景色
+    breaklines=true,                     % 长行自动换行
+    frame=single,                        % 单线边框
+    tabsize=2                            % Tab 宽度
+}
+% \usepackage{enumitem}        % ⚠️ 不要在 Beamer 中加载 enumitem！会与 Beamer 的列表机制冲突
+
+% ---------- 链接与引用 ----------
+\usepackage{hyperref}        % 超链接支持
+\hypersetup{
+    colorlinks=true,         % 链接着色（而非方框）
+    linkcolor=darkblue,      % 内部链接颜色
+    urlcolor=darkblue        % URL 链接颜色
+}
+
+% ---------- 其他工具 ----------
+\usepackage{multirow}        % 已在表格部分；确保加载
+\usepackage{bookmark}        % PDF 书签（替代 hyperref 的书签功能）
+\usepackage{twemojis}
+
+% ============================================================
+%  第 5 部分：文档信息（标题页数据）
+% ============================================================
+%
+%  这些命令定义的信息会出现在 \titlepage 中。
+%  方括号 [] 中的是短版本，用于页脚或导航栏。
+%
+\title[Beamer 模板教学]{LaTeX Beamer 完整功能演示模板}
+%      [短标题（可选）] {完整标题（必需）}
+
+\subtitle{从入门到精通 —— 涵盖幻灯片制作的所有核心功能}
+% 副标题（可选），会以小号字显示在标题下方
+
+\author[GitHub Copilot]{GitHub Copilot}
+%      [短作者名]        {完整作者名}
+
+\date{\today}                                % 日期：\today 表示编译当天
+% \date{2026年5月18日}                       % 也可手动指定
+
+\institute{数字IC 设计}                      % 机构/单位（可选）
+% \institute[短机构名]{完整机构名}
+
+\titlegraphic{\vspace*{-1cm}}                % 标题页底部图形（留空以去掉默认线）
+% \titlegraphic{\includegraphics[width=2cm]{logo.png}}  % 也可插入 Logo
+
+% ============================================================
+%  第 6 部分：自定义命令与环境
+% ============================================================
+%
+%  自定义命令可以大幅提高写作效率。
+%
+
+% ---- 6.1 自定义快捷命令 ----
+\newcommand{\beamer}{Beamer}                 % 用 \beamer 替代 Beamer（保持格式）
+\newcommand{\latex}{\LaTeX}                  % 简写
+\newcommand{\xelatex}{Xe\LaTeX}              % 简写
+\newcommand{\important}[1]{\textcolor{red}{\textbf{#1}}}
+                                             % 以红色加粗突出显示文字
+
+% ---- 6.2 自定义 Block 环境 ----
+%  创建语义化的彩色框，在文档中用 \begin{keypoint}...\end{keypoint} 调用
+\newenvironment{keypoint}{
+    \begin{block}{\textbf{\twemoji{key} 关键结论}}
+}{
+    \end{block}
+}
+
+\newenvironment{warningblock}{
+    \begin{alertblock}{\textbf{\twemoji{warning}️ 注意}}
+}{
+    \end{alertblock}
+}
+
+\newenvironment{tip}{
+    \begin{exampleblock}{\textbf{\twemoji{light bulb} 提示}}
+}{
+    \end{exampleblock}
+}
+
+% ---- 6.3 自定义 Beamer 模板（进阶） ----
+%  修改脚注显示格式
+\setbeamertemplate{footline}[frame number]
+% 其他可选：infolines / split / text line
+
+% ---- 6.4 表格中数字按小数点对齐的命令 ----
+%  来自 siunitx 宏包（如需要可取消注释）
+% \usepackage{siunitx}
+% \newcommand{\numtab}[1]{\num{#1}}
+
+% ============================================================
+%  第 7 部分：目录（Table of Contents）自动化
+% ============================================================
+%
+%  以下设置让 Beamer 在每个 section 开始前自动显示目录页，
+%  并高亮当前章节（currentsection）。
+%
+\AtBeginSection[]{
+    \begin{frame}{目录}
+        %  \tableofcontents 自动生成目录
+        %  currentsection 选项：只显示当前 section 并高亮
+        \tableofcontents[currentsection]
+    \end{frame}
+}
+
+%  如果也想在 subsection 前显示目录：
+% \AtBeginSubsection[]{
+%     \begin{frame}{目录}
+%         \tableofcontents[currentsection,currentsubsection]
+%     \end{frame}
+% }
+
+% ============================================================
+%  文档正文开始
+% ============================================================
+\begin{document}
+
+% ============================================================
+%  幻灯片 0：标题页
+% ============================================================
+\begin{frame}
+    \titlepage
+    %  \titlepage 自动使用 \title, \subtitle, \author, \date, \institute
+\end{frame}
+
+% ============================================================
+%  幻灯片 1：概览目录页
+% ============================================================
+\begin{frame}{目录}{本演示的结构概览}
+    % 第一个 {} 是帧标题，第二个 {} 是帧副标题（可选）
+    \tableofcontents
+    %  不带任何选项：显示完整目录
+\end{frame}
+
+% ============================================================
+%  SECTION 1：基础幻灯片结构
+% ============================================================
+\section{基础幻灯片结构}
+
+% ---- 1.1 文本与段落 ----
+%  [fragile] 必需：因为 frame 中使用了 \verb 命令
+\begin{frame}[fragile]{文本与段落}{基础排版要素}
+    %
+    %  \frametitle{...} 和 \framesubtitle{...} 是 frame 环境中
+    %  替代 {} 传参的另一种写法。
+    %
+
+    % --- 普通文本 ---
+    这是普通正文文本。Beamer 默认使用无衬线（Sans-serif）字体，
+    适合屏幕投影阅读。
+
+    % --- 段落间距 ---
+    这是第二段。
+    在 Beamer 中，空行表示新段落，但段落间距通常比 article 类小。
+
+    % --- 强调文本 ---
+    \begin{itemize}
+        \item \textbf{粗体}：使用 \verb|\textbf{...}|
+        \item \textit{斜体}：使用 \verb|\textit{...}|
+        \item \texttt{等宽}：使用 \verb|\texttt{...}|
+        \item \textcolor{blue}{颜色}：使用 \verb|\textcolor{blue}{...}|
+        \item \alert{警告色}：使用 \verb|\alert{...}|（自动使用主题警示色）
+        \item \important{自定义高亮}：使用我们定义的 \verb|\important{...}|
+    \end{itemize}
+\end{frame}
+
+% ---- 1.2 列表 ----
+\begin{frame}{列表环境}{有序列表与无序列表}
+    %
+    %  Beamer 中列表是逐步显示的（默认 pause 逐条）。
+    %  如需一次性显示全部，可用 [<+->] 或去掉逐层标记。
+    %
+
+    % --- 无序列表 (itemize) ---
+    无序列表（itemize）：
+    \begin{itemize}
+        \item 第一项：itemize 默认使用三角形符号
+        \item 第二项：嵌套列表
+        \begin{itemize}
+            \item 子项 1 —— 二级列表用短横线
+            \item 子项 2
+        \end{itemize}
+        \item 第三项：可以包含公式 $E = mc^2$
+    \end{itemize}
+
+    % --- 有序列表 (enumerate) ---
+    有序列表（enumerate）：
+    \begin{enumerate}
+        \item 步骤一：定义问题
+        \item 步骤二：设计方案
+        \begin{enumerate}
+            \item 方案 A：简单直接
+            \item 方案 B：复杂但灵活
+        \end{enumerate}
+        \item 步骤三：实施并验证
+    \end{enumerate}
+\end{frame}
+
+% ---- 1.3 分栏布局 ----
+\begin{frame}{分栏布局}{columns 环境的使用}
+    %
+    %  columns 是 Beamer 中最常用的布局工具。
+    %  每一列的宽度用 \textwidth 的比例来指定。
+    %
+
+    \begin{columns}[T]  % [T] = 顶部对齐, [c] = 居中, [b] = 底部对齐, [onlytextwidth]
+        %
+        % ---- 左栏 50% ----
+        \begin{column}{0.5\textwidth}
+            \textbf{左栏内容}：
+            \begin{itemize}
+                \item 分栏是并排展示信息的
+                \item 最佳方式
+                \item 常用于图文并排
+                \item 或中英文对照
+                \item 或方案对比
+            \end{itemize}
+        \end{column}
+        %
+        % ---- 右栏 50% ----
+        \begin{column}{0.5\textwidth}
+            \textbf{右栏内容}：
+            \begin{enumerate}
+                \item 左侧是列表
+                \item 右侧也可以是列表
+                \item 两侧内容完全独立
+                \item 排版灵活度极高
+            \end{enumerate}
+            \vspace{0.3cm}
+            \centering
+            \alert{中间也可以放强调文字}
+        \end{column}
+    \end{columns}
+
+    \vspace{0.5cm}
+    % 分栏下方仍然可以放内容
+    \hrule
+    \vspace{0.3cm}
+    \small 提示：列宽之和不超过页面文本宽度，否则会溢出。
+\end{frame}
+
+% ---- 1.4 三栏布局 ----
+\begin{frame}{三栏布局}{灵活的多栏设计}
+    \begin{columns}[T]
+        \begin{column}{0.3\textwidth}
+            \centering
+            \textbf{列 1} \\
+            \vspace{0.3cm}
+            宽度 30\%，适合放图片或简短要点。
+        \end{column}
+        \begin{column}{0.4\textwidth}
+            \centering
+            \textbf{列 2（最宽）} \\
+            \vspace{0.3cm}
+            宽度 40\%，适合放主要内容。
+            可以包含较长的文本描述。
+        \end{column}
+        \begin{column}{0.3\textwidth}
+            \centering
+            \textbf{列 3} \\
+            \vspace{0.3cm}
+            宽度 30\%，数据或补充说明。
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% ============================================================
+%  SECTION 2：块环境
+% ============================================================
+\section{块环境（Blocks）}
+
+% ---- 2.1 三种标准 Block ----
+\begin{frame}{三种标准 Block}{block / alertblock / exampleblock}
+    %
+    %  Block 是 Beamer 的核心视觉元素，用于将内容组织在
+    %  带标题的彩色框内。
+    %
+
+    % --- 普通 Block（蓝色） ---
+    \begin{block}{普通 Block}
+        这是普通 block 环境，标题背景使用主题主色调。
+        适合展示一般性结论或定义。
+    \end{block}
+
+    % --- 警示 Block（红色） ---
+    \begin{alertblock}{警示 Block}
+        这是 alertblock 环境，标题背景使用警示色（红色）。
+        适合展示警告、注意事项。
+    \end{alertblock}
+
+    % --- 示例 Block（绿色） ---
+    \begin{exampleblock}{示例 Block}
+        这是 exampleblock 环境，标题背景使用示例色（绿色）。
+        适合展示示例、正面案例。
+    \end{exampleblock}
+
+    % --- 自定义语义 Block（使用前文定义的 keypoint 环境） ---
+    \begin{keypoint}
+        使用自定义 block 环境可以实现语义化标记，
+        比如这个"关键结论"块。
+    \end{keypoint}
+\end{frame}
+
+% ---- 2.2 Block 内嵌复杂内容 ----
+\begin{frame}{Block 内嵌复杂内容}{列表、公式、表格皆可放入 Block}
+    %
+    \begin{block}{Block 可包含多种内容}
+        \begin{itemize}
+            \item Block 内部可以放列表
+            \item 也可以放数学公式：
+            \[
+                \int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi}
+            \]
+            \item 甚至放小型表格：
+            \begin{center}
+            \begin{tabular}{c|c}
+                \toprule
+                参数 & 值 \\
+                \midrule
+                $\alpha$ & 0.05 \\
+                $\beta$  & 0.95 \\
+                \bottomrule
+            \end{tabular}
+            \end{center}
+        \end{itemize}
+    \end{block}
+\end{frame}
+
+% ============================================================
+%  SECTION 3：表格
+% ============================================================
+\section{表格}
+
+% ---- 3.1 三线表 ----
+\begin{frame}{三线表}{booktabs 专业表格}
+    %
+    %  booktabs 提供 \toprule（顶线，粗）、\midrule（中线，细）、
+    %  \bottomrule（底线，粗），比默认 \hline 更专业。
+    %
+    \begin{table}
+        \centering
+        \caption{各种 LaTeX 宏包的功能分类}
+        \begin{tabular}{lll}
+            % l = 左对齐, c = 居中, r = 右对齐, p{2cm} = 固定宽度
+            \toprule
+            \textbf{分类}    & \textbf{宏包}      & \textbf{功能}       \\
+            \midrule
+            表格             & booktabs           & 三线表专业排版      \\
+                             & tabularx           & 可伸缩列宽          \\
+                             & multirow           & 纵向合并单元格      \\
+            \addlinespace   % 在行间增加额外间距
+            图形             & graphicx           & 插入图片            \\
+                             & tikz               & 矢量绘图            \\
+                             & (minipage)         & 子图并排（替代 subcaption）\\
+            \midrule
+            数学             & amsmath            & 高级数学环境        \\
+                             & amssymb            & 数学符号扩展        \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+\end{frame}
+
+% ---- 3.2 合并单元格与着色 ----
+\begin{frame}{合并单元格与着色}{multirow + 颜色}
+    %
+    \begin{table}
+        \centering
+        \caption{多行合并与行着色示例}
+        \begin{tabular}{c|c|c}
+            \toprule
+            \textbf{阶段} & \textbf{任务}     & \textbf{负责人} \\
+            \midrule
+            \multirow{3}{*}{阶段一}
+                & 需求分析  & 张三 \\
+                & 方案设计  & 张三 \\
+                & 评审      & 李四 \\
+            \midrule
+            \rowcolor{blue!10}  % 整行浅蓝背景
+            \multirow{2}{*}{阶段二}
+                & 开发      & 王五 \\
+            \rowcolor{blue!10}
+                & 测试      & 赵六 \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+\end{frame}
+
+% ============================================================
+%  SECTION 4：图片与图形
+% ============================================================
+\section{图片与图形}
+
+% ---- 4.1 插入图片 ----
+%  [fragile] 必需：因为 frame 中使用了 \verb 命令
+\begin{frame}[fragile]{插入图片}{\texttt{\textbackslash includegraphics} 命令}
+    %
+    \begin{columns}[T]
+        \begin{column}{0.5\textwidth}
+            \begin{itemize}
+                \item 支持的格式：PDF、PNG、JPG、EPS
+                \item \verb|width|：指定宽度
+                \item \verb|height|：指定高度
+                \item \verb|scale|：缩放因子
+                \item \verb|angle|：旋转角度
+                \item \verb|trim|：裁剪
+                \item \verb|clip|：裁剪生效
+                \item \verb|keepaspectratio|：保持宽高比
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            % 用一个彩色色块模拟图片（实际使用时替换为真实图片路径）
+            \centering
+            \begin{tikzpicture}
+                \fill[blue!30] (0,0) rectangle (5,3);
+                \node at (2.5,1.5) {\large\textbf{示例图片}};
+                \node at (2.5,0.8) {\small (请替换为真实图片)};
+            \end{tikzpicture}
+            % 真实用法：
+            % \includegraphics[width=0.9\textwidth,keepaspectratio]{figures/your-image.png}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% ---- 4.2 子图并排 ----
+\begin{frame}{子图并排}{手动实现并排图片}
+    %
+    %  在 Beamer 中，figure 环境不会真正浮动，但提供 caption 功能。
+    %  注意：Beamer 中不要使用 subcaption 宏包（与 Beamer 冲突）。
+    %  手动用 minipage 或 columns 实现子图并排即可。
+    %
+    \begin{figure}
+        \centering
+        % --- 左侧子图（minipage） ---
+        \begin{minipage}{0.45\textwidth}
+            \centering
+            \begin{tikzpicture}[scale=0.6]
+                \fill[red!30]  (0,0) rectangle (4,3);
+                \node at (2,1.5) {图 A};
+            \end{tikzpicture}
+            \caption*{(a) 左侧子图}
+            %  \caption* 来自 Beamer，生成不带编号的标题
+        \end{minipage}
+        \hfill
+        % --- 右侧子图（minipage） ---
+        \begin{minipage}{0.45\textwidth}
+            \centering
+            \begin{tikzpicture}[scale=0.6]
+                \fill[green!30] (0,0) rectangle (4,3);
+                \node at (2,1.5) {图 B};
+            \end{tikzpicture}
+            \caption*{(b) 右侧子图}
+        \end{minipage}
+        \caption{两个子图并排展示（使用 minipage 实现）}
+        \label{fig:sidebyside}
+    \end{figure}
+    %
+    通过 \texttt{minipage} 或 \texttt{columns} 可以在 \texttt{figure} 内部
+    并排放置子图，每个子图可以有自己的子标题。
+\end{frame}
+
+% ============================================================
+%  SECTION 5：数学公式
+% ============================================================
+\section{数学公式}
+
+% ---- 5.1 行内与行间公式 ----
+%  [fragile] 必需：因为 frame 中使用了 \verb 命令
+\begin{frame}[fragile]{行内与行间公式}{公式的两种模式}
+    %
+    % --- 行内公式（Inline Math） ---
+    行内公式：$f(x) = x^2 + 2x + 1$ 嵌入在文本中。
+
+    带编号的行间公式：
+    \begin{equation}
+        \label{eq:quadratic}
+        f(x) = ax^2 + bx + c
+    \end{equation}
+    公式 \eqref{eq:quadratic} 是二次函数的标准形式。
+
+    % --- 不带编号的行间公式 ---
+    不带编号的行间公式（使用 \verb|\[ ... \]|）：
+    \[
+        \int_{0}^{\infty} \frac{\sin x}{x}\,dx = \frac{\pi}{2}
+    \]
+\end{frame}
+
+% ---- 5.2 多行公式对齐 ----
+\begin{frame}{多行公式对齐}{align 与 cases 环境}
+    %
+    %  align 环境：用 & 标记对齐点，\\ 换行
+    %
+    \begin{align}
+        (a + b)^2 &= a^2 + 2ab + b^2             \label{eq:binomial1} \\
+        (a - b)^2 &= a^2 - 2ab + b^2             \label{eq:binomial2} \\
+        (a + b)(a - b) &= a^2 - b^2              \label{eq:binomial3}
+    \end{align}
+
+    %  cases 环境：分段函数
+    分段函数示例：
+    \[
+        |x| =
+        \begin{cases}
+             x,  & x \geq 0 \\
+            -x,  & x < 0
+        \end{cases}
+    \]
+\end{frame}
+
+% ---- 5.3 矩阵 ----
+\begin{frame}{矩阵与线性代数}{pmatrix / bmatrix / vmatrix}
+    %
+    \begin{columns}[T]
+        \begin{column}{0.45\textwidth}
+            \textbf{pmatrix（圆括号）}：
+            \[
+            \begin{pmatrix}
+                a_{11} & a_{12} \\
+                a_{21} & a_{22}
+            \end{pmatrix}
+            \]
+            \textbf{bmatrix（方括号）}：
+            \[
+            \begin{bmatrix}
+                1 & 0 & 0 \\
+                0 & 1 & 0 \\
+                0 & 0 & 1
+            \end{bmatrix}
+            \]
+        \end{column}
+        \begin{column}{0.55\textwidth}
+            \textbf{vmatrix（行列式）}：
+            \[
+            \begin{vmatrix}
+                a & b \\
+                c & d
+            \end{vmatrix}
+            = ad - bc
+            \]
+            带省略号的矩阵：
+            \[
+            A_{m \times n} =
+            \begin{pmatrix}
+                a_{11} & \cdots & a_{1n} \\
+                \vdots & \ddots & \vdots \\
+                a_{m1} & \cdots & a_{mn}
+            \end{pmatrix}
+            \]
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% ============================================================
+%  SECTION 6：代码展示
+% ============================================================
+\section{代码展示}
+
+% ---- 6.1 代码块 ----
+%  [fragile] 必需：因为 frame 中使用了 lstlisting 环境
+\begin{frame}[fragile]{源代码展示}{listings 宏包的语法高亮}
+    %
+    \begin{block}{Python 代码示例}
+        %  lstlisting 环境读取代码并应用全局 \lstset 设置
+        \begin{lstlisting}[language=Python,
+            caption={快速排序实现},
+            label={lst:quicksort}]
+def quicksort(arr):
+    """快速排序算法"""
+    if len(arr) <= 1:
+        return arr
+    pivot = arr[len(arr) // 2]
+    left  = [x for x in arr if x < pivot]
+    middle = [x for x in arr if x == pivot]
+    right = [x for x in arr if x > pivot]
+    return quicksort(left) + middle + quicksort(right)
+        \end{lstlisting}
+    \end{block}
+\end{frame}
+
+% ---- 6.2 Verilog 代码 ----
+%  [fragile] 必需：因为 frame 中使用了 lstlisting 环境
+\begin{frame}[fragile]{Verilog 代码展示}{IC 设计常用语言}
+    %
+    \begin{lstlisting}[language=Verilog,
+        caption={D 触发器 Verilog 实现},
+        label={lst:dff}]
+module dff (
+    input  wire clk,
+    input  wire rst_n,
+    input  wire d,
+    output reg  q
+);
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            q <= 1'b0;   // 异步复位
+        else
+            q <= d;       // 数据赋值
+    end
+endmodule
+    \end{lstlisting}
+\end{frame}
+
+% ---- 6.3 行内代码与 verbatim ----
+%  [fragile] 必需：因为 frame 中使用了 \verb 命令
+\begin{frame}[fragile]{行内代码与 Verbatim}{小型代码片段}
+    %
+    \begin{itemize}
+        \item 行内代码：\verb|\includegraphics[width=0.5\textwidth]{img.png}|
+        \item 使用 \verb|\verb| 可以原样输出特殊字符
+        \item \verb|\verb| 的定界符可以是任意相同字符，如 \verb|!$%^!|
+              % 注意：上面的示例用 ! 而不是 | 作为定界符
+        \item 在 Beamer 中，\verb|\verb| 不能用在 frame 的参数中，
+              但可以安全地在 frame 体内部使用
+    \end{itemize}
+
+    \begin{warningblock}
+        \verb|\verb| 命令不能用在 \verb|\section{}|、\verb|\caption{}|
+        等移动参数中，也不能用在其他命令的参数内。
+    \end{warningblock}
+\end{frame}
+
+% ============================================================
+%  SECTION 7：TikZ 矢量绘图
+% ============================================================
+\section{TikZ 矢量绘图}
+
+% ---- 7.1 基本图形 ----
+%  [fragile] 必需：因为 frame 中使用了 \verb 命令
+\begin{frame}[fragile]{TikZ 基本图形}{形状、颜色与线条}
+    %
+    \begin{columns}[T]
+        \begin{column}{0.5\textwidth}
+            \centering
+            \begin{tikzpicture}[scale=0.9]
+                % 矩形
+                \fill[blue!20]  (0,2) rectangle (2,3);
+                \draw[blue,thick] (0,2) rectangle (2,3);
+                \node at (1,2.5) {矩形};
+
+                % 圆形
+                \fill[red!20]   (3.5,2.5) circle (0.7);
+                \draw[red,thick] (3.5,2.5) circle (0.7);
+                \node at (3.5,2.5) {圆形};
+
+                % 椭圆
+                \fill[green!20] (1,0.5) ellipse (1.5 and 0.6);
+                \draw[green,thick] (1,0.5) ellipse (1.5 and 0.6);
+                \node at (1,0.5) {椭圆};
+            \end{tikzpicture}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \textbf{常用绘图元素}：
+            \begin{itemize}
+                \item \verb|\draw| —— 画线/边框
+                \item \verb|\fill| —— 填充区域
+                \item \verb|\node| —— 放置文本
+                \item \verb|\coordinate| —— 定义坐标点
+                \item \verb|rectangle| —— 矩形
+                \item \verb|circle| —— 圆形
+                \item \verb|ellipse| —— 椭圆
+                \item \verb|arc| —— 圆弧
+                \item \verb|--| —— 直线
+                \item \verb|to [bend left]| —— 曲线
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% ---- 7.2 流程图 ----
+\begin{frame}{TikZ 流程图}{节点、箭头与定位}
+    %
+    \centering
+    \begin{tikzpicture}[
+        node distance=1.5cm and 1.2cm,  % 节点间距（垂直 and 水平）
+        box/.style={                    % 自定义样式 "box"
+            rectangle,
+            draw=darkblue,
+            fill=blue!5,
+            thick,
+            minimum width=2.2cm,
+            minimum height=0.8cm,
+            rounded corners=3pt,
+            align=center
+        },
+        arrow/.style={                  % 自定义样式 "arrow"
+            ->,
+            >=Stealth,
+            thick,
+            darkblue
+        }
+    ]
+        % 定义节点（相对定位）
+        \node[box] (A) {需求分析};
+        \node[box, right=of A] (B) {方案设计};
+        \node[box, below=of B] (C) {代码实现};
+        \node[box, left=of C] (D) {测试验证};
+        \node[box, below=of C] (E) {部署上线};
+
+        % 画箭头
+        \draw[arrow] (A) -- (B);
+        \draw[arrow] (B) -- (C);
+        \draw[arrow] (C) -- (D);
+        \draw[arrow] (D) -- (A);
+        \draw[arrow] (C) -- (E);
+    \end{tikzpicture}
+    %
+    \vspace{0.2cm}
+    \small 使用 \texttt{positioning} 库实现相对定位，\texttt{arrows.meta} 实现箭头样式。
+\end{frame}
+
+% ---- 7.3 简单数据图 ----
+\begin{frame}{TikZ 数据示意图}{柱状图}
+    %
+    \centering
+    \begin{tikzpicture}[scale=0.9]
+        % Y 轴
+        \draw[->] (0,0) -- (0,4.5) node[above] {性能指数};
+        % X 轴
+        \draw[->] (0,0) -- (6.5,0) node[right] {方案};
+
+        % 柱状条
+        \foreach \x/\y/\c/\l in {
+            1/2.5/blue!40/A,
+            2/3.8/red!40/B,
+            3/3.0/green!40/C,
+            4/4.0/orange!40/D
+        }{
+            \fill[\c] (\x*1.2-0.3, 0) rectangle (\x*1.2+0.3, \y);
+            \node at (\x*1.2, -0.3) {\l};
+            \node at (\x*1.2, \y+0.2) {\y};
+        }
+        % 虚线参考线
+        \draw[dashed,gray] (0,3.5) -- (5.8,3.5) node[left,black] {3.5};
+    \end{tikzpicture}
+\end{frame}
+
+% ============================================================
+%  SECTION 8：动画与叠层（Overlays）
+% ============================================================
+\section{动画与叠层}
+
+% ---- 8.1 pause 命令 ----
+\begin{frame}{逐项显示：pause 命令}{最简单的动画方式}
+    %
+    %  \pause 是最简单的叠层命令，每遇到一个 \pause
+    %  就把之后的内容放到下一页幻灯片中。
+    %
+    \begin{itemize}
+        \item 第一项：这是第一页就显示的内容
+        \pause
+        \item 第二项：翻页后显示此项
+        \pause
+        \item 第三项：再翻页后显示此项
+        \pause
+        \item 第四项：最终显示此项
+    \end{itemize}
+
+    \pause
+    \alert{每按一次空格/方向键，就显示下一个 \texttt{\textbackslash pause} 后的内容。}
+\end{frame}
+
+% ---- 8.2 叠层规范 ----
+\begin{frame}{叠层规范}{精细控制显示时机}
+    %
+    %  叠层规范（Overlay Specification）使用尖括号 <...>，
+    %  可以精确控制每条内容出现在第几张叠层中。
+    %
+    \begin{itemize}
+        \item<1-> 这张幻灯片共有 5 个叠层
+        \item<2-> <2-> 表示从第 2 层开始显示，之后一直可见
+        \item<3-4> <3-4> 表示只在第 3、4 层可见
+        \item<4-|alert@5> 第 4 层出现，第 5 层高亮（alert）
+        \item<5-> 到这里全部呈现完毕
+    \end{itemize}
+
+    \uncover<3->{%
+        %  \uncover<...> 控制整段内容的显示
+        \begin{block}{动态 Block}
+            这个 block 从第 3 层开始才显示。
+        \end{block}
+    }
+
+    \only<5>{%
+        %  \only<...> 的内容只在指定层出现，不占位
+        \begin{center}
+            \textcolor{darkred}{\textbf{—— 演示结束 ——}}
+        \end{center}
+    }
+\end{frame}
+
+% ---- 8.3 常用叠层修饰 ----
+\begin{frame}{叠层的高级用法}{onslide / only / visible / invisible}
+    %
+    \begin{block}{各种叠层命令对比}
+        \begin{description}
+            \item[\texttt{\textbackslash pause}] 最简单的逐步显示
+            \item[\texttt{\textbackslash onslide<2->}] 在指定叠层显示（占位不占位？需结合使用）
+            \item[\texttt{\textbackslash only<2->}] 只在指定叠层显示（\important{不占空间}）
+            \item[\texttt{\textbackslash uncover<2->}] 在指定叠层显示（\important{占空间}，留白）
+            \item[\texttt{\textbackslash visible<2->}] 与 uncover 类似
+            \item[\texttt{\textbackslash invisible<2->}] 在指定叠层隐藏
+            \item[\texttt{\textbackslash alt<2>}] 不同叠层显示不同内容
+        \end{description}
+    \end{block}
+
+    %  onslide 的实际演示
+    \begin{columns}[T]
+        \begin{column}{0.5\textwidth}
+            \onslide<2->{%
+                \textcolor{darkgreen}{从第 2 层开始显示此文本。}
+            }
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \only<3>{第 3 层：这段文字出现}
+            \only<4>{第 4 层：这段文字替换了上面}
+            \only<5>{第 5 层：再次替换}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% ---- 8.4 列表逐项显示 ----
+\begin{frame}{列表的逐项显示}{itemize 与 enumerate 的叠层}
+    %
+    \begin{itemize}[<+->]
+        % [<+->] 等价于给每个 \item 自动加上 <1->, <2->, ...
+        \item 使用 \texttt{[<+->]} 选项可以让列表自动逐步显示
+        \item 不需要在每个 \texttt{\textbackslash item} 后手动加 \texttt{\textbackslash pause}
+        \item 这样代码更加简洁
+        \item 但所有 item 会均匀占据空间（提前占位）
+    \end{itemize}
+
+    \vspace{0.3cm}
+    对比（手动指定叠层顺序）：
+    \begin{itemize}
+        \item<5-> 此项在第 5 层才出现
+        \item<6-> 此项在第 6 层才出现
+        \item<7-> 此项在第 7 层才出现
+    \end{itemize}
+\end{frame}
+
+% ============================================================
+%  SECTION 9：引用、超链接与参考文献
+% ============================================================
+\section{引用与参考文献}
+
+% ---- 9.1 超链接 ----
+%  [fragile] 必需：因为 frame 中使用了 \verb 命令
+\begin{frame}[fragile]{超链接}{内部与外部链接}
+    %
+    \begin{itemize}
+        \item 外部链接：\href{https://www.latex-project.org}{\latex 官方网站}
+        \item 外部 URL：\url{https://ctan.org/pkg/beamer}
+        \item 内部跳转（到标签 \ref{sec:tips}）：
+              见第 \ref{sec:tips} 节
+        \item PDF 书签由 \verb|hyperref| + \verb|bookmark| 自动生成
+    \end{itemize}
+
+    \begin{tip}
+        所有链接在 PDF 阅读器中均可点击跳转。
+    \end{tip}
+\end{frame}
+
+% ---- 9.2 参考文献 ----
+%  [fragile] 必需：因为 frame 中使用了 \verb 命令
+\begin{frame}[fragile]{参考文献}{BibTeX / biblatex 引用}
+    %
+    在 Beamer 中引用参考文献同样方便：
+
+    \begin{itemize}
+        \item 使用 BibTeX：\verb|\bibliographystyle{ieeetr}| + \verb|\bibliography{refs}|
+        \item 使用 biblatex：在导言区加载 \verb|biblatex| 宏包
+        \item 引用命令：\verb|\cite{key}| 产生编号引用
+        \item 在 frame 中用 \verb|\footcite{key}| 做脚注引用
+    \end{itemize}
+
+    \begin{block}{示例引用格式}
+        \begin{itemize}
+            \item Beamer 用户手册~\cite{beamer-manual}
+            \item \latex 入门指南~\cite{latex-guide}
+            \item TikZ \& PGF 手册~\cite{tikz-manual}
+        \end{itemize}
+    \end{block}
+    % 注意：以下 \cite 引用的是虚拟 key，实际使用时需要对应的 .bib 文件
+\end{frame}
+
+% ============================================================
+%  SECTION 10：实用技巧与最佳实践（带 label）
+% ============================================================
+\section{实用技巧与最佳实践}
+\label{sec:tips}  % 用于前文的交叉引用
+
+\begin{frame}{Beamer 最佳实践}{高效制作专业幻灯片的建议}
+    %
+    \begin{enumerate}[<+->]
+        \item \textbf{内容为王}：每页幻灯片只传达 1--2 个核心观点
+        \item \textbf{少即是多}：避免大段文字，多用列表和图表
+        \item \textbf{统一风格}：全文使用一致的字体、颜色和布局
+        \item \textbf{善用 Block}：用不同的 block 区分信息的性质
+        \item \textbf{合理使用动画}：叠层有助于逐步呈现复杂概念，但不要过度
+        \item \textbf{测试编译}：提交前用 \xelatex 编译两次确保交叉引用正确
+        \item \textbf{备用方案}：同时导出 PDF 作为兜底（不依赖特定阅读器动画）
+    \end{enumerate}
+\end{frame}
+
+\begin{frame}[fragile]{常见编译问题与解决}
+    %  [fragile] 必需：enumerate 中有 \verb 命令
+    \begin{warningblock}
+        \textbf{\xelatex 编译常见问题}：
+        \begin{enumerate}
+            \item \textbf{中文不显示}：检查是否用了 \xelatex（不是 pdflatex）
+            \item \textbf{字体找不到}：根据操作系统更换中文字体名
+            \item \textbf{引用显示 ??}：需要编译两次
+            \item \textbf{Overfull box}：内容超出页宽，考虑换行或缩小字号
+            \item \textbf{lstlisting 出错}：fragile frame 需要加 \verb|[fragile]| 选项
+        \end{enumerate}
+    \end{warningblock}
+
+    \begin{tip}
+        结论：含有 \verb|\verb|、\verb|lstlisting| 等内容的帧，
+        \important{必须在 \texttt{\textbackslash begin\{frame\}} 后加 \texttt{[fragile]} 选项}。
+    \end{tip}
+\end{frame}
+
+% ============================================================
+%  结束页
+% ============================================================
+\begin{frame}[plain]  % [plain] 去掉顶部和底部装饰
+    \centering
+    \vspace{2cm}
+
+    {\Huge \textbf{谢谢！}}  % \Huge 是最大号字体命令
+
+    \vspace{1cm}
+    {\Large 问题与讨论}
+
+    \vspace{1.5cm}
+    {\normalsize
+        GitHub Copilot \\
+        \href{mailto:example@example.com}{example@example.com} \\
+        \vspace{0.3cm}
+        本模板源码可在以下路径找到：\\
+        \texttt{content/template/beamer-template.tex}
+    }
+
+    \vspace{1cm}
+    {\small 编译于 \today}
+\end{frame}
+
+% ============================================================
+%  附录（Appendix）：额外的参考幻灯片
+%  附录中的幻灯片不计入主进度条的总页数
+% ============================================================
+\appendix
+%  \appendix 之后的所有 \section 都会自动标记为"附录"
+
+\begin{frame}[allowframebreaks]{参考文献}
+    %
+    %  allowframebreaks 允许帧内容过长时自动分页
+    %
+    %  如果使用 BibTeX，可以这样：
+    % \bibliographystyle{ieeetr}
+    % \bibliography{references}
+    %
+    %  手动列出参考文献（模拟）：
+    \begin{thebibliography}{99}
+        \bibitem{beamer-manual} Till Tantau et al.,
+            \emph{The Beamer Class: User Guide for version 3.x},
+            \url{https://ctan.org/pkg/beamer}.
+
+        \bibitem{latex-guide} Leslie Lamport,
+            \emph{\latex: A Document Preparation System},
+            Addison-Wesley, 1994.
+
+        \bibitem{tikz-manual} Till Tantau,
+            \emph{The TikZ and PGF Packages},
+            \url{https://ctan.org/pkg/pgf}.
+    \end{thebibliography}
+\end{frame}
+
+\begin{frame}{主题与配色速查表}
+    %
+    \begin{columns}[T]
+        \begin{column}{0.33\textwidth}
+            \textbf{整体主题}：
+            \begin{itemize}
+                \footnotesize
+                \item Madrid
+                \item Berlin
+                \item Copenhagen
+                \item Singapore
+                \item Warsaw
+                \item AnnArbor
+                \item Boadilla
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.33\textwidth}
+            \textbf{配色主题}：
+            \begin{itemize}
+                \footnotesize
+                \item whale
+                \item dolphin
+                \item seahorse
+                \item orchid
+                \item crane
+                \item beaver
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.33\textwidth}
+            \textbf{字体主题}：
+            \begin{itemize}
+                \footnotesize
+                \item default
+                \item professionalfonts
+                \item serif
+                \item structurebold
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% ============================================================
+%  文档结束
+% ============================================================
+\end{document}
