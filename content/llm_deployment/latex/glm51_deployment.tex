@@ -1,0 +1,794 @@
+% XeLaTeX + ctex 中文支持
+\documentclass[UTF8,a4paper,10pt,oneside]{ctexart}
+
+\input{../../../config.tex}
+
+\title{GLM-5.1 本地部署方案深度调研}
+\author{葛良晨 by Claude Code}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+% ------------------ 文档版本历史 ------------------
+\section*{文档版本历史}
+\begin{itemize}
+    \item [2026-05-19] 初始版本，完成 GLM-5.1 模型的本地部署方案全面调研，涵盖架构分析、硬件选型、量化策略、推理框架对比与全场景成本预估。
+\end{itemize}
+
+% ======================================================================
+% 第一章：GLM-5.1 模型概述
+% ======================================================================
+
+\section{GLM-5.1 模型概述}
+
+\subsection{基本信息}
+
+GLM-5.1 是智谱 AI（Z.ai / THUDM）于 2025 年中发布的新一代旗舰大语言模型，定位为"Agentic Engineering（智能体工程）"时代的基座模型。其核心定位是：\textbf{不是单纯的对话模型，而是面向长时间、多轮次、数千次工具调用的自主编程智能体}。
+
+\begin{table}[htbp]
+\centering
+\caption{GLM-5.1 基本信息}
+\begin{tabular}{p{3cm}p{9cm}}
+\hline
+\textbf{项目} & \textbf{详情} \\
+\hline
+开发者 & 智谱 AI (Z.ai / THUDM) \\
+模型架构 & GLM MoE + DSA（DeepSeek Sparse Attention） \\
+总参数量 & 744B（7440 亿） \\
+激活参数量 & 40B（400 亿），每次推理仅激活约 5.4\% 的参数 \\
+精度格式 & BF16（原始）、FP8（官方优化版） \\
+上下文窗口 & 128K tokens \\
+开源协议 & MIT（HuggingFace）/ Apache 2.0（GitHub）\\
+技术报告 & \href{https://arxiv.org/abs/2602.15763}{arXiv:2602.15763} \\
+模型页 & \href{https://huggingface.co/zai-org/GLM-5.1}{huggingface.co/zai-org/GLM-5.1} \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{架构特点：MoE + DSA}
+
+GLM-5.1 的架构标签为 \texttt{glm\_moe\_dsa}，融合了两项核心技术：
+
+\textbf{MoE（Mixture of Experts，混合专家）}：模型包含多个"专家"子网络，每次推理仅激活其中一部分。GLM-5.1 的 744B 总参数中仅有 40B 在单次前向传播中激活，这使得推理计算量仅与 40B 稠密模型相当，而模型的知识容量却达到 744B 级别。这是"大模型能力、小模型成本"的关键设计。
+
+\textbf{DSA（DeepSeek Sparse Attention，深度稀疏注意力）}：源自 DeepSeek 系列的稀疏注意力机制，通过智能选择哪些 Key-Value 对被保留到缓存中，大幅降低了长上下文场景下的 KV Cache 显存占用。官方表述为"largely reducing deployment cost while preserving long-context capacity"。
+
+\subsection{性能定位}
+
+GLM-5.1 在多个权威基准上达到了开源模型的最高水平，甚至在部分指标上超越了闭源商业模型。
+
+\begin{table}[htbp]
+\centering
+\caption{GLM-5.1 核心基准测试成绩}
+\begin{tabular}{p{4.5cm}p{2cm}p{5.5cm}}
+\hline
+\textbf{基准测试} & \textbf{得分} & \textbf{排名/备注} \\
+\hline
+SWE-Bench Pro（软件工程） & 58.4 & \textbf{\#1 SOTA}，超越 Claude Opus 4.6 \\
+CyberGym（网络安全） & 68.7 & \textbf{\#1 SOTA} \\
+BrowseComp（网页理解） & 68.0 & \textbf{\#1 SOTA} \\
+NL2Repo（自然语言到仓库） & 42.7 & \#2，仅次于 Claude Opus 4.6 (49.8) \\
+Terminal-Bench 2.0 & 63.5 & 终端环境编程能力 \\
+AIME 2026（数学竞赛） & 95.3 & 数学推理 \\
+HMMT Feb 2026（数学竞赛）& 82.6 & 数学推理 \\
+GPQA-Diamond（研究生知识）& 86.2 & 知识推理 \\
+HLE（难例评测） & 31.0 & 带工具提升至 52.3 \\
+MCP-Atlas（工具调用） & 71.8 & 多工具协同 \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{关键差异化能力}：GLM-5.1 的设计重心并非单轮对话质量，而是"the longer it runs, the better the result"——在数百轮迭代、数千次工具调用的长时间自主编程任务中，模型不会像前代那样过早陷入局部最优或"迷失方向"。这一特性使其在 SWE-Bench Pro 等需要持续优化的复杂工程任务上取得突破。
+
+\subsection{与竞品模型的参数对比}
+
+\begin{table}[htbp]
+\centering
+\caption{GLM-5.1 与主流开源 MoE 模型参数对比}
+\begin{tabular}{p{2.5cm}p{1.8cm}p{1.8cm}p{2cm}p{2.5cm}}
+\hline
+\textbf{模型} & \textbf{总参数} & \textbf{激活参数} & \textbf{激活比} & \textbf{上下文} \\
+\hline
+GLM-5.1 & 744B & 40B & 5.4\% & 128K \\
+GLM-5 & 744B & 40B & 5.4\% & 128K \\
+GLM-4.5 & 355B & 32B & 9.0\% & 128K \\
+DeepSeek-V3 & 671B & 37B & 5.5\% & 128K \\
+Qwen3-235B & 235B & 22B & 9.4\% & 128K \\
+Mixtral 8$\times$22B & 141B & 39B & 27.7\% & 64K \\
+\hline
+\end{tabular}
+\end{table}
+
+GLM-5.1 的激活比（5.4\%）在同类 MoE 模型中处于极低水平，意味着相同推理成本下可以承载更大的知识容量。但这也意味着\textbf{模型权重的静态存储需求极大}——744B 参数即使不全部激活，也必须全部加载到显存/内存中。
+
+% ======================================================================
+% 第二章：硬件需求分析
+% ======================================================================
+
+\section{硬件需求分析}
+
+\subsection{显存需求的理论计算}
+
+GLM-5.1 作为 744B 参数的 MoE 模型，其显存需求比同级别稠密模型更为复杂。以下是完整的显存占用分解。
+
+\subsubsection{权重部分的显存占用}
+
+\begin{table}[htbp]
+\centering
+\caption{不同精度下 GLM-5.1 权重的显存占用}
+\begin{tabular}{p{2cm}p{3cm}p{3.5cm}p{3.5cm}}
+\hline
+\textbf{精度} & \textbf{每参数字节} & \textbf{纯权重占用} & \textbf{说明} \\
+\hline
+BF16 & 2 bytes & $\approx$1,488 GB & 原始精度，不可单机承载 \\
+FP8 & 1 byte & $\approx$744 GB & 官方优化版，需 8$\times$H100 \\
+INT8 & 1 byte & $\approx$744 GB & 与 FP8 等同 \\
+INT4 & 0.5 bytes & $\approx$372 GB & GGUF Q4\_K\_M 典型值 \\
+NVFP4 & $\sim$0.59 bytes & $\approx$437 GB & NVIDIA FP4 专用格式 \\
+MXFP4 & $\sim$0.55 bytes & $\approx$408 GB & AMD FP4 专用格式 \\
+INT2 & 0.25 bytes & $\approx$186 GB & 极低精度，质量损失严重 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{完整显存账单（推理时）}
+
+推理时的总显存占用远不止权重本身。以一个实际的部署场景为例：
+
+\begin{equation}
+\begin{aligned}
+\text{VRAM}_{\text{total}} = &\ \text{权重} + \text{KV Cache} + \text{激活值} + \text{框架开销} \\
+                            &\ + \text{MoE 专家缓冲区}
+\end{aligned}
+\end{equation}
+
+以官方推荐的 8 GPU 部署、128K 上下文为例（假设使用 FP8 精度）：
+
+\begin{itemize}
+    \item \textbf{权重}：744 GB（FP8），均分到 8 张 GPU，每张约 93 GB
+    \item \textbf{KV Cache}（128K 上下文时的峰值）：DSA 机制下约为标准 Attention 的 40--60\%，估计约 8--12 GB/GPU
+    \item \textbf{MoE 专家路由缓冲区}：约 4--6 GB/GPU（路由过程中的临时激活值）
+    \item \textbf{框架开销}（CUDA context、推理框架内核）：约 2--3 GB/GPU
+    \item \textbf{通信缓冲区}（TP 的 all-reduce 缓冲）：约 1--2 GB/GPU
+\end{itemize}
+
+\textbf{单卡峰值显存需求（FP8, 128K 上下文）}：约 93 + 12 + 6 + 3 + 2 = \textbf{约 116 GB}。
+
+这就是为什么即使使用 FP8，官方仍然要求 8 张 GPU 且设置 \texttt{--gpu-memory-utilization 0.85}——在 80GB H100 上，可用显存为 $80 \times 0.85 \approx 68$ GB/卡，8 卡合计约 544 GB，减去权重 744 GB（跨卡分布后各卡约 93 GB）加上 KV Cache 等动态开销，刚好处于临界状态。
+
+\subsection{GPU 选型分析}
+
+\subsubsection{候选 GPU 规格对比}
+
+\begin{table}[htbp]
+\centering
+\caption{适用于 GLM-5.1 部署的 GPU 规格对比}
+\begin{tabular}{p{2.2cm}p{1.6cm}p{2cm}p{1.6cm}p{1.8cm}p{1.6cm}}
+\hline
+\textbf{GPU} & \textbf{显存} & \textbf{带宽} & \textbf{FP16算力} & \textbf{互联} & \textbf{单卡价格} \\
+\hline
+H200 SXM & 141 GB & 4.8 TB/s & 990 TFLOPS & NVLink 900GB/s & \textasciitilde\$35K \\
+H100 SXM & 80 GB & 3.35 TB/s & 990 TFLOPS & NVLink 900GB/s & \textasciitilde\$28K \\
+H100 PCIe & 80 GB & 2.0 TB/s & 756 TFLOPS & 无 NVLink & \textasciitilde\$24K \\
+A100 SXM & 80 GB & 2.0 TB/s & 312 TFLOPS & NVLink 600GB/s & \textasciitilde\$15K \\
+A100 PCIe & 80 GB & 1.9 TB/s & 312 TFLOPS & 无 NVLink & \textasciitilde\$12K \\
+A6000 Ada & 48 GB & 0.96 TB/s & 91 TFLOPS & 无 & \textasciitilde\$6.8K \\
+L40S & 48 GB & 0.86 TB/s & 91 TFLOPS & 无 & \textasciitilde\$8K \\
+RTX 6000 Ada & 48 GB & 0.96 TB/s & 91 TFLOPS & 无 & \textasciitilde\$6.8K \\
+RTX 4090 & 24 GB & 1.0 TB/s & 83 TFLOPS & 无 & \textasciitilde\$1.6K \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{显存容量约束分析}
+
+GLM-5.1 的部署核心约束是\textbf{总显存容量}，而非算力。以下是不同 GPU 配置下的可行性分析：
+
+\begin{table}[htbp]
+\centering
+\caption{不同 GPU 配置的 GLM-5.1 部署可行性（FP8 精度）}
+\begin{tabular}{p{2.2cm}p{1.4cm}p{2cm}p{2.2cm}p{3.5cm}}
+\hline
+\textbf{GPU} & \textbf{数量} & \textbf{总显存} & \textbf{权重分布} & \textbf{判断} \\
+\hline
+H200 SXM & 8 & 1,128 GB & 93 GB/卡 & 充足，可支持 BF16 全精度 \\
+H100 SXM & 8 & 640 GB & 93 GB/卡 & 可行（官方推荐），FP8 精度 \\
+H100 PCIe & 8 & 640 GB & 93 GB/卡 & 可行但缺少 NVLink，TP 通信受 PCIe 瓶颈 \\
+A100 SXM & 8 & 640 GB & 93 GB/卡 & 可行但 decode 阶段带宽受限 \\
+A6000 Ada & 8 & 384 GB & 48 GB/卡 & \textbf{不可行}：总显存低于 FP8 权重 \\
+RTX 4090 & 8 & 192 GB & 24 GB/卡 & \textbf{不可行}：总显存远低于门槛 \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{核心结论}：对于 FP8 精度，部署 GLM-5.1 的显存门槛约为 \textbf{640 GB 总显存}（8$\times$80 GB），这是 8 张 H100/A100 级别 GPU 的配置。消费级/专业可视化 GPU（24--48GB 级别）即使使用 8 卡也无法满足 FP8 部署需求。
+
+\subsection{量化与显存的精确对应关系}
+
+量化是降低 GLM-5.1 部署门槛的核心手段。以下基于社区已有的 GGUF 量化数据（以 unsloth/GLM-5.1-GGUF 为例）：
+
+\begin{table}[htbp]
+\centering
+\caption{GLM-5.1 GGUF 量化变体的文件大小与显存需求}
+\begin{tabular}{p{2.8cm}p{2.5cm}p{2.5cm}p{2.5cm}p{2cm}}
+\hline
+\textbf{量化级别} & \textbf{文件总大小} & \textbf{纯权重显存} & \textbf{推荐总显存} & \textbf{推荐 GPU} \\
+\hline
+BF16（原始） & $\sim$1,488 GB & 1,488 GB & 1,700+ GB & 12$\times$H200 / 不可单机 \\
+FP8（官方） & $\sim$744 GB & 744 GB & 850+ GB & 8$\times$H100 / 8$\times$A100 \\
+Q8\_0 & $\sim$744 GB & 744 GB & 850+ GB & 8$\times$H100（GGUF 无 TP 优势）\\
+UD-Q6\_K & $\sim$558 GB & 558 GB & 650+ GB & 8$\times$H100 或 10$\times$A100 \\
+UD-Q5\_K\_M & $\sim$465 GB & 465 GB & 550+ GB & 8$\times$A100（80GB）\\
+UD-Q4\_K\_M & $\sim$465 GB & 465 GB & 550+ GB & 8$\times$A100 或 12$\times$A6000 \\
+UD-Q3\_K\_M & $\sim$372 GB & 372 GB & 450+ GB & 8$\times$A6000 或 4$\times$H100+CPU \\
+NVFP4 & $\sim$437 GB & 437 GB & 520+ GB & 8$\times$A100 或 4$\times$H200 \\
+MXFP4 & $\sim$408 GB & 408 GB & 490+ GB & 8$\times$MI300X \\
+UD-IQ4\_XS & $\sim$372 GB & 372 GB & 450+ GB & 8$\times$A6000（需 CPU offload）\\
+UD-IQ3\_XXS & $\sim$279 GB & 279 GB & 350+ GB & 8$\times$A6000 或 Mac Studio \\
+UD-IQ2\_XXS & $\sim$186 GB & 186 GB & 260+ GB & 4$\times$A6000 + CPU \\
+MLX 4.8-bit & $\sim$420 GB & 420 GB & 450+ GB & Mac Pro 192GB$\times$3 不现实 \\
+MLX 2.5-bit & $\sim$230 GB & 230 GB & 270+ GB & Mac Pro M2 Ultra 192GB \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{注意}：以上"推荐总显存"包含了 KV Cache、框架开销和一定的安全余量（约 15--20\%）。使用 llama.cpp 的 CPU offload 功能可以进一步降低 GPU 显存需求，但会带来显著的吞吐量下降。
+
+% ======================================================================
+% 第三章：部署方案详析
+% ======================================================================
+
+\section{部署方案详析}
+
+\subsection{方案 A：企业级全精度部署（BF16 + 8$\times$H200/H100）}
+
+这是性能最完整、成本也最高的方案。适用于对模型质量有极致要求的企业级生产环境。
+
+\textbf{硬件配置}：
+\begin{itemize}
+    \item 8$\times$ NVIDIA H200 SXM（141 GB 每卡），总显存 1,128 GB
+    \item 或 8$\times$ H100 SXM（80 GB 每卡），总显存 640 GB
+    \item NVLink 全互联（900 GB/s），NVSwitch 拓扑
+    \item 推荐使用 DGX H100 或同等规格的 SuperPOD 节点
+\end{itemize}
+
+\textbf{部署命令（vLLM）}：
+\begin{lstlisting}[language=bash]
+vllm serve "zai-org/GLM-5.1" \
+    --tensor-parallel-size 8 \
+    --gpu-memory-utilization 0.85 \
+    --max-model-len 131072 \
+    --speculative-config '{"method":"mtp","num_speculative_tokens":3}' \
+    --tool-call-parser glm47 \
+    --reasoning-parser glm45
+\end{lstlisting}
+
+\textbf{预期性能}：
+\begin{itemize}
+    \item 单请求 decode 速度：40--60 tokens/s（H100 SXM, BF16）
+    \item 并发能力：5--10 个并发请求（受 KV Cache 容量限制）
+    \item Prefill 速度：128K token Prompt $\approx$ 5--8 秒
+\end{itemize}
+
+\textbf{优势}：全精度无质量损失，NVLink 保证 TP 通信效率，支持长上下文。\newline
+\textbf{劣势}：硬件成本极高，功耗大（8$\times$H100 约 5,600W），需要数据中心级散热和供电。
+
+\subsection{方案 B：官方 FP8 量化部署（8$\times$H100/A100）}
+
+这是官方推荐的标准部署方案，在精度与成本之间取得了最佳平衡。官方提供了预量化的 FP8 模型（\texttt{zai-org/GLM-5.1-FP8}）。
+
+\textbf{硬件配置}：
+\begin{itemize}
+    \item 8$\times$ NVIDIA H100 SXM（80 GB），总显存 640 GB
+    \item 或 8$\times$ A100 SXM（80 GB），总显存 640 GB
+    \item 对于 H100：NVLink 全互联；对于 A100：NVLink 600 GB/s
+\end{itemize}
+
+\textbf{部署命令（SGLang）}：
+\begin{lstlisting}[language=bash]
+docker run --gpus all --shm-size 32g -p 30000:30000 \
+    -v ~/.cache/huggingface:/root/.cache/huggingface \
+    --env "HF_TOKEN=<your_token>" --ipc=host \
+    lmsysorg/sglang:v0.5.11 \
+    python3 -m sglang.launch_server \
+        --model-path "zai-org/GLM-5.1-FP8" \
+        --host 0.0.0.0 --port 30000 \
+        --tp-size 8 \
+        --mem-fraction-static 0.85 \
+        --speculative-algorithm EAGLE \
+        --speculative-num-steps 3 \
+        --speculative-eagle-topk 1 \
+        --speculative-num-draft-tokens 4
+\end{lstlisting}
+
+\textbf{预期性能}：
+\begin{itemize}
+    \item Decode 速度：30--50 tokens/s（H100 SXM），20--35 tokens/s（A100 SXM）
+    \item 并发能力：8--15 个并发请求
+    \item Prefill 速度：128K token $\approx$ 4--6 秒（H100），6--10 秒（A100）
+\end{itemize}
+
+\textbf{优势}：官方支持，FP8 质量损失可忽略（$<0.5\%$ 困惑度差异），社区最成熟的部署路径。\newline
+\textbf{劣势}：仍需 8 卡企业级 GPU，硬件门槛高。
+
+\subsection{方案 C：GGUF 量化方案（Q4\_K\_M + llama.cpp/Ollama）}
+
+对于没有 8 卡企业级 GPU 的团队，GGUF 量化是降低硬件门槛的主要途径。
+
+\textbf{硬件配置选项}：
+
+\textbf{C-1：8$\times$A100 全 GPU 模式}
+\begin{itemize}
+    \item GGUF Q4\_K\_M 文件大小 $\sim$465 GB，8$\times$80 GB 全 GPU 加载
+    \item llama.cpp CUDA backend，tensor-parallel 支持
+    \item 预期速度：15--25 tokens/s
+\end{itemize}
+
+\textbf{C-2：4$\times$A100/A6000 + CPU offload}
+\begin{itemize}
+    \item 4 张 GPU 承载最活跃的 MoE 专家层（约 60\% 权重）
+    \item 剩余 40\% 权重 offload 到系统内存（DDR5 512+ GB）
+    \item 预期速度：5--10 tokens/s（受 CPU-GPU 数据传输瓶颈）
+\end{itemize}
+
+\textbf{C-3：纯 CPU 模式（仅概念验证）}
+\begin{itemize}
+    \item 需要 $\sim$500 GB 以上系统内存（如双路 EPYC + 768 GB DDR5）
+    \item Q4\_K\_M 纯 CPU 推理
+    \item 预期速度：0.5--2 tokens/s（仅可用于验证模型是否加载成功，不可用于实际使用）
+\end{itemize}
+
+\textbf{部署命令（llama.cpp with CUDA）}：
+\begin{lstlisting}[language=bash]
+# 下载 Q4_K_M GGUF 文件（以 unsloth 为例）
+# 来自 https://huggingface.co/unsloth/GLM-5.1-GGUF
+
+# 多 GPU 推理（4卡示例，其余 offload 到 CPU）
+./llama-cli \
+    -m GLM-5.1-UD-Q4_K_M-00001-of-00011.gguf \
+    -ngl 60 \
+    -c 32768 \
+    -fa 1 \
+    --tensor-split 24,24,24,24
+\end{lstlisting}
+
+\textbf{说明}：\texttt{-ngl 60} 表示将前 60 层（MoE 中激活频率最高的部分）加载到 GPU，其余层留在 CPU。\texttt{--tensor-split} 指定每张 GPU 的显存配额（单位 GB）。对于 GLM-5.1 这样的 MoE 模型，GGUF 的 CPU offload 性能取决于 MoE 路由的频率分布——如果大部分 token 都路由到 GPU 驻留的专家，则性能接近纯 GPU；否则会频繁触发 CPU-GPU 数据搬运。
+
+\subsection{方案 D：NVFP4 / MXFP4 新精度格式}
+
+这是 NVIDIA 和 AMD 分别推出的 4-bit 浮点格式，相比传统 INT4 量化有更好的动态范围和精度保持。
+
+\textbf{D-1：NVIDIA NVFP4（Blackwell 架构专用）}
+
+NVFP4 是 NVIDIA Blackwell（B100/B200）架构引入的原生 4-bit 浮点格式。与 INT4 不同，NVFP4 保留了浮点的指数位，在极低精度下仍能覆盖较大的数值范围。
+\begin{itemize}
+    \item 模型大小：$\sim$437 GB（社区已有 lukealonso/GLM-5.1-NVFP4）
+    \item 需 Blackwell 架构 GPU（B100/B200），利用硬件原生 FP4 Tensor Core
+    \item 8$\times$B100 或 4$\times$B200（B200 显存更大）
+    \item 理论吞吐量可达 FP8 的 2$\times$（受益于 4-bit 内存带宽减半）
+\end{itemize}
+
+\textbf{D-2：AMD MXFP4（MI300X/MI350 专用）}
+
+AMD 的 MXFP4 是面向 ROCm 生态的 4-bit 浮点格式。
+\begin{itemize}
+    \item 模型大小：$\sim$408 GB（社区已有 amd/GLM-5.1-MXFP4）
+    \item 需 AMD Instinct MI300X（192 GB）或更新型号
+    \item 4$\times$MI300X（共 768 GB）即可承载，且有较大 KV Cache 余量
+\end{itemize}
+
+\subsection{方案 E：Apple Silicon 方案（MLX 量化）}
+
+Apple Silicon 的统一内存架构使其在超大模型推理上有独特优势，但 GLM-5.1 的体量带来严峻挑战。
+
+\begin{table}[htbp]
+\centering
+\caption{Apple Silicon 运行 GLM-5.1 的可行性分析}
+\begin{tabular}{p{3cm}p{2cm}p{2.2cm}p{2.5cm}p{2cm}}
+\hline
+\textbf{设备} & \textbf{最大统一内存} & \textbf{内存带宽} & \textbf{可跑量化} & \textbf{预期速度} \\
+\hline
+Mac Studio M2 Ultra & 192 GB & 800 GB/s & MLX 2.5-bit & 2--4 tok/s \\
+Mac Pro M2 Ultra & 192 GB & 800 GB/s & MLX 2.5-bit & 2--4 tok/s \\
+Mac Studio M4 Max & 128 GB & 546 GB/s & \textbf{不可行} & --- \\
+MacBook Pro M4 Max & 128 GB & 546 GB/s & \textbf{不可行} & --- \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{关键限制}：
+\begin{itemize}
+    \item 即使用 MLX 2.5-bit 量化（$\sim$230 GB），也需要 192 GB 统一内存的设备，且几乎没有 KV Cache 余量（仅能运行极短上下文）
+    \item Mac Pro M2 Ultra 是唯一"勉强可跑"的 Apple 设备，但速度（2--4 tokens/s）无法满足实际使用
+    \item Apple Silicon 不支持 CUDA，MLX 对 GLM-5.1 的 MoE 架构优化尚不成熟
+    \item \textbf{结论：Apple Silicon 不适合 GLM-5.1 的本地部署，不推荐此方案}
+\end{itemize}
+
+\subsection{方案 F：云服务方案}
+
+对于缺少硬件预算的团队，云服务是最快上手的方式。
+
+\textbf{F-1：Together AI API（推荐）}
+
+Together AI 是 GLM-5.1 的官方推理服务商之一。
+\begin{itemize}
+    \item 提供 OpenAI 兼容的 Chat Completions API
+    \item 无需管理基础设施，零部署成本
+    \item 价格：按 token 计费（具体价格以官方页面为准，参考同类 700B+ 模型约 \$3--8/1M input tokens, \$8--15/1M output tokens）
+\end{itemize}
+
+\textbf{F-2：HuggingFace Inference Endpoint}
+
+通过 HuggingFace 的推理端点直接部署 GLM-5.1。
+\begin{itemize}
+    \item 按 GPU 实例小时计费
+    \item 以 8$\times$H100 实例为例，约 \$25--40/小时
+    \item 适合间歇性使用、批量评估、或作为 PoC 阶段的过渡方案
+\end{itemize}
+
+\textbf{F-3：算力租赁（RunPod / Vast.ai / AutoDL）}
+
+\begin{table}[htbp]
+\centering
+\caption{主流算力租赁平台对比（2026 年参考价格）}
+\begin{tabular}{p{2.5cm}p{2.5cm}p{2.5cm}p{4cm}}
+\hline
+\textbf{平台} & \textbf{H100 80GB/时} & \textbf{A100 80GB/时} & \textbf{备注} \\
+\hline
+RunPod & \$2.49--3.49 & \$1.49--2.29 & 按需和竞价实例 \\
+Vast.ai & \$1.80--3.00 & \$1.00--1.80 & 社区托管，价格波动大 \\
+AutoDL（国内） & \$2.00--3.50 & \$1.20--2.00 & 国内部署首选，中文支持好 \\
+Lambda Labs & \$2.49--2.99 & \$1.49--1.99 & 北美地区 \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{F-4：HuggingChat（免费）}
+
+GLM-5.1 已直接部署于 HuggingChat（huggingface.co/chat），可免费使用，适合快速体验模型能力，无需任何部署。
+
+% ======================================================================
+% 第四章：推理框架选型
+% ======================================================================
+
+\section{推理框架选型}
+
+\subsection{框架能力矩阵}
+
+\begin{table}[htbp]
+\centering
+\caption{GLM-5.1 支持的推理框架对比}
+\begin{tabular}{p{2.5cm}p{2cm}p{3cm}p{2.8cm}p{1.8cm}}
+\hline
+\textbf{框架} & \textbf{最低版本} & \textbf{核心优势} & \textbf{适用场景} & \textbf{成熟度} \\
+\hline
+vLLM & v0.19.0+ & 生产级吞吐优化，PagedAttention & 高并发在线服务 & 成熟 \\
+SGLang & v0.5.10+ & RadixAttention，编译优化 & 低延迟服务 & 成熟 \\
+llama.cpp & 最新版 & GGUF 量化，CPU-GPU 混合 & 个人/小团队 & 成熟 \\
+Ollama & 最新版 & 一键部署，自动下载 & 个人快速体验 & 成熟 \\
+KTransformers & v0.5.3+ & 异构计算（GPU+CPU+NPU） & 降低硬件门槛 & 实验性 \\
+xLLM & v0.8.0+ & 华为昇腾硬件 & 国产化替代 & 发展中 \\
+Transformers & v0.5.3+ & HuggingFace 原生 & 研究/原型验证 & 基准 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{vLLM（官方首推）}
+
+vLLM 是目前生产环境部署 GLM-5.1 的首选框架。其核心优势在于：
+
+\textbf{PagedAttention}：将 KV Cache 按页（page）管理，类似操作系统的虚拟内存。这避免了传统框架中的显存碎片化问题，允许更高效的 batch 调度，将显存利用率从传统框架的 30--50\% 提升至 80--90\%。
+
+\textbf{Continuous Batching}：动态地将新请求插入正在进行的 batch 中，无需等待整个 batch 完成，大幅提升吞吐量。
+
+\textbf{MTP（Multi-Token Prediction）}：GLM-5.1 在 vLLM 中支持 MTP 推测解码，每次可预测 3 个 token，将 decode 吞吐量提升 30--50\%。
+
+\textbf{生产特性}：OpenAI 兼容 API、Prometheus 监控指标、量化支持（FP8/INT8/AWQ）、前缀缓存（Prefix Caching）。
+
+\subsection{SGLang}
+
+SGLang 是来自 LMSys 的新一代推理框架，在延迟敏感场景下表现优异。
+
+\textbf{RadixAttention}：基于前缀树（Radix Tree）的 KV Cache 复用。当多个请求共享相同的 system prompt 或文档前缀时，RadixAttention 自动共享 KV Cache，避免重复计算。对于 Agent 场景（每次工具调用后重新发送完整历史），这一特性尤为关键。
+
+\textbf{EAGLE 推测解码}：比 MTP 更激进的推测解码策略，GLM-5.1 在 SGLang 上使用 EAGLE（3 步，topk=1，4 个草稿 token），在兼容性上优于 MTP。
+
+\textbf{Docker 一键部署}：SGLang 提供了完整的 Docker 镜像，开箱即用。
+
+\subsection{llama.cpp / Ollama}
+
+作为本地 LLM 推理的基石，llama.cpp 在 GLM-5.1 的 GGUF 量化方案中不可替代。
+
+\textbf{关键能力}：
+\begin{itemize}
+    \item \textbf{CPU-GPU 混合推理}：可将部分层 offload 到系统内存，大幅降低 GPU 需求
+    \item \textbf{跨平台}：支持 CUDA、Metal（Apple Silicon）、Vulkan、ROCm
+    \item \textbf{任意量化级别}：从 IQ1\_M（$\sim$1.7 bpw）到 Q8\_0（8 bpw）的完整光谱
+    \item \textbf{上下文压缩}：支持 Flash Attention，降低长上下文的 KV Cache 开销
+\end{itemize}
+
+\textbf{Ollama} 在 llama.cpp 之上封装了类 Docker 的使用体验，但对于 GLM-5.1 这样的超大规模模型，Ollama 的默认配置可能不足，建议直接使用 llama.cpp 进行精细调参。
+
+\subsection{KTransformers（异构计算方案）}
+
+KTransformers 由 kvcache-ai 团队开发，专注于利用异构计算资源降低超大模型的部署门槛。
+
+\textbf{核心思路}：将 MoE 模型中激活频率低的专家层 offload 到 CPU 甚至是 NPU，仅在 GPU 上保留高频激活的专家和 Attention 层。对于 GLM-5.1（激活比仅 5.4\%），大部分专家在特定任务下几乎不会被激活，因此 CPU offload 的实际影响远小于理论上的"跨 PCIe 传输全部权重"。
+
+\textbf{实测潜力}：KTransformers 宣称可以在 4$\times$RTX 4090（24 GB $\times$ 4）的配置上运行 DeepSeek-V3（671B MoE），实现 10--15 tokens/s 的可用速度。对于 GLM-5.1 的类似架构，理论上也可以在 4$\times$A6000（48 GB $\times$ 4 = 192 GB）上实现可用部署。但这一方案尚处实验阶段，生产稳定性有待验证。
+
+\subsection{xLLM（华为昇腾方案）}
+
+对于有信创/国产化需求的团队，xLLM 是基于华为昇腾（Ascend）硬件的推理框架。
+\begin{itemize}
+    \item 需 Ascend 910B 或更新型号
+    \item 生态远不如 CUDA 成熟，模型适配需额外工作量
+    \item 适合信创合规要求下的国企/政府场景
+\end{itemize}
+
+% ======================================================================
+% 第五章：成本预估
+% ======================================================================
+
+\section{成本预估}
+
+\subsection{硬件采购成本}
+
+\begin{table}[htbp]
+\centering
+\caption{GLM-5.1 各部署方案的硬件采购成本估算（2026 年 5 月参考价）}
+\begin{tabular}{p{3.5cm}p{1.8cm}p{2.3cm}p{3cm}p{2cm}}
+\hline
+\textbf{方案} & \textbf{GPU 配置} & \textbf{GPU 总价} & \textbf{服务器总价} & \textbf{总预算} \\
+\hline
+A: 全精度 & 8$\times$H200 SXM & \$280K & \$80--120K & \$360--400K \\
+A: 全精度 & 8$\times$H100 SXM & \$224K & \$70--100K & \$294--324K \\
+B: FP8 标准 & 8$\times$H100 SXM & \$224K & \$70--100K & \$294--324K \\
+B: FP8 标准 & 8$\times$A100 SXM & \$120K & \$50--80K & \$170--200K \\
+C: Q4 GGUF & 8$\times$A100 PCIe & \$96K & \$50--70K & \$146--166K \\
+C: Q4 GGUF & 4$\times$A6000+ & \$27K & \$20--30K & \$47--57K \\
+D: NVFP4 & 4$\times$B200 & \$140K & \$60--80K & \$200--220K \\
+D: MXFP4 & 4$\times$MI300X & \$60K & \$40--60K & \$100--120K \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{说明}：服务器总价包括双路服务器平台（CPU、内存 512 GB+、NVMe 存储、网络、散热、电源等）。GPU 价格为 2026 年 5 月大致的市场参考价，实际采购（尤其是批量采购）可能有 10--20\% 的折扣。
+
+\subsection{云服务成本对比}
+
+\subsubsection{按需实例 TCO 分析}
+
+以 8$\times$H100 的 HuggingFace Inference Endpoint 为例：
+
+\begin{itemize}
+    \item \textbf{时租成本}：约 \$30/小时（含 GPU 实例 + HuggingFace 平台溢价）
+    \item \textbf{月租成本}（720 小时/月）：\$30 $\times$ 720 = \$21,600/月
+    \item \textbf{年租成本}：约 \$259,200/年（无预留折扣）
+    \item \textbf{3 年 TCO}：约 \$777,600
+\end{itemize}
+
+\subsubsection{API 调用成本}
+
+以 Together AI API 的典型 GLM-5.1 定价为例（参考同级别 MoE 模型）：
+
+\begin{itemize}
+    \item \textbf{Input tokens}：约 \$3--6 / 百万 tokens
+    \item \textbf{Output tokens}：约 \$8--15 / 百万 tokens
+    \item \textbf{按典型 Agent 场景估算}：单次 Agent 任务平均消耗 50K input + 10K output tokens，成本约 \$0.15--0.45/次
+    \item \textbf{如果每天 100 次 Agent 调用}：\$15--45/天，\$450--1,350/月
+    \item \textbf{如果每天 1,000 次 Agent 调用}：\$150--450/天，\$4,500--13,500/月
+\end{itemize}
+
+\subsubsection{自有硬件 vs 云服务的盈亏平衡点}
+
+\begin{table}[htbp]
+\centering
+\caption{自有硬件 vs 云服务/API 的 3 年 TCO 对比（单位：万美元）}
+\begin{tabular}{p{3.5cm}p{2cm}p{2cm}p{2cm}p{2.5cm}}
+\hline
+\textbf{方案} & \textbf{初始投入} & \textbf{年运维} & \textbf{3 年 TCO} & \textbf{适用场景} \\
+\hline
+自购 8$\times$H100 & \$30 & \$3 & \$39 & 7$\times$24 满负荷使用 \\
+自购 8$\times$A100 & \$18 & \$2.5 & \$25.5 & 中等负载使用 \\
+云 GPU 按时租 & \$0 & \$12--22/年 & \$36--66 & 间歇性使用（50\%）\\
+API 按量计费 & \$0 & \$5--16/年 & \$15--48 & 低频 Agent 场景 \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{粗略决策规则}：
+\begin{itemize}
+    \item 每天使用少于 8 小时 $\rightarrow$ 云 GPU 按时租更划算
+    \item 每天使用超过 16 小时、负载可预测 $\rightarrow$ 自购硬件更划算
+    \item 低频 Agent 调用（每天 $<$ 500 次）$\rightarrow$ API 按量计费最经济
+    \item 高频调用 + 对延迟敏感 + 涉及敏感数据 $\rightarrow$ 必须自购硬件
+\end{itemize}
+
+\subsection{电力与运维成本}
+
+\begin{itemize}
+    \item 8$\times$H100 服务器功耗：约 5,600--7,000W（含 CPU、内存、散热）
+    \item 年电力成本（按 \$0.12/kWh）：7 kW $\times$ 8,760 h $\times\$0.12 \approx$ \$7,360/年
+    \item 数据中心托管（8U 机柜 + 电力 + 网络）：约 \$1,500--2,500/月
+    \item 运维人力：通常由现有工程团队兼任，边际成本低
+\end{itemize}
+
+% ======================================================================
+% 第六章：性能预期与实测分析
+% ======================================================================
+
+\section{性能预期与实测分析}
+
+\subsection{各方案理论吞吐量估算}
+
+Decode 阶段的理论吞吐量可以通过"显存带宽 $\div$ 模型读取量"公式估算。对于 MoE 模型，每次生成一个 token 不需要读取全部 744B 权重（仅激活 40B），但 KV Cache 的读取仍依赖于上下文长度。
+
+\begin{table}[htbp]
+\centering
+\caption{各方案的预期 Decode 速度估算（单请求，32K 上下文）}
+\begin{tabular}{p{3cm}p{1.8cm}p{2.2cm}p{2.5cm}p{2cm}}
+\hline
+\textbf{方案} & \textbf{GPU} & \textbf{每 token 数据读取量} & \textbf{有效带宽} & \textbf{估算速度} \\
+\hline
+A: BF16 & 8$\times$H100 & $\sim$90 GB & 8$\times$3.35 TB/s & 40--60 tok/s \\
+B: FP8 & 8$\times$H100 & $\sim$48 GB & 8$\times$3.35 TB/s & 45--65 tok/s \\
+B: FP8 & 8$\times$A100 & $\sim$48 GB & 8$\times$2.0 TB/s & 30--45 tok/s \\
+C: Q4 + 4$\times$A6000 & 4$\times$A6000 & $\sim$35 GB & 4$\times$0.96 + CPU & 5--10 tok/s \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{上下文长度对显存的影响}
+
+GLM-5.1 支持 128K 上下文，但实际可用上下文受 GPU 显存约束。
+
+\begin{table}[htbp]
+\centering
+\caption{不同上下文长度下 KV Cache 的额外显存占用（FP8, 8$\times$H100）}
+\begin{tabular}{p{2.5cm}p{2.2cm}p{3cm}p{2.2cm}p{2.2cm}}
+\hline
+\textbf{上下文} & \textbf{KV Cache/GPU} & \textbf{权重+KV+开销} & \textbf{80GB 占用率} & \textbf{状态} \\
+\hline
+4K & $\sim$1.5 GB & $\sim$98 GB & 122\% & \textbf{溢出} \\
+8K & $\sim$3.0 GB & $\sim$99 GB & 124\% & \textbf{溢出} \\
+32K & $\sim$6.0 GB & $\sim$102 GB & 128\% & \textbf{溢出} \\
+128K & $\sim$12 GB & $\sim$108 GB & 135\% & \textbf{严重溢出} \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{这一计算揭示了一个残酷的现实}：即使使用 FP8 精度、8$\times$H100 的配置，在不开启 KV Cache 量化的前提下，\textbf{单卡 80GB 显存仍然面临溢出风险}。这就是官方在部署示例中强调 \texttt{--mem-fraction-static 0.85} 的原因——必须预留 15\% 的显存给 KV Cache 和其他动态分配。
+
+\textbf{缓解措施}：
+\begin{itemize}
+    \item vLLM 的 FP8 KV Cache 量化：将 KV Cache 从 FP16 压缩到 FP8，减少约 50\% 的 KV Cache 显存
+    \item Prefix Caching：在 Agent 场景中，多轮对话共享 system prompt 和历史前缀，避免重复存储
+    \item vLLM 的 Automatic Prefix Caching（APC）：自动识别和复用公共前缀
+\end{itemize}
+
+\subsection{并发能力评估}
+
+\begin{table}[htbp]
+\centering
+\caption{不同配置下的预估并发能力（FP8, 32K 上下文）}
+\begin{tabular}{p{3cm}p{2.5cm}p{2.5cm}p{2.5cm}p{2.2cm}}
+\hline
+\textbf{配置} & \textbf{可用总显存} & \textbf{单请求 KV Cache} & \textbf{理论并发} & \textbf{实际并发} \\
+\hline
+8$\times$H100 (FP8 量化) & $\sim$500 GB & $\sim$6 GB/req & $\sim$80 & 8--15 \\
+8$\times$A100 (FP8 量化) & $\sim$500 GB & $\sim$6 GB/req & $\sim$80 & 5--10 \\
+4$\times$A6000 (Q4 GGUF) & $\sim$160 GB & $\sim$6 GB/req & $\sim$25 & 2--3 \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{说明}：理论并发受 KV Cache 容量约束，实际并发还受 GPU 算力和 Decode 带宽约束。对于 Agent 场景（长会话、频繁工具调用），建议保守估计并发数。
+
+% ======================================================================
+% 第七章：推荐方案矩阵
+% ======================================================================
+
+\section{推荐方案矩阵}
+
+\subsection{按场景推荐}
+
+\begin{table}[htbp]
+\centering
+\caption{GLM-5.1 部署方案场景推荐矩阵}
+\begin{tabular}{p{2.5cm}p{3.2cm}p{2.8cm}p{3.5cm}}
+\hline
+\textbf{场景} & \textbf{推荐方案} & \textbf{预算范围} & \textbf{备注} \\
+\hline
+个人研究者 & API + HuggingChat & \$50--500/月 & 无需硬件，免费体验可用 HuggingChat \\
+小型创业团队 & 云 GPU 按时租 + API 混合 & \$500--5K/月 & 弹性伸缩，按需付费 \\
+中型研发团队 & 自购 8$\times$A100 + FP8 & \$18--25 万 & 一次性投入，3 年回本 \\
+企业级平台 & 自购 8$\times$H100 + BF16/FP8 & \$30--40 万 & 全精度、高并发、低延迟 \\
+信创合规 & xLLM + 华为昇腾 & 视配置 & 国产化替代，生态受限 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{决策流程图}
+
+以下是一个简化的决策逻辑：
+
+\begin{enumerate}
+    \item \textbf{是否有 \$20 万以上的硬件预算？}
+    \begin{itemize}
+        \item 是 $\rightarrow$ 方案 B（自购 8$\times$A100/H100 + FP8），一步到位
+        \item 否 $\rightarrow$ 进入问题 2
+    \end{itemize}
+    \item \textbf{日调用量是否超过 500 次 Agent 任务？}
+    \begin{itemize}
+        \item 是 $\rightarrow$ 云 GPU 按时租（8$\times$H100 约 \$30/时），弹性调配
+        \item 否 $\rightarrow$ 进入问题 3
+    \end{itemize}
+    \item \textbf{是否有数据安全/合规要求（不可出内网）？}
+    \begin{itemize}
+        \item 是 $\rightarrow$ 方案 C（GGUF Q4 + 4$\times$A6000 + CPU offload），最低自建方案
+        \item 否 $\rightarrow$ API 按量计费（Together AI / HuggingFace），零运维
+    \end{itemize}
+\end{enumerate}
+
+\subsection{最终建议}
+
+\begin{personalnote}
+\textbf{对于大多数研发团队}，GLM-5.1 的部署建议如下：
+
+\begin{enumerate}
+    \item \textbf{PoC/探索阶段}：先使用 HuggingChat（免费）或 Together AI API（$<\$500$/月）体验模型能力，确认是否满足业务需求。
+
+    \item \textbf{小规模使用阶段}：使用云 GPU 按时租（RunPod/Vast.ai 8$\times$H100 $\approx\$25--30$/时），每周运行 20--40 小时，月成本约 \$2,000--5,000。此时无需任何硬件投入。
+
+    \item \textbf{规模化阶段}（确认 GLM-5.1 为团队核心生产力工具）：采购 8$\times$A100 SXM 服务器（约 \$18--20 万），部署官方 FP8 模型。3 年 TCO 对比云方案可节省 40--60\%。
+
+    \item \textbf{注意}：当前 \textbf{GLM-5.1 不适合消费级硬件部署}。即使在极端量化（IQ2）下，仍需至少 4 张专业 GPU 或顶配 Mac Pro，且速度仅勉强可用。对于个人开发者，建议直接使用云 API，或将目光转向更轻量但同样优秀的模型（如 Qwen3-Coder-32B、DeepSeek-Coder-V2）。
+\end{enumerate}
+\end{personalnote}
+
+% ======================================================================
+% 附录：快速参考
+% ======================================================================
+
+\section*{附录 A：关键数据速查}
+
+\begin{table}[htbp]
+\centering
+\caption{GLM-5.1 关键指标速查表}
+\begin{tabular}{p{3.8cm}p{8cm}}
+\hline
+\textbf{指标} & \textbf{数值} \\
+\hline
+总参数量 & 744B \\
+激活参数量 & 40B (5.4\%) \\
+原始精度 & BF16 ($\sim$1,488 GB) \\
+官方推荐精度 & FP8 ($\sim$744 GB) \\
+最低可用量化 & Q4\_K\_M / IQ4\_XS ($\sim$372--465 GB) \\
+官方推荐 GPU & 8$\times$ H100 SXM (80 GB) \\
+最低 GPU 配置（Q4 GGUF + CPU offload）& 4$\times$ A6000 (48 GB) + 512 GB 系统内存 \\
+推理框架（推荐） & vLLM $\geq$v0.19.0 / SGLang $\geq$v0.5.10 \\
+推理框架（量化） & llama.cpp / KTransformers \\
+API 服务商 & Together AI, HuggingFace Inference \\
+免费体验 & HuggingChat (chat.z.ai) \\
+开源协议 & MIT / Apache 2.0 \\
+\hline
+\end{tabular}
+\end{table}
+
+\section*{附录 B：社区量化资源链接}
+
+\begin{itemize}
+    \item 官方模型：\href{https://huggingface.co/zai-org/GLM-5.1}{zai-org/GLM-5.1}（BF16）| \href{https://huggingface.co/zai-org/GLM-5.1-FP8}{zai-org/GLM-5.1-FP8}
+    \item GGUF 量化（推荐）：\href{https://huggingface.co/unsloth/GLM-5.1-GGUF}{unsloth/GLM-5.1-GGUF} | \href{https://huggingface.co/bartowski/zai-org_GLM-5.1-GGUF}{bartowski/GLM-5.1-GGUF}
+    \item NVFP4：\href{https://huggingface.co/lukealonso/GLM-5.1-NVFP4}{lukealonso/GLM-5.1-NVFP4}
+    \item MXFP4：\href{https://huggingface.co/amd/GLM-5.1-MXFP4}{amd/GLM-5.1-MXFP4}
+    \item MLX（Apple Silicon）：\href{https://huggingface.co/mlx-community/GLM-5.1-DQ4plus-q8}{mlx-community/GLM-5.1-DQ4plus-q8}
+    \item AWQ 4-bit：\href{https://huggingface.co/cyankiwi/GLM-5.1-AWQ-4bit}{cyankiwi/GLM-5.1-AWQ-4bit}
+    \item REAP 剪枝+量化：\href{https://huggingface.co/0xSero/GLM-5.1-478B-A42B-REAP-NVFP4}{0xSero/GLM-5.1-REAP-NVFP4}
+    \item 官方 GitHub：\href{https://github.com/zai-org/GLM-5}{github.com/zai-org/GLM-5}
+    \item 技术报告：\href{https://arxiv.org/abs/2602.15763}{arXiv:2602.15763}
+\end{itemize}
+
+\end{document}

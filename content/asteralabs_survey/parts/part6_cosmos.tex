@@ -1,0 +1,111 @@
+% ============================================================
+%  Part 6: COSMOS 软件平台
+% ============================================================
+
+\section{COSMOS 软件平台}
+
+\subsection{COSMOS 是什么}
+
+COSMOS = \textbf{CO}nnectivity \textbf{S}ystem \textbf{M}anagement and \textbf{O}ptimization \textbf{S}oftware。
+是 Astera Labs Intelligent Connectivity Platform 的软件层。\sourceT{2}
+
+\begin{figure}[htb]
+    \centering
+    \begin{tikzpicture}[
+        node distance=1cm,
+        layer/.style={rectangle, draw=darkblue, fill=blue!5, thick, minimum width=6cm, minimum height=0.8cm, align=center, rounded corners=3pt},
+    ]
+        \node[layer, fill=darkgreen!10] (APP) {COSMOS Tools (CLI + Explorer GUI)};
+        \node[layer, below=0.2cm of APP] (SDK) {COSMOS Developer Kit (SDK + 库 + 脚本)};
+        \node[layer, below=0.2cm of SDK] (CORE) {COSMOS Core Platform};
+        \node[layer, fill=darkblue!15, below=0.2cm of CORE] (LINK) {Link Management（链路监控/诊断/优化）};
+        \node[layer, fill=darkblue!15, below=0.2cm of LINK] (FLEET) {Fleet Management（Rack-Scale 资源管理）};
+        \node[layer, fill=darkblue!15, below=0.2cm of FLEET] (RAS) {RAS Management（可靠性/可用性/可服务性）};
+        \node[layer, fill=darkred!10, below=0.2cm of RAS] (HW) {Scorpio + Aries + Leo + Taurus 硬件};
+    \end{tikzpicture}
+    \caption{COSMOS 平台架构}
+    \label{fig:cosmos-arch}
+\end{figure}
+
+\subsection{COSMOS 的三个功能支柱}
+
+\subsubsection{Link Management}
+
+Per-lane level 的 PCIe/CXL 链路监控。提供：
+\begin{itemize}
+    \item 数千条数据链路的实时性能监控
+    \item Per-lane signal quality metrics
+    \item 温度读数 per link
+    \item 链路稳定性验证和诊断
+\end{itemize}
+
+\subsubsection{Fleet Management}
+
+跨数千节点的 rack-scale 资源管理和优化。为 hyperscale 数据中心的
+``rack-scale deployment'' 设计，管理 compute power、efficiency、TCO 的平衡。
+
+\subsubsection{RAS Management}
+
+Reliability, Availability, Serviceability —— 预测性故障分析：
+\begin{itemize}
+    \item 预测故障发生的时间和位置
+    \item 主动隔离故障点
+    \item 目标：最大化系统可用性（uptime）
+\end{itemize}
+
+\subsection{为什么 Connectivity Chip 公司需要软件平台}
+
+\textbf{硬件差异化越来越难维持}：PCIe retimer/switch 在任何市场上都有多个供应商，
+硬件的性能差异随时间缩小。软件平台创造的是``改用成本''（switching cost）。
+
+\textbf{Hyperscaler 的操作需求}：管理 100,000+ 节点的连接健康状态不能靠人工，需要自动化。
+COSMOS 提供``单一管理平面''——不管用 Scorpio/Aries/Leo/Taurus，都是同一个 API。
+
+\textbf{成本视角}（推测 \speculation{}）：
+一个 Aries Retimer 芯片成本 $\sim$\$50-100，
+一个 DGX H100 节点成本 $\sim$\$300,000，
+一个 training cluster 成本 $\sim$\$100M+。
+如果一个 \$50 的芯片故障导致 \$100M 的 cluster downtime，
+连接可靠性就不再是``锦上添花''而是``关键任务''。
+这就是 telemetry 和预测性故障检测的核心价值。
+
+\subsection{COSMOS vs NVIDIA Fabric Manager}
+
+\begin{table}[htb]
+    \centering
+    \caption{AI 集群管理平台对比}
+    \label{tab:cosmos-vs-nvidia}
+    \begin{tabular}{lcc}
+        \toprule
+        \textbf{能力} & \textbf{COSMOS (Astera)} & \textbf{NVIDIA Fabric Manager} \\
+        \midrule
+        管理范围 & 跨品牌、跨协议的连接设备 & 仅 NVLink/NVSwitch \\
+        Telemetry 深度 & Per-lane signal quality & NVLink level \\
+        预测性故障 & 支持 & 支持 (DGX) \\
+        开放 API & 提供 SDK & 部分开放 \\
+        协议覆盖 & PCIe + CXL + Ethernet & NVLink only \\
+        Fleet scale & Hyperscaler rack-scale & DGX/SuperPOD scale \\
+        第三方硬件支持 & 任何 PCIe/CXL 设备 & 仅 NVIDIA \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+COSMOS 的核心差异化：\textbf{跨厂商、跨协议的连接管理}。NVIDIA 管理 NVLink，
+COSMOS 管理除此之外的一切。两者不是竞争关系，而是互补——
+尤其是在包含 NVIDIA GPU 的异构集群中。
+
+\subsection{软件是否会成为 Astera Labs 的护城河}
+
+\textbf{短期（1-3 年）——有效的差异化}：
+竞争对手（Broadcom、Credo）没有类似平台。Hyperscaler 一旦将 COSMOS API 集成到自己的管理系统，
+更换成本高。提供全套硬件 + 软件支持也使得 Astera 对资源紧张的 hyperscaler 团队更有吸引力。
+
+\textbf{长期（3-5 年）——不确定}：
+有能力的 hyperscaler 可以自己开发类似的管理软件（Google、Amazon 已在做）。
+对软件能力弱的客户，COSMOS 的锁定效应更强。
+开源替代可能涌现（类似 OpenBMC 管理 BMC 的方式）。
+最大的竞争风险：NVIDIA 可能将 Fabric Manager 扩展到 PCIe 域（如果 NVIDIA 自研 PCIe switch）。
+
+\textbf{商业模式意义}：硬件售卖是一次性收入（虽然 hyperscaler 会持续采购），
+软件支持/更新可以产生 recurring 收入（类似 Cisco 的 SmartNet 模式）。
+目前 Astera 尚未明确收费模式，但长期看软件可能是高毛利 recurring revenue 来源。

@@ -1,0 +1,222 @@
+% ============================================================
+%  Astera Labs 全面调研报告
+%  编译引擎：XeLaTeX
+%  文档类：ctexart (中文文章)
+%  日期：2026-05-19
+%
+%  编译命令：xelatex asteralabs_report.tex
+%  编译两次以确保交叉引用正确
+% ============================================================
+
+\documentclass[11pt,a4paper]{ctexart}
+
+% ---- 页面设置 ----
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+
+% ---- 中文支持 ----
+\setCJKmainfont{Songti SC}
+\setCJKsansfont{Heiti SC}
+\setCJKmonofont{STFangsong}
+
+% ---- 图形与绘图 ----
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{positioning, calc, shapes.geometric, arrows.meta, backgrounds, fit, chains}
+\usepackage{caption}
+\usepackage{subcaption}
+\graphicspath{{./figures/}}
+
+% ---- 表格 ----
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage[table]{xcolor}
+
+% ---- 数学 ----
+\usepackage{amsmath,amssymb}
+\usepackage{mathtools}
+
+% ---- 代码 ----
+\usepackage{listings}
+\lstset{
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{darkgreen},
+    stringstyle=\color{darkred},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    backgroundcolor=\color{mygray},
+    breaklines=true,
+    frame=single,
+    tabsize=2
+}
+
+% ---- 链接与引用 ----
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=darkblue,
+    urlcolor=darkblue,
+    citecolor=darkblue
+}
+
+% ---- 其他工具 ----
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{changelog}
+\usepackage{xurl}  % 支持长URL换行
+\usepackage{twemojis}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins}
+
+% ---- 自定义颜色 ----
+\definecolor{darkgreen}{RGB}{0,128,0}
+\definecolor{darkred}{RGB}{180,0,0}
+\definecolor{darkblue}{RGB}{0,0,139}
+\definecolor{gold}{RGB}{200,150,0}
+\definecolor{mygray}{RGB}{245,245,245}
+\definecolor{t1green}{RGB}{220,255,220}
+\definecolor{t2blue}{RGB}{200,220,255}
+\definecolor{t3yellow}{RGB}{255,255,200}
+\definecolor{t4orange}{RGB}{255,230,200}
+\definecolor{t5red}{RGB}{255,200,200}
+
+% ---- 自定义命令 ----
+\newcommand{\sourceT}[1]{{\small\textcolor{darkblue}{[T#1]}}}
+\newcommand{\unverified}{{\textcolor{darkred}{\textbf{[未确认]}}}}
+\newcommand{\speculation}{{\textcolor{orange}{\textbf{[推测]}}}}
+\newcommand{\marketing}{{\textcolor{orange}{\textbf{[可能为营销语言]}}}}
+\newtcolorbox{warningblock}{
+    colback=red!5!white,
+    colframe=red!75!black,
+    fonttitle=\bfseries,
+    title={\twemoji{warning} 注意},
+    sharp corners,
+    boxrule=0.8pt
+}
+% ---- 文档信息 ----
+\title{\textbf{Astera Labs 全面调研报告}\\[0.3cm]
+       \large 工程级别、产业级别的深度分析}
+\author{葛良晨}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\noindent 本报告对 Astera Labs（Nasdaq: ALAB）进行了工程级别、产业级别的全面调研。
+覆盖公司定位与历史、全产品线（Scorpio/Aries/Leo/Taurus/COSMOS）、
+核心技术与架构、竞争格局、CXL/PCIe/Retimer技术深度、财务分析、
+以及最终投资与产业评估。
+
+\textbf{核心发现}：Astera Labs 是全球唯一横跨 PCIe Retimer + PCIe Switch + CXL Controller + Ethernet Cable + 软件管理平台的连接芯片公司。
+其 Scorpio X-Series（320-lane memory semantic fabric switch）是目前唯一基于 PCIe 的 AI 优化大 radix fabric switch，
+在 hyperscaler GPU 集群中具有独特定位。FY2025 收入 \$852.5M，毛利率 75-76\%，已实现正盈利。
+主要风险包括客户集中度、Broadcom 竞争威胁与 AI CAPEX 周期依赖。
+
+\textbf{研究方法}：所有关键结论均标注信息来源等级 [T1]（官方可验证文档）至 [T5]（社区推测）。
+无法确认的信息明确标注``\unverified{}''或``\speculation{}''。
+报告中的技术架构图均为 TikZ 原创绘制。
+
+\textbf{声明}：本报告不构成投资建议。所有分析基于公开信息。
+\end{abstract}
+
+\tableofcontents
+\clearpage
+
+% ============================================================
+%  PART 1: 公司整体定位
+% ============================================================
+\input{parts/part1_company.tex}
+
+% ============================================================
+%  PART 2: 产品线全景
+% ============================================================
+\input{parts/part2_products.tex}
+
+% ============================================================
+%  PART 3: Scorpio 深度研究
+% ============================================================
+\input{parts/part3_scorpio.tex}
+
+% ============================================================
+%  PART 4: Aries 深度研究
+% ============================================================
+\input{parts/part4_aries.tex}
+
+% ============================================================
+%  PART 5: Leo 与 CXL
+% ============================================================
+\input{parts/part5_leo_cxl.tex}
+
+% ============================================================
+%  PART 6: COSMOS 软件平台
+% ============================================================
+\input{parts/part6_cosmos.tex}
+
+% ============================================================
+%  PART 7: 技术壁垒分析
+% ============================================================
+\input{parts/part7_moat.tex}
+
+% ============================================================
+%  PART 8: 竞争格局
+% ============================================================
+\input{parts/part8_competition.tex}
+
+% ============================================================
+%  PART 9: 财务与商业分析
+% ============================================================
+\input{parts/part9_finance.tex}
+
+% ============================================================
+%  PART 10: 最终总结
+% ============================================================
+\input{parts/part10_summary.tex}
+
+% ============================================================
+%  参考文献
+% ============================================================
+\clearpage
+\section{参考文献}
+\input{parts/appendix_refs.tex}
+
+% ============================================================
+%  附录：研究方法与限制
+% ============================================================
+\clearpage
+\section*{附录A：研究方法论与限制}
+\addcontentsline{toc}{section}{附录A：研究方法论与限制}
+
+\textbf{信息来源总结}：
+\begin{itemize}
+    \item \textbf{T1 (官方可验证)}：SEC XBRL 财报数据、PCIe/CXL 公开规范
+    \item \textbf{T2 (官方声明)}：官网产品页、官方博客、interop reports、白皮书
+    \item \textbf{T3 (第三方权威)}：SemiAnalysis IPO 分析、Wikipedia (CXL, Memory Wall)
+    \item \textbf{T4 (行业媒体)}：曾尝试访问 ServeTheHome/AnandTech/The Next Platform（部分受 Cloudflare/权限限制）
+    \item \textbf{T5 (推测/未确认)}：所有标注 \unverified{} 和 \speculation{} 的内容
+\end{itemize}
+
+\textbf{已知信息缺口}：
+\begin{enumerate}
+    \item Scorpio 端到端延迟、功耗、die size —— 未公开
+    \item 精确客户名单和收入占比 —— 未公开（集中度风险仅能从 SemiAnalysis 推断）
+    \item 各产品线的收入拆分 —— 未公开
+    \item 专利数量和质量 —— 未检索
+    \item 与 NVIDIA 的正式合作关系细节 —— NVLink Fusion 博客未完全公开
+    \item 各代产品的 ASP（平均售价）—— 未公开
+    \item OCP/CXL Consortium 中 Astera Labs 的具体贡献细节 —— 需要访问 OCP portal
+\end{enumerate}
+
+\textbf{后续研究建议}：
+\begin{itemize}
+    \item 专利检索：USPTO / Google Patents 检索 "Astera Labs" 专利组合
+    \item Conference 分析：Hot Chips / ISSCC / OCP Summit 中 Astera Labs 的演讲
+    \item 竞品对比：Broadcom PEX 系列、Credo Dove 系列的实际性能对比
+    \item 供应链验证：TSMC 具体制程节点、封测厂确认
+\end{itemize}
+
+\end{document}

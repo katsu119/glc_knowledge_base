@@ -1,0 +1,96 @@
+% ============================================================
+%  Part 8: 竞争格局
+% ============================================================
+
+\section{竞争格局}
+
+\subsection{全面竞争矩阵}
+
+\begin{table}[htb]
+    \centering
+    \caption{竞争格局矩阵 (2026)}
+    \label{tab:competition-matrix}
+    \small
+    \begin{tabular}{lccccc}
+        \toprule
+        \textbf{公司} & \textbf{Retimer} & \textbf{PCIe Switch} & \textbf{CXL Ctrl} & \textbf{AEC} & \textbf{软件} \\
+        \midrule
+        \rowcolor{blue!10}
+        \textbf{Astera Labs} & \checkmark\checkmark\checkmark & \checkmark\checkmark\checkmark & \checkmark\checkmark & \checkmark\checkmark & \checkmark\checkmark\checkmark \\
+        Broadcom & \checkmark\checkmark & \checkmark\checkmark\checkmark & — & \checkmark & — \\
+        NVIDIA & 自用 & 私有(NVSwitch) & 间接 & — & 自用 \\
+        Credo & \checkmark\checkmark\checkmark & — & — & \checkmark\checkmark\checkmark & — \\
+        Marvell & \checkmark & 定制 ASIC & — & \checkmark & — \\
+        Microchip & — & \checkmark\checkmark & \checkmark & — & — \\
+        Samsung & — & — & \checkmark\checkmark\checkmark & — & — \\
+        SK hynix & — & — & \checkmark\checkmark\checkmark & — & — \\
+        Montage & — & — & \checkmark\checkmark & — & — \\
+        Synopsys & — & — & (IP 授权) & — & — \\
+        Intel & 自用 & 间接 & 自用(CPU 侧) & — & 部分 \\
+        AMD & 自用 & 间接 & 自用(CPU 侧) & — & 部分 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{分层竞争分析}
+
+\subsubsection{Direct Competitors}
+
+\begin{itemize}
+    \item \textbf{Broadcom}：PCIe switch + retimer。最全面、最强的直接竞争对手。PEX 系列市场领导者，拥有十多年积累和客户关系
+    \item \textbf{Credo}：AEC + retimer。在 AEC 市场是最大威胁，以低功耗 SerDes 著称
+    \item \textbf{Samsung/SK hynix/Montage}：CXL memory controller。与 Leo 直接竞争
+\end{itemize}
+
+\subsubsection{部分竞争}
+
+\begin{itemize}
+    \item \textbf{Marvell}：数据中心芯片（DPU、定制 ASIC），不精确重叠但在同一个客户预算池中竞争
+    \item \textbf{Microchip}：PCIe switch（Switchtec 系列），但在 AI 优化方面落后
+\end{itemize}
+
+\subsubsection{生态伙伴（非竞争）}
+
+\begin{itemize}
+    \item \textbf{Intel/AMD}：CPU 供应商，CXL 生态推动者，Astera 的互操作伙伴
+    \item \textbf{Synopsys/Cadence}：IP 供应商，提供 SerDes/CXL IP 但不卖芯片
+    \item \textbf{NVIDIA}：既是竞争（NVSwitch vs Scorpio）又是合作（COSMOS 管理 GPU 的 PCIe 侧）
+\end{itemize}
+
+\textbf{关键空白区域}：没有任何一家竞争对手覆盖 Astera 的全部产品线。
+这是 Astera ``全栈''策略的核心优势。但这也意味着 Astera 同时与多家公司竞争。
+
+\subsection{``Switzerland of Connectivity'' 定位分析}
+
+这个定位的前提条件包括：
+\begin{enumerate}
+    \item GPU 市场不是 NVIDIA 垄断（需要有 AMD、Intel、自研 ASIC 等替代品）
+    \item Hyperscaler 维持多 vendor 策略
+    \item 开放标准（PCIe/CXL）继续成为主流连接方式
+    \item NVIDIA 不将 NVLink 开放为标准
+\end{enumerate}
+
+当前这些前提条件的状态：
+\begin{itemize}
+    \item NVIDIA 在 AI GPU 市场 $>$80\% 份额 → 中立性对 hyperscaler 很重要但 TAM 受限
+    \item Hyperscaler 确实在推多 vendor 策略（Google TPU、Amazon Trainium、MS Maia）→ 利好
+    \item PCIe/CXL 持续演进 → 利好
+    \item NVIDIA 未开放 NVLink → 利好
+\end{itemize}
+
+\textbf{风险}：在极端情况下——比如 NVIDIA 完全开放 NVLink 或收购一家连接公司——这个定位会迅速失效。
+
+\subsection{Why Hyperscaler 不愿完全绑定 NVIDIA}
+
+\begin{enumerate}
+    \item \textbf{定价权}：NVIDIA GPU 的议价能力已让 hyperscaler 极度不安
+    \item \textbf{供应安全}：单供应商风险（尽管 NVIDIA 已多源 HBM/制造）
+    \item \textbf{技术路线自主}：Hyperscaler 希望对硬件架构有控制权
+    \item \textbf{定制化需求}：通用 GPU 无法满足所有场景，需要异构计算
+    \item \textbf{NVLink 锁定}：NVLink 的封闭生态是 hyperscaler 最不想看到的长尾风险——使用 NVLink 意味着整个硬件栈被 NVIDIA 绑定
+\end{enumerate}
+
+Astera Labs 的存在价值与 NVIDIA 的垄断程度\textbf{正相关}。
+NVIDIA 越封闭 → Astera 越有价值。但 paradoxically，
+Astera 的短期最大客户可能是 NVIDIA GPU 集群中的连接需求。
+(因为 NVIDIA GPU 也需要 PCIe retimer/switch 来连接 NIC、NVMe 等非 NVLink 设备。)

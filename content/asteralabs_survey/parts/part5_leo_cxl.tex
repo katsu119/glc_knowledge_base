@@ -1,0 +1,160 @@
+% ============================================================
+%  Part 5: Leo 与 CXL
+% ============================================================
+
+\section{Leo 与 CXL}
+
+\subsection{什么是 CXL}
+
+CXL（Compute Express Link）是基于 PCIe 物理层构建的\textbf{缓存一致性}互连协议。
+允许 CPU/GPU 以 load/store 语义直接访问远端内存和外设。
+
+CXL 有三种协议类型：
+\begin{enumerate}
+    \item \textbf{CXL.io}：基于 PCIe，用于设备发现、配置、寄存器访问（必须支持）
+    \item \textbf{CXL.cache}：允许设备访问 host CPU 的缓存（用于加速器）
+    \item \textbf{CXL.mem}：允许 host 访问设备上的内存（用于内存扩展）
+\end{enumerate}
+
+Leo 属于 Type 3 设备：支持 CXL.io + CXL.mem，不支持 CXL.cache。
+这意味着 Leo 是一个``被动''的内存设备——CPU 可以访问 Leo 管理的内存，
+但 Leo 不会主动访问 CPU 缓存。
+
+\begin{table}[htb]
+    \centering
+    \caption{CXL 标准演进时间线}
+    \label{tab:cxl-evolution}
+    \begin{tabular}{llll}
+        \toprule
+        \textbf{版本} & \textbf{发布时间} & \textbf{PHY 带宽} & \textbf{关键特性} \\
+        \midrule
+        CXL 1.0/1.1 & 2019/2020 & PCIe 5 (32 GT/s) & Type 3 内存设备, 单 host \\
+        CXL 2.0 & 2020 & PCIe 5 & Switching, Memory Pooling (多 host) \\
+        CXL 3.0 & 2022 & PCIe 6 (64 GT/s) & Memory Sharing (多 host 同时), GFAM \\
+        CXL 3.1/3.2 & 2023/2024 & PCIe 6 & 3.x 优化 \\
+        CXL 4.0 & 2025 年 11 月 & 128 GT/s & 242 GB/s per x16 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Memory Wall}
+
+Memory Wall（内存墙）是指计算速度与内存访问速度之间的差距持续扩大。
+历史上（1986-2000）：CPU 速度年增 55\%，而 off-chip 内存响应时间年增仅 10\%。
+
+在 AI 训练/推理场景中的具体表现：
+\begin{itemize}
+    \item H100 GPU 计算吞吐：$\sim$2000 TFLOPS (FP8)；HBM3 带宽：3.35 TB/s
+    \item 算术密度：$\sim$0.6-1.5 Bytes/FLOP；HBM 提供 3.35 TB/s / 2000 TFLOPS = 1.675 Bytes/FLOP（勉强匹配）
+    \item 但如果模型参数超过 HBM 容量（80GB），需要外部访问：PCIe 5 x16 仅 64 GB/s
+    \item 64 GB/s / 2000 TFLOPS = 0.032 Bytes/FLOP——差了 50$\times$！
+\end{itemize}
+
+\textbf{Training 场景}：大模型（$>$100B 参数）的 weights/optimizer states/gradients 远超单 GPU HBM，
+需要跨 GPU 共享。CXL 扩展 DDR5 可以放 optimizer states、embeddings 等不频繁访问的数据，
+但不适合放频繁更新的 weights（延迟太高）。
+
+\textbf{Inference 场景}（CXL 更具价值）：
+KV cache 是主要内存消耗（长上下文可达 TB 级），
+对延迟容忍度高（prefill/decode 的计算时间远大于 CXL 延迟）。
+CXL DDR5 可以在 TB 级别提供 KV cache 容量，成本远低于增加 GPU。
+
+\textbf{RAG 场景}：向量数据库/知识库需要大容量内存，CXL 提供比网络存储低得多的访问延迟。
+Astera Labs 博客专门讨论了``CXL for RAG and KV Cache Performance''。\sourceT{2}
+
+\subsection{Memory Expansion vs Pooling vs Sharing}
+
+\begin{table}[htb]
+    \centering
+    \caption{CXL 内存架构三种模式}
+    \label{tab:cxl-modes}
+    \begin{tabular}{lccc}
+        \toprule
+        \textbf{特征} & \textbf{Memory Expansion} & \textbf{Memory Pooling} & \textbf{Memory Sharing} \\
+        \midrule
+        架构 & 1 host : 1 CXL 设备 & N host : 1 pool (switch) & N host : 1 memory (coherent) \\
+        所需 CXL 版本 & 1.1+ & 2.0+ & 3.0+ \\
+        带宽 & 全 CXL 链路带宽 & 通过 switch 共享 & 共享，coherency 开销 \\
+        主要价值 & 增加单机内存容量 & 减少 stranded memory & 真正的 disaggregation \\
+        复杂度 & 低 & 中 & 极高 \\
+        延迟 & 最低（直连） & 中（经过 switch） & 中高（coherency protocol） \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Leo CXL Memory Controller}
+
+\begin{table}[htb]
+    \centering
+    \caption{Leo 技术规格（来源：官方 interop 报告 \sourceT{2}）}
+    \label{tab:leo-specs}
+    \begin{tabular}{ll}
+        \toprule
+        \textbf{参数} & \textbf{已知值} \\
+        \midrule
+        CXL 版本 & CXL 1.1 \\
+        内存类型 & DDR5-5600 RDIMM \\
+        已验证容量 & 64GB RDIMM (Micron/Samsung/SK hynix) \\
+        CPU 兼容 & Intel Xeon 6, AMD EPYC \\
+        OS 支持 & Linux \\
+        软件 & COSMOS for telemetry/RAS \\
+        \midrule
+        \textbf{未公开参数} & \textbf{状态} \\
+        \midrule
+        每控制器最大内存容量 & \unverified{} 未公开 \\
+        内存通道数 & \unverified{} 未公开 \\
+        CXL 链路带宽 & \unverified{} 未公开（推测 PCIe 5 x8 或 x16） \\
+        Read/Write 延迟 & \unverified{} 未公开 \\
+        功耗 & \unverified{} 未公开 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Leo 当前支持 CXL 1.1（根据官网 interop 报告）。
+CXL 1.1 不支持 switching（一个 host 只能连接一个 Type 3 设备），
+不支持多 host 共享（memory sharing 需要 CXL 3.0）。
+这意味着 Leo 目前只能做``memory expansion''（1 对 1），不能做``memory pooling''（多对多）。
+
+\textbf{竞争对比}（CXL 内存控制器供应商）：
+\begin{itemize}
+    \item Samsung：128GB/512GB CXL 内存模块，自研控制器（垂直整合模式）
+    \item SK hynix：CXL 内存方案
+    \item Montage Technology：MXC GEN3, CXL 内存控制器
+    \item Micron：CXL fabric memory sharing demo
+    \item Astera Labs Leo：独立控制器芯片（不卖内存模块，赋能内存模组厂商模式）
+\end{itemize}
+
+关键区别：Astera 只卖控制器芯片，不卖内存模块。Samsung/SK hynix 卖的是完整的内存模块（控制器 + DRAM）。
+Astera 的模式是赋能内存模组厂商，让 A-Data, Kingston, SMART Modular 等可以做出兼容的 CXL 内存模块。
+
+\subsection{CXL 当前真实的落地情况}
+
+\begin{table}[htb]
+    \centering
+    \caption{CXL 落地状态评估（截至 2026 年中）}
+    \label{tab:cxl-status}
+    \begin{tabular}{lp{0.5\textwidth}}
+        \toprule
+        \textbf{状态} & \textbf{详情} \\
+        \midrule
+        \checkmark 已实现 & CPU 支持（Intel SR/GR/XR、AMD Genoa）、OS 支持（Linux 6.5+、Win Server 2022）、合规程序（Integration List）、CXL 4.0 spec 发布 \\
+        \checkmark 部分实现 & Demo（SC24/SC25 多个 CXL demo）、MXC GEN3 硅片可用 \\
+        $\times$ 未实现 & 大规模生产部署、CXL 3.0 memory sharing 量产硅片、标准化内存模块格式 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\textbf{CXL 距离大规模生产部署可能还需要 2-4 年}。当前的部署主要是 hyperscaler 的有限试验。
+Memory expansion (1:1) 比 pooling/sharing 更接近生产就绪。
+
+\textbf{主要障碍}：
+\begin{enumerate}
+    \item \textbf{延迟}：CXL 控制器增加 $\sim$200ns 延迟——对延迟敏感应用不适合
+    \item \textbf{软件生态}：Memory tiering（hot/cold page 管理）、Fabric Manager 仍在成熟中
+    \item \textbf{成本}：CXL 内存模块比标准 DDR5 DIMM 贵 20-50\%（估计）
+    \item \textbf{带宽竞争}：Pooling 场景下多 host 共享带宽，产生 contention
+    \item \textbf{一致性复杂度}：CXL 3.0+ 的 multi-host cache coherency 验证极其困难
+\end{enumerate}
+
+对 Astera Labs 来说，Leo 是面向未来的战略性投资。短期内（1-2 年）Leo 的收入贡献可能有限，
+但如果 CXL adoption 加速（2027-2028），Leo 将成为重要增长引擎。

@@ -1,0 +1,769 @@
+% ============================================================
+%  Astera Labs 全面调研报告 — Part 4-6
+%  Aries / Leo+CXL / COSMOS
+% ============================================================
+
+\documentclass[UTF8,11pt,aspectratio=169]{beamer}
+\usepackage{xeCJK}
+\setCJKmainfont{Songti SC}
+\setCJKsansfont{Heiti SC}
+\setCJKmonofont{STFangsong}
+
+\usetheme{Darmstadt}
+\usecolortheme{whale}
+\usefonttheme{professionalfonts}
+
+\definecolor{darkgreen}{RGB}{0,128,0}
+\definecolor{darkred}{RGB}{180,0,0}
+\definecolor{darkblue}{RGB}{0,0,139}
+\definecolor{gold}{RGB}{200,150,0}
+\definecolor{mygray}{RGB}{245,245,245}
+\definecolor{t1green}{RGB}{220,255,220}
+\definecolor{t2blue}{RGB}{200,220,255}
+\definecolor{t3yellow}{RGB}{255,255,200}
+\definecolor{t4orange}{RGB}{255,230,200}
+\definecolor{t5red}{RGB}{255,200,200}
+
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{positioning, calc, shapes.geometric, arrows.meta, backgrounds, fit, chains}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage[table]{xcolor}
+\usepackage{amsmath,amssymb}
+\usepackage{mathtools}
+\usepackage{listings}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=darkblue, urlcolor=darkblue}
+\usepackage{bookmark}
+\usepackage{pgfpages}
+
+\lstset{basicstyle=\ttfamily\small, keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{darkgreen}, stringstyle=\color{darkred},
+    numbers=left, numberstyle=\tiny\color{gray}, backgroundcolor=\color{mygray},
+    breaklines=true, frame=single, tabsize=2}
+
+\title[Astera Labs 调研 P4-P6]{Astera Labs: Aries / Leo+CXL / COSMOS 深度分析}
+\subtitle{工程级别、产业级别的深度调研}
+\author[Ge Liangchen]{Ge Liangchen}
+\date{\today}
+\institute{半导体行业分析}
+
+\setbeamertemplate{footline}[frame number]
+\AtBeginSection[]{\begin{frame}{目录}\tableofcontents[currentsection]\end{frame}}
+
+\newcommand{\sourceT}[1]{{\small\textcolor{darkblue}{[T#1]}}}
+\newcommand{\unverified}{{\textcolor{darkred}{\textbf{[未确认]}}}}
+\newcommand{\speculation}{{\textcolor{orange}{\textbf{[推测]}}}}
+\newcommand{\marketing}{{\textcolor{orange}{\textbf{[可能为营销语言]}}}}
+
+\begin{document}
+
+\begin{frame}\titlepage\end{frame}
+\begin{frame}{报告结构}\tableofcontents\end{frame}
+
+% ============================================================
+%  PART 4：Aries 深度研究
+% ============================================================
+\section{Part 4: Aries 深度研究}
+
+\begin{frame}{什么是 Retimer}
+    \centering
+    \begin{tikzpicture}[
+        node distance=2.5cm,
+        block/.style={rectangle, draw=darkblue, fill=blue!5, thick, minimum width=2cm, minimum height=1cm, align=center, rounded corners=3pt},
+        signal/.style={->, >=Stealth, thick}
+    ]
+        \node[block] (TX) {TX\\发送端};
+        \node[block, right=of TX] (CHANNEL) {Channel\\PCB/背板/电缆};
+        \node[block, right=of CHANNEL] (RETIMER) {Retimer\\\footnotesize CDR + 重新驱动};
+        \node[block, right=of RETIMER] (CHANNEL2) {Channel};
+        \node[block, right=of CHANNEL2] (RX) {RX\\接收端};
+
+        \draw[signal] (TX) -- (CHANNEL) node[midway, above, font=\footnotesize] {信号衰减};
+        \draw[signal, darkred, very thick] (CHANNEL) -- (RETIMER) node[midway, above, font=\footnotesize] {弱/噪声信号};
+        \draw[signal, darkgreen, very thick] (RETIMER) -- (CHANNEL2) node[midway, above, font=\footnotesize] {干净信号};
+        \draw[signal] (CHANNEL2) -- (RX);
+    \end{tikzpicture}
+
+    \begin{block}{Retimer = 完整信号再生（不是放大）}
+        \begin{itemize}
+            \item 包含CDR (Clock Data Recovery)：从数据中恢复时钟
+            \item 完整解串/重串行化：消除所有抖动和噪声
+            \item 输出"像新发送的信号一样干净"
+            \item \textbf{vs Redriver}：Redriver只是模拟均衡+放大，\alert{同时放大噪声}，PAM4下无法使用
+        \end{itemize}
+    \end{block}
+\end{frame}
+
+\note{
+    Retimer vs Redriver 深度技术对比（来源：Agent研究报告[T3-T4]）：
+
+    | 特性 | Redriver | Retimer (含DSP) |
+    |------|----------|-----------------|
+    | 功能 | 放大信号+均衡 | 完全重新生成(CDR+Re-Drive) |
+    | 时钟 | 无CDR，透传 | 独立CDR |
+    | 延迟 | 极低(<100 ps) | 较高(10-30 ns PCIe 5; PCIe 6更高) |
+    | 比特误差 | 放大噪声 | 消除噪声 |
+    | PCIe 6 | 不可用 | 必需(PAM4需要DSP retimer) |
+
+    为什么PCIe 6必须用Retimer：
+    - PCIe 6从NRZ(2电平)切换到PAM4(4电平)
+    - PAM4的眼图开口是NRZ的1/3(相同电压摆幅下)
+    - 这意味着任何噪声放大都会导致比特错误
+    - Redriver的模拟均衡会同时放大信号和噪声，无法满足PAM4的信噪比要求
+    - Retimer的DSP完全数字化恢复信号，输出原始质量的信号
+
+    DSP Retimer的架构（推测，基于公开技术原理）：
+    1. CTLE (Continuous Time Linear Equalizer) - 模拟前端，初步补偿通道衰减
+    2. ADC - 将PAM4模拟信号数字化
+    3. DSP - FFE/DFE均衡、CDR、PAM4解码、FEC解码
+    4. PAM4编码器 + DAC + Driver - 重新生成输出信号
+    5. 这个过程消除了所有累积的抖动和噪声
+}
+
+\begin{frame}{为什么AI Server更需要Retimer}
+    \begin{columns}[T]
+        \begin{column}{0.5\textwidth}
+            \textbf{传统服务器}：
+            \begin{itemize}
+                \item CPU到PCIe slot距离短（\<6 inches）
+                \item 通常1-2个PCIe设备
+                \item PCIe 4即可满足大多数需求
+                \item 对SI要求相对宽松
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \textbf{AI Server}：
+            \begin{itemize}
+                \item GPU底板面积大（\>12 inches trace length）
+                \item 8-72+ GPU per node
+                \item PCIe 5/6必需，更高lane数
+                \item 密集crosstalk管理
+                \item Multi-rack需要cable（>3m）
+                \item 每个GPU需要多个PCIe/CXL连接
+            \end{itemize}
+        \end{column}
+    \end{columns}
+
+    \begin{keypoint}
+        AI server的SI挑战呈指数级增长：更多GPU × 更高速度 × 更复杂拓扑 = \textbf{Retimer不可省略}
+    \end{keypoint}
+\end{frame}
+
+\note{
+    AI Server的SI挑战细节：
+    - NVIDIA DGX H100系统有8个GPU，每个GPU有PCIe Gen5 x16端口 → 总共128个PCIe lanes需要管理
+    - 在单块底板上布128条64 GT/s的走线是极端的高密度SI挑战
+    - 走线长度超过~12 inches时，64 GT/s信号的眼图会闭合，必须用Retimer再生
+    - GPU之间的NVLink走线也是高速信号（100-200 GT/s），同样需要信号调理
+    - 但NVLink侧的retimer通常是NVIDIA自己设计/指定的
+
+    Astera Labs声称其芯片在"80\%+的AI服务器"中使用（来源[T3] SemiAnalysis）。
+    这个数字无法从官方验证 \unverified，但如果接近真实，意味着Astera的渗透率极高。
+}
+
+\begin{frame}{Aries 产品线细分}
+    \begin{table}
+        \caption{Aries 系列产品对比}
+        \begin{tabular}{llll}
+            \toprule
+            \textbf{产品} & \textbf{形态} & \textbf{协议} & \textbf{关键spec} \\
+            \midrule
+            \rowcolor{blue!5}
+            Smart DSP Retimer & 芯片 & PCIe 6 / CXL 3.x & Per-lane DSP均衡 \\
+            \rowcolor{blue!5}
+            Smart Cable Module & Cable Paddle Card & PCIe 6 / CXL 3.x & 7m, 32AWG(4m)/27AWG(6m) \\
+            \rowcolor{blue!5}
+            Smart Gearbox & 芯片 & PCIe 6 ↔ PCIe 5 & 协议桥接 \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    \vspace{0.3cm}
+    \textbf{Smart Cable Module 详解} \sourceT{2}：
+    \begin{itemize}
+        \item 将Aries DSP Retimer集成到cable paddle card中
+        \item \textbf{7m reach at 64 GT/s} — 被动铜缆仅3m
+        \item 细径电缆（32AWG for 4m, 27AWG for 6m）— 不阻塞气流
+        \item BER显著优于PCIe规范要求
+        \item 生态伙伴：Amphenol (OSFP-XD), Molex (PCIe 6.0 AEC)
+        \item 定位："单点责任"——固件更新、软件集成、硬件支持一体化
+    \end{itemize}
+\end{frame}
+
+\note{
+    Smart Cable Module的深层价值：
+    - 传统模式：客户从Amphenol/Molex买cable，从Broadcom买retimer，自己集成
+    - Astera模式：客户从Amphenol/Molex买"内置Aries的cable"，Astera提供端到端软件/固件支持
+    - 对hyperscaler的好处：减少供应链复杂度、单一责任方、统一管理平面(COSMOS)
+
+    关于7m reach：
+    - 被动DAC在64 GT/s PAM4下，插入损耗极限约为3m
+    - 要超过3m，要么增大线径（变粗→阻挡气流、难以弯曲），要么用有源方案
+    - Aries SCM使用32AWG(4m)/27AWG(6m)的细线，通过内置retimer补偿损耗
+    - 7m覆盖了同一row中相邻机架的距离——这是multi-rack GPU clustering的关键
+
+    关于BER (Bit Error Rate)：
+    - PCIe规范要求BER < 1e-12
+    - Astera声称"显著优于"此要求 \marketing
+    - 实际BER性能取决于通道条件——在没有具体测试条件的情况下，这个声称难以验证 \unverified
+
+    关于Amplitude vs Molex合作：
+    - Amphenol OSFP-XD Gen6 AEC：使用Aries 6 SCM
+    - Molex PCIe 6.0 AEC：使用Aries 6 SCM
+    - 这意味着Astera采取"inside"策略——芯片在cable connector里，终端用户看到的是Amphenol/Molex品牌
+}
+
+\begin{frame}{PCIe Smart Gearbox 详解}
+    \begin{block}{什么是Gearbox？}
+        Gearbox是一种协议桥接芯片——一端是PCIe 6 (64 GT/s PAM4)，另一端是PCIe 5 (32 GT/s NRZ)
+    \end{block}
+
+    \vspace{0.2cm}
+    \begin{columns}[T]
+        \begin{column}{0.5\textwidth}
+            \textbf{使用场景}：
+            \begin{itemize}
+                \item Server升级到PCIe 6 CPU/GPU
+                \item 但已有的NIC卡是PCIe 5
+                \item 不想requalify整个NIC fleet
+                \item → Gearbox连接PCIe 6 Host和PCIe 5 NIC
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \textbf{商业价值}：
+            \begin{itemize}
+                \item Hyperscaler有数千台已验证的NIC
+                \item NIC requalification耗时12-18个月
+                \item Gearbox消除了requal障碍
+                \item 允许增量式PCIe 6迁移
+            \end{itemize}
+        \end{column}
+    \end{columns}
+
+    \begin{keypoint}
+        Gearbox解决的不是技术问题，而是\alert{部署迁移成本}问题。这是一个聪明的代际过渡策略。
+    \end{keypoint}
+\end{frame}
+
+\note{
+    Gearbox的技术原理：
+    - PCIe 6使用FLIT (Flow control unIT)模式——这是PCIe 6引入的新包格式
+    - PCIe 5使用传统的TLP (Transaction Layer Packet)格式
+    - Gearbox在FLIT和TLP之间进行转换
+    - 同时也需要做PAM4 ↔ NRZ的物理层转换（如果物理层也需要兼容）
+    - 这是一个协议+物理的桥接
+
+    为什么这个产品重要：
+    - PCIe世代过渡通常是"全换"——新CPU+新IO+新外设
+    - Hyperscaler有大量投资在PCIe 5 NIC上（如NVIDIA ConnectX-7, Intel E810等）
+    - Gearbox让hyperscaler可以升级server到PCIe 6同时保留PCIe 5 NIC
+    - 这降低了迁移风险，加速了PCIe 6的采用
+    - 但这也意味着Gearbox是一个"过渡产品"——当所有NIC都升级到PCIe 6后需求会下降
+}
+
+\begin{frame}{Aries 功耗/延迟/SI Trade-off}
+    \begin{table}
+        \caption{Retimer设计中的三重约束}
+        \begin{tabular}{lcc}
+            \toprule
+            \textbf{约束} & \textbf{趋势} & \textbf{挑战} \\
+            \midrule
+            功耗 & 每代PCIe翻倍 & PAM4 DSP + ADC/DAC功耗 ~500mW/lane \\
+            延迟 & 每代增加 & DSP pipeline深度决定延迟 \\
+            SI质量 & 每代恶化 & PAM4 SNR要求远高于NRZ \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    \textbf{Astera Labs的优化方向} \speculation：
+    \begin{itemize}
+        \item 通过自有DSP架构优化功耗/延迟/SI的triple tradeoff
+        \item 但具体数字未公开——SerDes参数通常是芯片公司最核心的商业秘密
+    \end{itemize}
+
+    \begin{alertblock}{竞争对比注意}
+        Credo以其低功耗SerDes著称（在AEC市场），Credo和Astera在retimer/AEC领域是直接竞争。
+        但没有公开可用的功耗/延迟对比数据 \unverified。
+    \end{alertblock}
+\end{frame}
+
+\note{
+    SerDes功耗的行业背景：
+    - PCIe 5 (32 GT/s NRZ): ~300-400 mW per lane
+    - PCIe 6 (64 GT/s PAM4): ~500-700 mW per lane (推测)
+    - 16 lanes per port × ~600 mW = ~10W per x16 port just for SerDes
+    - 320 lanes × ~600 mW = ~192W total SerDes power (这还只是SerDes，不包括switch fabric本身)
+    - 这解释了为什么高radix switch的功耗是一个重大挑战
+
+    延迟的tradeoff：
+    - Retimer的延迟取决于DSP pipeline深度
+    - 更多的均衡tap (FFE/DFE) → 更好的SI但更高延迟
+    - Astera声称低延迟但无具体数字 \unverified
+    - PCIe 6 retimer延迟通常在20-50ns级别（推测）
+
+    关于竞争对手：
+    - Credo Technology在AEC市场以其低功耗SerDes闻名
+    - Parade Technologies在消费/客户端retimer有优势
+    - Broadcom拥有自己的SerDes IP，但在retimer领域主要是捆绑交换机销售
+    - Astera的优势在于"只做连接"的专注 + DSP retimer + Smart Cable + COSMOS集成
+}
+
+\begin{frame}{Aries 与竞争对手对比}
+    \begin{table}
+        \caption{PCIe Retimer 竞争格局}
+        \begin{tabular}{lcccc}
+            \toprule
+            \textbf{能力} & \textbf{Astera Aries} & \textbf{Broadcom} & \textbf{Credo} & \textbf{Parade/Renesas} \\
+            \midrule
+            PCIe 6 支持 & \checkmark & \checkmark & \checkmark & Renesas \checkmark, Parade ? \\
+            DSP Retimer & \checkmark & \checkmark & \checkmark & 部分 \\
+            Smart Cable & \checkmark & — & \checkmark & — \\
+            Gearbox & \checkmark & — & — & — \\
+            COSMOS集成 & \checkmark & — & — & — \\
+            Hyperscaler直接关系 & \checkmark\checkmark\checkmark & \checkmark\checkmark & \checkmark & \checkmark \\
+            AI专项优化 & \checkmark\checkmark\checkmark & \checkmark & \checkmark\checkmark & \checkmark \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    \begin{itemize}
+        \item 在\alert{retimer单一产品}上，Astera/Broadcom/Credo都有竞争力
+        \item Astera的优势在于\alert{全栈集成}：Retimer + Cable + Gearbox + Switch + CXL + Software
+        \item Credo在AEC市场有先发优势；Astera在后追赶但增速快
+    \end{itemize}
+\end{frame}
+
+\note{
+    竞争深度分析：
+
+    Credo vs Astera in AEC/Smart Cable:
+    - Credo的AEC产品线（Dove系列）是市场领导者，有最广泛的客户采用
+    - Credo的优势：低功耗SerDes IP、多代产品积累、客户关系
+    - Astera的差异化：Smart Cable Module内置DSP + COSMOS telemetry
+    - 如果telemetry和fleet management对hyperscaler足够重要，COSMOS集成会成为Astera对Credo的竞争护城河
+    - 但Credo也在建立自己的软件能力
+
+    Broadcom的retimer地位：
+    - Broadcom拥有强大的SerDes IP和规模优势
+    - 但retimer不是Broadcom的战略重点（交换机和定制ASIC才是）
+    - Broadcom的retimer更多是交换机产品的附件
+    - 这使得Astera在"纯retimer"市场有更高专注度
+
+    Parade/Renesas/TI的角色：
+    - 这些厂商在数据中心retimer市场份额较小
+    - 更多聚焦消费电子（Parade）或工业/汽车（Renesas）
+    - 不是Astera在hyperscaler市场的主要竞争对手
+}
+
+% ============================================================
+%  PART 5：Leo 与 CXL
+% ============================================================
+\section{Part 5: Leo 与 CXL}
+
+\begin{frame}{什么是 CXL}
+    \begin{block}{CXL = Compute Express Link}
+        基于PCIe物理层的\alert{缓存一致性}互连协议。允许CPU/GPU以load/store语义直接访问远端内存和外设。
+    \end{block}
+
+    \begin{table}
+        \caption{CXL 标准演进}
+        \begin{tabular}{llll}
+            \toprule
+            \textbf{版本} & \textbf{发布时间} & \textbf{带宽} & \textbf{关键特性} \\
+            \midrule
+            CXL 1.0/1.1 & 2019/2020 & PCIe 5 (32 GT/s) & Type 3内存设备 \\
+            CXL 2.0 & 2020 & PCIe 5 & Switching, Memory Pooling \\
+            CXL 3.0 & 2022 & PCIe 6 (64 GT/s) & Memory Sharing, Multi-Level Switch \\
+            CXL 3.2 & 2024 & PCIe 6 & 3.x优化 \\
+            CXL 4.0 & 2025 & 128 GT/s & 242 GB/s per x16 \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    \begin{keypoint}
+        CXL的终极目标：让数据中心内所有CPU/GPU共享一个巨大的、逻辑统一的内存池。
+    \end{keypoint}
+\end{frame}
+
+\note{
+    CXL的三种协议类型：
+    - CXL.io: 基于PCIe，用于设备发现、配置、寄存器访问（必须）
+    - CXL.cache: 允许设备访问host CPU的缓存（用于加速器）
+    - CXL.mem: 允许host访问设备上的内存（用于内存扩展）
+
+    Leo属于Type 3设备：支持CXL.io + CXL.mem，但不支持CXL.cache。
+    这意味着Leo是一个"被动"的内存设备——CPU可以访问Leo管理的内存，但Leo不会主动访问CPU缓存。
+
+    CXL 1.1的局限：
+    - Leo当前支持CXL 1.1（根据官网interop报告）
+    - CXL 1.1不支持switching（一个host只能连接一个Type 3设备）
+    - 不支持多host共享（memory sharing是CXL 3.0才有的）
+    - 这意味着Leo目前只能做"memory expansion"（1对1），不能做"memory pooling"（多对多）
+}
+
+\begin{frame}{Memory Wall 与 CXL 的价值}
+    \centering
+    \begin{tikzpicture}[
+        node distance=2cm,
+        wall/.style={rectangle, draw=darkred, fill=red!10, thick, minimum width=3cm, minimum height=1cm, align=center},
+        sol/.style={rectangle, draw=darkgreen, fill=green!10, thick, minimum width=3cm, minimum height=1cm, align=center}
+    ]
+        \node[wall] (PROBLEM) {\textbf{Memory Wall}\\\small GPU计算速度 >> 内存访问速度};
+        \node[wall, below=0.5cm of PROBLEM] (WHY) {\textbf{Why?}\\HBM容量有限(80-192GB)\\模型参数远超单GPU内存};
+        \node[sol, below=0.5cm of WHY] (SOL) {\textbf{CXL解决方案}\\通过PCIe/CXL访问大容量DDR5\\扩展有效内存至TB级别};
+    \end{tikzpicture}
+
+    \begin{columns}[T]
+        \begin{column}{0.33\textwidth}
+            \begin{block}{Memory Expansion (1:1)}
+                1个host连接1个CXL内存设备，\textbf{增加单机内存容量}。CXL 1.1即可支持。
+            \end{block}
+        \end{column}
+        \begin{column}{0.33\textwidth}
+            \begin{block}{Memory Pooling (N:1)}
+                多个host共享1个内存池，通过CXL switch连接。需要CXL 2.0+。\textbf{减少stranded memory}。
+            \end{block}
+        \end{column}
+        \begin{column}{0.33\textwidth}
+            \begin{block}{Memory Sharing (N:N)}
+                多个host同时访问同一块内存，缓存一致。需要CXL 3.0。\textbf{实现真正的disaggregation}。
+            \end{block}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\note{
+    Memory Wall的量化理解：
+    - H100 GPU计算吞吐：~2000 TFLOPS (FP8)
+    - H100 HBM3带宽：3.35 TB/s
+    - 每FLOP需要的字节数（算术密度）：约0.6-1.5 Bytes/FLOP
+    - 3.35 TB/s / 2000 TFLOPS = 1.675 Bytes/FLOP —— HBM勉强够
+    - 但如果模型参数超过HBM容量(80GB)，需要用PCIe访问外部内存
+    - PCIe 5 x16: 64 GB/s（双向）
+    - 64 GB/s / 2000 TFLOPS = 0.032 Bytes/FLOP —— 差了50倍！
+    - 这就是memory wall的数学本质：当数据不在HBM中时，计算利用率断崖式下跌
+
+    CXL如何改善（但不解决）这个问题：
+    - CXL提供比通过NIC访问远端内存低得多的延迟（~200ns vs ~10μs网络）
+    - 对于推理：CXL内存可以存放KV cache，避免从SSD重新加载
+    - 对于训练：CXL内存不太适合放频繁访问的参数（延迟太高），但可以放不频繁访问的数据
+    - 关键tradeoff：CXL DDR5的每GB成本远低于HBM，但带宽仅1/50
+}
+
+\begin{frame}{Leo CXL Memory Controller}
+    \begin{table}
+        \caption{Leo 已知技术规格（来源：官方 interop 报告 \sourceT{2}）}
+        \begin{tabular}{ll}
+            \toprule
+            \textbf{参数} & \textbf{已知值} \\
+            \midrule
+            CXL版本 & CXL 1.1 \\
+            内存类型 & DDR5-5600 RDIMM \\
+            已验证容量 & 64GB RDIMM (Micron/Samsung/SK hynix) \\
+            CPU兼容 & Intel Xeon 6, AMD (EPYC) \\
+            OS支持 & Linux \\
+            软件 & COSMOS for telemetry/RAS \\
+            \midrule
+            \textbf{未公开参数} & \textbf{状态} \\
+            \midrule
+            每控制器最大内存容量 & \unverified 未公开 \\
+            内存通道数 & \unverified 未公开 \\
+            CXL链路带宽 & \unverified 未公开（推测PCIe 5 x8或x16） \\
+            Read/Write延迟 & \unverified 未公开 \\
+            功耗 & \unverified 未公开 \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+\end{frame}
+
+\note{
+    Leo的技术分析：
+
+    已知的互操作报告（来源[T2] 官方）：
+    - 与Intel Xeon 6的互操作测试完成
+    - 与AMD CXL 1.1 capable CPUs的互操作测试完成
+    - 与Micron/Samsung/SK hynix DDR5-5600 64GB RDIMM的互操作完成
+    - 测试涵盖：PCIe电气层、事务层、电源管理、复位/初始化、DDR测试、RAS测试
+
+    推测的架构（基于CXL Type 3设备的标准架构）：
+    - CXL Controller IP: 处理CXL.mem协议
+    - DDR5 Memory Controller: 管理DDR5 DIMM
+    - Address Translation: CXL地址到DDR物理地址映射
+    - ECC + RAS: 端到端错误管理
+    - COSMOS Interface: 提供telemetry/管理接口
+
+    竞争对比（CXL内存控制器供应商）：
+    - Samsung: 128GB/512GB CXL内存模块，自研控制器
+    - SK hynix: CXL内存方案
+    - Micron: CXL fabric memory sharing demo
+    - Montage Technology: MXC GEN3, CXL内存控制器
+    - Astera Labs Leo: 独立控制器芯片（不卖内存模块）
+
+    关键区别：Astera只卖控制器芯片，不卖内存模块。Samsung/SK hynix卖的是完整的内存模块（控制器+DRAM）。
+    这意味着Astera的模式是赋能内存模组厂商，而Samsung/SK hynix是垂直整合模式。
+}
+
+\begin{frame}{CXL 当前真实的落地情况}
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \textbf{已经发生的}：
+            \begin{itemize}
+                \item CPU支持：Intel Sapphire Rapids + AMD Genoa均支持CXL 1.1
+                \item OS支持：Linux kernel 6.5+, Windows Server 2022
+                \item 合规程序：CXL Consortium Integration List自2023年运行
+                \item Demo：SC24/SC25多个CXL memory demo
+                \item CXL 4.0 spec已发布（2025年11月）
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \textbf{尚未发生的}：
+            \begin{itemize}
+                \item 大规模生产部署 — 仍处于早期采用者阶段
+                \item Software ecosystem成熟 — 内存分层/Fabric软件仍在开发
+                \item CXL 3.0 memory sharing — 无硅片量产
+                \item Industry-wide adoption — 主要在hyperscaler试验
+                \item 标准化内存模块格式 — 多个竞争格式
+            \end{itemize}
+        \end{column}
+    \end{columns}
+
+    \begin{alertblock}{诚实评估}
+        CXL 距离大规模生产部署可能还需要 \alert{2-4 年}。当前的部署主要是hyperscaler的有限试验。
+        Memory expansion (1:1) 比 pooling/sharing 更接近生产就绪。
+    \end{alertblock}
+\end{frame}
+
+\note{
+    CXL adoption的现实障碍详细分析：
+
+    1. 延迟问题：
+    - CXL访问远端DDR5比本地DDR5多了CXL controller延迟（~100-200ns per direction）
+    - 对延迟敏感的应用（如高频率参数更新）不适合
+    - 但对容量敏感的应用（KV cache、embedding tables）可以接受
+
+    2. 软件生态：
+    - 操作系统需要知道哪些内存是CXL-attached的，哪些是local的
+    - Memory tiering策略：hot pages在local DRAM，cold pages在CXL memory
+    - Linux的memory tiering仍在完善中（从kernel 5.15开始）
+    - 用户态应用需要显式优化（如使用numactl绑定）
+
+    3. 成本：
+    - CXL内存模块比标准DDR5 DIMM多了CXL controller芯片和retimer
+    - 业界估计CXL内存模块比标准DIMM贵20-50%
+    - 对hyperscaler来说，TCO节省需要从"减少stranded memory"中体现
+    - Stranded memory在hyperscale中占内存总量的20-30%（估计）
+    - 但pooling infrastructure本身也需要投资（CXL switch, fabric manager等）
+
+    4. 标准vs实现差距：
+    - CXL 3.0 spec定义了memory sharing, 但实际芯片实现复杂
+    - Multi-host cache coherency的验证极其困难
+    - CXL 4.0进一步提高了速度但相应增加了复杂性
+
+    结论：对Astera Labs来说，Leo是面向未来的战略性投资。短期内（1-2年）Leo的收入贡献可能有限，
+    但如果CXL adoption加速（2027-2028），Leo将成为重要增长引擎。
+}
+
+\begin{frame}{Leo 在 AI Infra 中的位置}
+    \begin{block}{AI Training 场景}
+        \begin{itemize}
+            \item 模型参数（数百GB-TB） → HBM中放不下
+            \item CXL扩展DDR5作为"第二层内存"——放optimizer states, embeddings等
+            \item 限制：带宽远低于HBM，不适合放频繁访问的weights
+            \item 结论：\alert{有限收益}，CXL内存更适合offload不频繁访问的数据
+        \end{itemize}
+    \end{block}
+
+    \begin{block}{AI Inference 场景}
+        \begin{itemize}
+            \item KV Cache是主要内存消耗（长上下文场景可达TB级）
+            \item CXL DDR5放KV cache → 支持更长上下文
+            \item Astera博客声称"CXL Memory Expansion Improves AI Economics" \sourceT{2}
+            \item 结论：\alert{推理场景更有价值}，因为KV cache对延迟容忍度高
+        \end{itemize}
+    \end{block}
+
+    \begin{block}{RAG / 数据库场景}
+        \begin{itemize}
+            \item RAG的向量数据库/知识库需要大容量内存
+            \item CXL内存提供比网络存储低得多的访问延迟
+            \item Astera博客："CXL for RAG and KV Cache Performance" \sourceT{2}
+        \end{itemize}
+    \end{block}
+\end{frame}
+
+\note{
+    AI Inference 为什么是CXL的杀手应用（推测）：
+
+    以运行GPT-4级别模型（~1.76T参数，FP8 = 1.76TB weights）为例：
+    - 需要至少8张H100 (80GB × 8 = 640GB HBM不够) 或 16张H200 (141GB × 16 = 2.25TB)
+    - 每个请求的KV cache可能额外需要几十到几百GB（取决于context length）
+    - 如果10个并发请求，每个1M token context → KV cache可能 = 100+ GB
+    - CXL DDR5可以在TB级别提供KV cache容量，成本远低于增加GPU
+    - 对KV cache来说，~200ns的CXL延迟在inference pipeline中不是瓶颈（prefill和decode的计算时间远大于此）
+
+    但需要注意：这是理论最优场景。实际部署中：
+    - GPU通常不直接支持CXL——需要通过CPU中转
+    - GPU→CPU→CXL的延迟路径比CPU→CXL更长
+    - NVIDIA GPU目前不支持CXL.mem直接访问（需要NVIDIA未来产品的支持）
+    - 这使得当前CXL对GPU的价值主要是CPU-side的KV cache管理
+
+    Astera的"Inference Tokenomics"博客声称CXL memory expansion "improves AI economics"，
+    但具体数据未公开。这是典型的营销语言 \marketing，需要第三方验证。
+}
+
+% ============================================================
+%  PART 6：COSMOS 软件平台
+% ============================================================
+\section{Part 6: COSMOS 软件平台}
+
+\begin{frame}{COSMOS 是什么}
+    \centering
+    \begin{tikzpicture}[
+        node distance=1.2cm,
+        layer/.style={rectangle, draw=darkblue, fill=blue!5, thick, minimum width=4cm, minimum height=0.9cm, align=center, rounded corners=3pt},
+        arrow/.style={->, >=Stealth, thick}
+    ]
+        \node[layer, fill=darkgreen!10] (APP) {COSMOS Tools (CLI + Explorer GUI)};
+        \node[layer, below=0.3cm of APP] (SDK) {COSMOS Developer Kit (SDK + 库 + 脚本)};
+        \node[layer, below=0.3cm of SDK] (CORE) {COSMOS Core Platform};
+        \node[layer, fill=darkblue!10, below=0.3cm of CORE] (LINK) {Link Management};
+        \node[layer, fill=darkblue!10, below=0.3cm of LINK] (FLEET) {Fleet Management};
+        \node[layer, fill=darkblue!10, below=0.3cm of FLEET] (RAS) {RAS Management};
+        \node[layer, fill=darkred!5, below=0.3cm of RAS] (HW) {Scorpio + Aries + Leo + Taurus Hardware};
+    \end{tikzpicture}
+
+    \vspace{0.3cm}
+    \textbf{COSMOS 的三个支柱} \sourceT{2}：
+    \begin{enumerate}
+        \item \textbf{Link Management}：Per-lane level的PCIe/CXL链路监控、诊断、优化
+        \item \textbf{Fleet Management}：跨数千节点的rack-scale资源管理和优化
+        \item \textbf{RAS Management}：Reliability, Availability, Serviceability —— 预测性故障检测
+    \end{enumerate}
+\end{frame}
+
+\note{
+    COSMOS的深层理解：
+
+    "为什么要软件平台" —— 这是理解Astera Labs商业模式的关键：
+
+    1. 硬件差异化越来越难维持：
+    - PCIe retimer/switch在任何市场上都有多个供应商
+    - 硬件的性能差异随时间缩小（竞争对手跟上）
+    - 软件平台创造的是"改用成本"（switching cost）
+
+    2. Hyperscaler的操作需求：
+    - 管理100,000+节点的连接健康状态不能靠人工
+    - 需要自动化：自动检测、自动诊断、自动修复
+    - COSMOS提供"单一管理平面"——不管你用Scorpio/Aries/Leo/Taurus，都是同一个API
+
+    3. 数据飞轮（Data Flywheel）：
+    - COSMOS收集的telemetry数据用于改进产品
+    - 更多的部署 → 更多的数据 → 更好的故障预测模型 → 更强的产品
+    - 这是AI/ML驱动的hardware-software协同优化
+
+    COSMOS的开放程度：
+    - 提供SDK和API，允许hyperscaler集成到自己的管理系统
+    - 但核心的firmware和底层driver是Astera控制的
+    - 这意味着：虽然"开放"，但仍有vendor lock-in（改供应商需要改变管理工具）
+    - 这是一种"软的"锁定——不需要反向工程，但改用成本高
+}
+
+\begin{frame}{为什么Connectivity Chip公司需要软件平台}
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \textbf{行业类比}：
+            \begin{itemize}
+                \item NVIDIA: NVLink + NVSwitch + Fabric Manager
+                \item Broadcom: 基本依赖OS标准驱动
+                \item Marvell: 类似Broadcom
+                \item \alert{Astera是第一家在Connectivity领域做全栈软件的公司}
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \textbf{COSMOS的差异}：
+            \begin{itemize}
+                \item 统一管理所有connectivity产品
+                \item 提供per-lane level telemetry
+                \item Predictive failure analysis
+                \item 为hyperscaler fleet manager设计的API
+            \end{itemize}
+        \end{column}
+    \end{columns}
+
+    \vspace{0.3cm}
+    \begin{keypoint}
+        对于hyperscaler而言，\textbf{能见度}（observability）和\textbf{可预测性}（predictability）比硬件spec差异更重要。
+        因为连接故障导致GPU集群不可用的成本远超连接芯片的成本。
+    \end{keypoint}
+\end{frame}
+
+\note{
+    为什么telemetry对AI集群特别重要：
+
+    对比案例：
+    - 传统数据中心：一个PCIe link故障 → 一台服务器受影响 → 可以reboot/替换
+    - AI数据中心：一个PCIe link故障 → GPU间通信受阻 → 整个training job中断（可能几百张GPU）
+    - 大规模的training job跑了几周，最后因为一个连接故障而crash → 损失巨大
+    - 所以："预测性故障检测"在AI集群中的价值远高于传统DC
+
+    成本视角：
+    - 一个Aries Retimer芯片成本：~$50-100 (推测)
+    - 一个DGX H100节点成本：~$300,000
+    - 一个training cluster成本：~$100M+
+    - 如果一个$50的芯片故障导致$100M的cluster downtime → 连接可靠性不再是"锦上添花"而是"关键任务"
+
+    COSMOS的商业模式意义：
+    - 硬件售卖是一次性收入（虽然hyperscaler会持续采购）
+    - 软件支持/更新可以产生recurring收入（类似Cisco的SmartNet）
+    - 目前Astera尚未明确收费模式（可能是硬件价格包含软件），但长期看软件可能是高毛利recurring收入来源
+}
+
+\begin{frame}{COSMOS vs NVIDIA 管理体系}
+    \begin{table}
+        \caption{AI集群管理平台对比}
+        \begin{tabular}{lcc}
+            \toprule
+            \textbf{能力} & \textbf{COSMOS (Astera)} & \textbf{NVIDIA Fabric Manager} \\
+            \midrule
+            管理范围 & 跨品牌、跨协议的连接设备 & 仅NVLink/NVSwitch \\
+            Telemetry深度 & Per-lane signal quality & NVLink level \\
+            预测性故障 & 支持 & 支持 (DGX) \\
+            开放API & 提供SDK & 部分开放 \\
+            协议覆盖 & PCIe + CXL + Ethernet & NVLink only \\
+            Fleet scale & Hyperscaler rack-scale & DGX/SuperPOD scale \\
+            第三方硬件支持 & 任何PCIe/CXL设备 & 仅NVIDIA \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    \begin{keypoint}
+        COSMOS 的核心差异化：\textbf{跨厂商、跨协议的连接管理}。NVIDIA管理NVLink，COSMOS管理除此之外的一切。
+        两者不是竞争关系，而是互补——尤其是在包含NVIDIA GPU的异构集群中。
+    \end{keypoint}
+\end{frame}
+
+\note{
+    COSMOS与NVIDIA生态系统的关系：
+    - 在纯NVIDIA集群中（DGX/SuperPOD）：NVLink管理GPU-GPU连接，COSMOS管理GPU-NIC-NVMe等的PCIe侧连接
+    - 在混合集群中：COSMOS统一管理所有PCIe连接（NVIDIA GPU的PCIe侧、AMD GPU、Intel GPU、各种NIC）
+    - 这意味着Astera不直接与NVIDIA竞争，而是填补NVLink生态的空白
+
+    软件是否会成为Astera Labs的护城河？
+
+    短期（1-3年）：是有效的差异化
+    - 竞争对手（Broadcom、Credo）没有类似平台
+    - Hyperscaler一旦集成COSMOS API到自己的管理系统，更换成本高
+
+    长期（3-5年）：不确定
+    - 有能力的hyperscaler可以自己开发类似的管理软件（Google、Amazon已在做）
+    - 但这需要投入大量软件工程资源
+    - 对软件能力弱的客户，COSMOS的锁定效应更强
+    - 开源替代可能涌现（类似OpenBMC管理BMC）
+    - 最大的竞争风险：NVIDIA可能将Fabric Manager扩展到PCIe域（如果NVIDIA自研PCIe switch）
+}
+
+\end{document}

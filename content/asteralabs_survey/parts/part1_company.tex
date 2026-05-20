@@ -1,0 +1,609 @@
+% ============================================================
+%  Part 1: 公司整体定位
+% ============================================================
+
+\section{公司整体定位}
+
+\subsection{公司基本信息}
+
+Astera Labs, Inc.（纳斯达克代码：ALAB）是一家专注于 AI 基础设施连接方案的 fabless 半导体公司。
+以下为公司核心信息：
+
+\begin{table}[htb]
+    \centering
+    \caption{Astera Labs 公司概览}
+    \label{tab:company-overview}
+    \begin{tabular}{lll}
+        \toprule
+        \textbf{属性} & \textbf{内容} & \textbf{来源} \\
+        \midrule
+        公司全称 & Astera Labs, Inc. & \sourceT{1} SEC \\
+        成立时间 & 2017 年 & \sourceT{2} Wikipedia \\
+        总部 & Santa Clara, CA → 2025 年迁至 San Jose & \sourceT{2} Wikipedia \\
+        上市时间 & 2024 年 3 月 (Nasdaq: ALAB) & \sourceT{1} SEC \\
+        IPO 估值 & $\sim$\$5.5B, 募资 $\sim$\$713M & \sourceT{2} Wikipedia \\
+        商业模式 & Fabless (无晶圆厂设计公司) & \sourceT{2} 官方 \\
+        晶圆代工 & TSMC & \sourceT{3} SemiAnalysis \\
+        行业分类 & SIC 3674 (Semiconductors \& Related Devices) & \sourceT{1} SEC \\
+        员工规模 & 未公开精确数字 & \unverified{} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{创始团队}
+
+三位创始人全部来自 Texas Instruments（TI）：
+\begin{itemize}
+    \item \textbf{Jitendra Mohan} — CEO
+    \item \textbf{Sanjay Gajendra}
+    \item \textbf{Casey Morrison}
+\end{itemize}
+
+三人在 TI 共事后，观察到数据中心连接技术无法跟上 AI/ML 的发展步伐，
+在 Sanjay Gajendra 的车库中开始创业。TI 背景意味着创始团队在模拟/混合信号设计领域有深厚积累——
+这正是高速 SerDes/Retimer 产品的核心能力需求。\sourceT{2}
+
+\subsection{融资与 IPO 历史}
+
+\begin{table}[htb]
+    \centering
+    \caption{融资历史}
+    \label{tab:funding}
+    \begin{tabular}{llll}
+        \toprule
+        \textbf{轮次} & \textbf{时间} & \textbf{金额} & \textbf{关键投资者} \\
+        \midrule
+        Series B & 2020 年 4 月 & 未公开 & Avigdor Willenz, Intel Capital, Ron Jankov, Sutter Hill Ventures \\
+        Series C & 2021 年 9 月 & \$50M & Fidelity Investments 领投，估值 $\sim$\$950M \\
+        Series D & 2022 年 11 月 & \$150M & 估值超过 \$3B \\
+        IPO & 2024 年 3 月 & \$713M & Morgan Stanley, JPMorgan 承销，估值 $\sim$\$5.5B \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\textbf{重要事件}：在 IPO 之前，Astera Labs 曾拒绝 Marvell 的收购要约。\sourceT{3}
+Intel Capital 作为早期投资方值得注意——Intel 是 PCIe 和 CXL 标准的主要推动者之一，
+这个关系可能为 Astera Labs 的产品路线图提供了标准层面的前瞻性指导。
+
+\textbf{Post-IPO 扩展}：
+\begin{itemize}
+    \item 2024 年：扩展台湾业务，加强本地服务器 ODM 合作
+    \item 2024 年底：在印度班加罗尔设立研发中心
+    \item 2025 年 6 月：总部迁至 San Jose 新园区，面积扩大三倍
+    \item 2025 年底：加入 Arm Total Design 生态系统
+    \item 2026 年 2 月：宣布在特拉维夫设立新的设计中心
+\end{itemize}
+\sourceT{2}
+
+\subsection{公司核心定位}
+
+Astera Labs 的核心定位可用三个层次描述：
+
+\begin{enumerate}
+    \item \textbf{物理层}：通过 Aries Retimer/Cable Module 解决高速信号传输问题
+    \item \textbf{架构层}：通过 Scorpio Fabric Switch 解决 GPU/NIC/Storage 之间的交换互连问题
+    \item \textbf{系统层}：通过 COSMOS 提供全链路的 telemetry 和 fleet management
+\end{enumerate}
+
+这三个层次构成了一个完整的``连接平台''——从铜线到软件管理。公司的核心 slogan 是
+\textbf{``Purpose-Built Connectivity for Rack-Scale AI''}。
+
+\begin{figure}[htb]
+    \centering
+    \begin{tikzpicture}[
+        box/.style={rectangle, draw=darkblue, fill=blue!5, thick, minimum width=6cm, minimum height=0.9cm, align=center, rounded corners=5pt},
+        arrow/.style={->, >=Stealth, thick}
+    ]
+        \node[box, fill=darkred!10] (SLOGAN) at (0,0) {\textbf{``Purpose-Built Connectivity for Rack-Scale AI''}};
+        \node[box, fill=darkgreen!10, below=0.2cm of SLOGAN] (POS) {定位：AI Infra 连接层供应商};
+        \node[box, fill=yellow!10, below=0.2cm of POS] (DIFF) {差异化：Open Standards (PCIe/CXL vs 私有 NVLink)};
+    \end{tikzpicture}
+    \caption{Astera Labs 核心定位}
+    \label{fig:positioning}
+\end{figure}
+
+\subsection{产业链位置}
+
+Astera Labs 采用 fabless 模式：芯片设计（内部）→ TSMC 代工 → OSAT 封测 →
+供货给 hyperscaler/Server OEM/GPU Vendor。其产业链位置如下图所示：
+
+\begin{figure}[htb]
+    \centering
+    \begin{tikzpicture}[
+        node distance=1.0cm and 0.8cm,
+        box/.style={rectangle, draw=darkblue, thick, minimum width=2.5cm, minimum height=0.9cm, align=center, rounded corners=3pt},
+        highlight/.style={rectangle, draw=darkred, fill=red!10, thick, minimum width=2.8cm, minimum height=0.9cm, align=center, rounded corners=3pt},
+        arrow/.style={->, >=Stealth, thick}
+    ]
+        \node[box, fill=gray!10] (EDA) {EDA/IP\\Synopsys/Cadence};
+        \node[box, fill=gray!10, right=of EDA] (FAB) {晶圆代工\\TSMC};
+        \node[box, fill=gray!10, right=of FAB] (OSAT) {封装测试\\OSAT};
+
+        \node[highlight, below=of FAB] (AST) {\textbf{Astera Labs}\\\textbf{Fabless Chip Designer}};
+
+        \node[box, fill=blue!5, below left=of AST] (P1) {Scorpio\\Fabric Switch};
+        \node[box, fill=blue!5, below=of AST] (P2) {Aries\\Retimer/Cable};
+        \node[box, fill=blue!5, below right=of AST] (P3) {Leo/Taurus\\CXL/Ethernet};
+
+        \node[box, fill=darkgreen!10, below=of P2, minimum width=3.2cm] (CUST) {Hyperscalers\\+ Server OEM\\+ GPU Vendor};
+
+        \draw[arrow] (EDA) -- (AST);
+        \draw[arrow] (FAB) -- (AST);
+        \draw[arrow] (OSAT) -- (AST);
+        \draw[arrow] (AST) -- (P1);
+        \draw[arrow] (AST) -- (P2);
+        \draw[arrow] (AST) -- (P3);
+        \draw[arrow] (P1) -- (CUST);
+        \draw[arrow] (P2) -- (CUST);
+        \draw[arrow] (P3) -- (CUST);
+    \end{tikzpicture}
+    \caption{Astera Labs 产业链位置}
+    \label{fig:supply-chain}
+\end{figure}
+
+\subsection{核心概念解释}
+
+\subsubsection{Rack-Scale AI}
+
+单个 AI 服务器已无法容纳所需 GPU 数量，多个服务器需跨机架（rack）协同工作。
+GPT-4 级别模型训练需要数千 GPU 互连，推理大模型也需要多 GPU。
+AI 模型规模每 18-24 个月增长约 10$\times$（比摩尔定律更快），
+单个 GPU 的 HBM 容量（80GB-192GB）远小于模型所需（GPT-4 约 1.76T 参数需要 $>$3.5TB 内存用于推理）。
+因此 GPU 必须互连形成逻辑上的``大 GPU''，连接带宽决定 GPU 利用率。\sourceT{3}
+
+\begin{figure}[htb]
+    \centering
+    \begin{tikzpicture}[
+        scale=0.85,
+        rack/.style={rectangle, draw=darkblue, fill=blue!3, thick,
+                     minimum width=2.8cm, minimum height=3.8cm, rounded corners=3pt},
+        gpu/.style={rectangle, draw=darkred, fill=red!8, thick,
+                    minimum width=1.0cm, minimum height=0.6cm, align=center,
+                    font=\tiny, rounded corners=1pt},
+        nic/.style={rectangle, draw=darkgreen, fill=green!10, thick,
+                    minimum width=1.0cm, minimum height=0.5cm, align=center,
+                    font=\tiny, rounded corners=1pt},
+        scorp/.style={rectangle, draw=gold, fill=yellow!10, thick,
+                      minimum width=1.05cm, minimum height=0.55cm, align=center,
+                      font=\tiny, rounded corners=2pt},
+        connect/.style={-, thick, darkblue!70},
+        soArrow/.style={->, >=Stealth, very thick, darkgreen!65},
+        racklabel/.style={font=\footnotesize\bfseries, above=0.15cm},
+    ]
+    % ===== Rack 1: Scale-Up Domain (6 GPUs, 2 cols × 3 rows) =====
+    \node[rack] (R1) {};
+    \node[racklabel] at (R1.north) {Rack 1 (Scale-Up Domain)};
+
+    \node[gpu] (G1)  at ($(R1.center)+(-0.68, 1.1)$)  {GPU};
+    \node[gpu] (G2)  at ($(R1.center)+( 0.68, 1.1)$)  {GPU};
+    \node[gpu] (G3)  at ($(R1.center)+(-0.68, 0.35)$) {GPU};
+    \node[gpu] (G4)  at ($(R1.center)+( 0.68, 0.35)$) {GPU};
+    \node[gpu] (G5)  at ($(R1.center)+(-0.68,-0.4)$)  {GPU};
+    \node[gpu] (G6)  at ($(R1.center)+( 0.68,-0.4)$)  {GPU};
+
+    \node[scorp] (S1) at ($(R1.center)+(0, -1.15)$) {Scorpio};
+    \node[nic, right=0.25cm of S1] (N1) {NIC};
+
+    \foreach \i in {1,...,6} { \draw[connect] (G\i) -- (S1); }
+    \draw[connect] (S1) -- (N1);
+
+    % Logical "Big GPU" dashed enclosure
+    \draw[draw=darkred, densely dashed, very thick, rounded corners=4pt]
+        ($(R1.north west)+(-0.12, 0.2)$) rectangle ($(R1.south east)+(0.17, -0.1)$);
+    \node[font=\footnotesize\bfseries, darkred, above=0.6cm of R1.north] {Logical ``Big GPU''};
+
+    % ===== Rack 2 (4 GPUs, 2 cols × 2 rows) =====
+    \node[rack, right=1.5cm of R1] (R2) {};
+    \node[racklabel] at (R2.north) {Rack 2};
+
+    \node[gpu] (G7)  at ($(R2.center)+(-0.68, 0.72)$)  {GPU};
+    \node[gpu] (G8)  at ($(R2.center)+( 0.68, 0.72)$)  {GPU};
+    \node[gpu] (G9)  at ($(R2.center)+(-0.68,-0.03)$)  {GPU};
+    \node[gpu] (G10) at ($(R2.center)+( 0.68,-0.03)$)  {GPU};
+
+    \node[scorp] (S2) at ($(R2.center)+(0, -1.15)$) {Scorpio};
+    \node[nic, right=0.25cm of S2] (N2) {NIC};
+
+    \foreach \i in {7,...,10} { \draw[connect] (G\i) -- (S2); }
+    \draw[connect] (S2) -- (N2);
+
+    % ===== Rack 3: Rack N (2 GPUs, 2 cols × 1 row) =====
+    \node[rack, right=1.5cm of R2] (R3) {};
+    \node[racklabel] at (R3.north) {Rack N};
+
+    \node[gpu] (G11) at ($(R3.center)+(-0.68, 0.35)$) {GPU};
+    \node[gpu] (G12) at ($(R3.center)+( 0.68, 0.35)$) {GPU};
+
+    \node[scorp] (S3) at ($(R3.center)+(0, -1.15)$) {Scorpio};
+    \node[nic, right=0.25cm of S3] (N3) {NIC};
+
+    \foreach \i in {11,12} { \draw[connect] (G\i) -- (S3); }
+    \draw[connect] (S3) -- (N3);
+
+    % ===== Scale-Out Network Bar (spans all 3 racks) =====
+    \node[rectangle, draw=darkgreen, fill=green!5, thick,
+          minimum width=10.8cm, minimum height=0.45cm, align=center,
+          font=\footnotesize, rounded corners=2pt]
+          (SONET) at ($(R1.south)!0.5!(R3.south) + (0, -0.65cm)$)
+          {Scale-Out Network (InfiniBand / Ethernet) — 100m+};
+
+    % Arrows: Scorpio/NIC → Scale-Out network
+    \draw[soArrow] (S1.south) -- (S1.south |- SONET.north);
+    \draw[soArrow] (S2.south) -- (S2.south |- SONET.north);
+    \draw[soArrow] (S3.south) -- (S3.south |- SONET.north);
+
+    % ===== Bottom annotation =====
+    \node[font=\footnotesize, text width=11.5cm, align=center,
+          below=0.5cm of SONET]
+        {\textbf{Rack-Scale AI}: 单个机架内容纳多个 GPU 服务器，通过 Scale-Up Fabric 形成逻辑上的大 GPU；
+        跨机架通过 Scale-Out Network 连接成集群。GPU 互连带宽直接决定模型训练/推理效率。};
+
+    \end{tikzpicture}
+    \caption{Rack-Scale AI：从单服务器到机架级计算}
+    \label{fig:rack-scale-ai}
+\end{figure}
+
+\subsubsection{Scale-Up Fabric vs Scale-Out Network}
+
+\begin{figure}[htb]
+    \centering
+    \begin{tikzpicture}[
+        node distance=0.4cm and 0.6cm,
+        title/.style={font=\bfseries\small},
+        nodebox/.style={rectangle, draw=darkblue, fill=blue!5, thick, minimum width=1.6cm, minimum height=0.7cm, align=center, font=\footnotesize, rounded corners=2pt},
+        gpubox/.style={rectangle, draw=darkred, fill=red!10, thick, minimum width=1cm, minimum height=0.7cm, align=center, font=\footnotesize},
+        arrow/.style={->, >=Stealth, thick},
+        bidir/.style={<->, >=Stealth, thick},
+        bgbox/.style={rounded corners, thick, inner sep=10pt},
+    ]
+
+    % ===== Scale-Up Zone =====
+    \node[title, darkred] (SU_LABEL) {Scale-Up Fabric (机架内, $<$10m, 超高带宽、超低延迟)};
+    \node[font=\footnotesize, darkred, below=0.15cm of SU_LABEL] (SU_EX)
+        {例: NVLink 900\,GB/s per GPU, Scorpio X-Series};
+
+    \node[gpubox, below=0.6cm of SU_EX] (SU2) {GPU\\1};
+    \node[gpubox, left=of SU2] (SU1) {GPU\\0};
+    \node[gpubox, right=of SU2] (SU3) {GPU\\N};
+
+    \node[rectangle, draw=gold, fill=yellow!10, thick,
+          minimum width=2cm, minimum height=0.65cm, align=center, font=\footnotesize,
+          below=0.7cm of SU2] (SW) {Scorpio X-Series};
+
+    \node[nodebox, fill=darkgreen!10, left=0.7cm of SW] (SU_MEM) {CXL Memory\\Pool};
+    \node[nodebox, fill=darkgreen!10, right=0.7cm of SW] (SU_NIC) {NIC};
+
+    \draw[bidir, darkred] (SU1) -- (SW);
+    \draw[bidir, darkred] (SU2) -- (SW);
+    \draw[bidir, darkred] (SU3) -- (SW);
+    \draw[arrow, darkblue] (SW) -- (SU_MEM);
+    \draw[arrow, darkblue] (SW) -- (SU_NIC);
+
+    % Background box for Scale-Up zone
+    \begin{scope}[on background layer]
+        \node[bgbox, fill=red!3, draw=darkred,
+              fit=(SU_LABEL)(SU_EX)(SU3)(SW)(SU_MEM)] (SU_BG) {};
+    \end{scope}
+
+    % ===== Astera connector =====
+    \node[rectangle, draw=gold, fill=yellow!20, thick,
+          minimum width=2.2cm, minimum height=0.7cm, align=center, font=\footnotesize\bfseries,
+          below=0.8cm of SW] (AST_POS) {Astera Labs\\交汇点};
+
+    % ===== Scale-Out Zone =====
+    \node[rectangle, draw=darkgreen, fill=green!5, thick,
+          minimum width=3cm, minimum height=0.55cm, align=center, font=\footnotesize,
+          below=0.8cm of AST_POS] (ENET) {Ethernet / IB Switch Fabric};
+
+    \node[nodebox, fill=blue!5, below=0.6cm of ENET] (NODE2) {Compute\\Node 1};
+    \node[nodebox, fill=blue!5, left=of NODE2] (NODE1) {Compute\\Node 0};
+    \node[nodebox, fill=blue!5, right=of NODE2] (NODE3) {Compute\\Node N};
+
+    \draw[arrow, darkgreen] (NODE1) -- (ENET);
+    \draw[arrow, darkgreen] (NODE2) -- (ENET);
+    \draw[arrow, darkgreen] (NODE3) -- (ENET);
+
+    \node[font=\footnotesize, darkgreen, below=0.15cm of NODE2] (SO_EX)
+        {例: InfiniBand 400\,GB/s, Ethernet 800G};
+    \node[title, darkgreen, below=0.15cm of SO_EX] (SO_LABEL)
+        {Scale-Out Network (跨机架, 100m+, 关注可扩展性)};
+
+    % Background box for Scale-Out zone
+    \begin{scope}[on background layer]
+        \node[bgbox, fill=green!3, draw=darkgreen,
+              fit=(ENET)(NODE3)(SO_LABEL)] (SO_BG) {};
+    \end{scope}
+
+    % ===== Connector arrows =====
+    \draw[arrow, darkblue, very thick] (AST_POS.north) -- (SW.south);
+    \draw[arrow, darkgreen, very thick] (AST_POS.south) -- (ENET.north);
+    \node[font=\footnotesize, text width=2cm, align=center, right=0.3cm of AST_POS]
+        {Aries\\Cable};
+
+    \end{tikzpicture}
+    \caption{Scale-Up Fabric vs Scale-Out Network：Astera Labs 的交汇定位}
+    \label{fig:scale-up-vs-out}
+\end{figure}
+
+\begin{itemize}
+    \item \textbf{Scale-Up Fabric}：服务器/机架内部，GPU 到 GPU 连接，追求超低延迟、超高带宽
+    （如 NVLink 900 GB/s per GPU、Scorpio X-Series）。距离通常 $<$10m。
+    \item \textbf{Scale-Out Network}：跨机架/跨集群，Node 到 Node 连接，关注带宽和扩展性
+    （如 InfiniBand 400 GB/s per port、Ethernet）。距离可达 100m+。
+\end{itemize}
+
+Astera Labs 的定位恰好在这两者的交汇处：Scorpio X-Series 瞄准 scale-up（替代/补充 NVSwitch），
+Scorpio P-Series 瞄准 I/O 连接（GPU-to-NIC-to-Storage），Aries Smart Cable 连接这两个域。
+
+\subsubsection{PCIe Fabric 与 CXL Fabric}
+
+\begin{figure}[htb]
+    \centering
+    \begin{tikzpicture}[
+        node distance=0.4cm and 0.5cm,
+        title/.style={font=\bfseries\footnotesize},
+        cpu/.style={rectangle, draw=darkblue, fill=blue!10, thick, minimum width=1.2cm, minimum height=0.7cm, align=center, font=\footnotesize},
+        dev/.style={rectangle, draw=darkred, fill=red!8, minimum width=1.2cm, minimum height=0.7cm, align=center, font=\footnotesize},
+        mem/.style={rectangle, draw=darkgreen, fill=green!10, minimum width=1.2cm, minimum height=0.7cm, align=center, font=\footnotesize},
+        sw/.style={rectangle, draw=gold, fill=yellow!10, thick, minimum width=1.4cm, minimum height=0.7cm, align=center, font=\footnotesize},
+        arrow/.style={->, >=Stealth, thick},
+        bidir/.style={<->, >=Stealth, thick},
+        note/.style={font=\footnotesize\color{darkblue!70}, align=center, inner sep=2pt},
+    ]
+
+    % ===== Column 1: Traditional PCIe Tree =====
+    \node[title, darkblue] (T1) {传统 PCIe 树形拓扑};
+
+    \node[cpu, below=0.3cm of T1] (CPU1) {CPU\\Root};
+
+    \node[dev, below=0.6cm of CPU1] (D2) {NVMe};
+    \node[dev, left=of D2]  (D1) {GPU};
+    \node[dev, right=of D2] (D3) {NIC};
+
+    \draw[arrow] (CPU1) -- (D1);
+    \draw[arrow] (CPU1) -- (D2);
+    \draw[arrow] (CPU1) -- (D3);
+    \draw[draw=darkred, dashed] (D1) to[bend left=22]
+        node[midway, above, font=\tiny\bfseries, darkred] {$\times$ 不可直连} (D3);
+
+    \node[note, below=0.35cm of D2, text width=3cm] (N1) {单一根节点\\GPU 间无法直连};
+
+    % ===== Column 2: PCIe Fabric =====
+    \node[title, darkblue, right=1.5cm of T1] (T2) {PCIe Fabric (Scorpio)};
+
+    \node[sw, below=0.3cm of T2] (SW1) {Scorpio\\Switch};
+
+    \node[dev, below=0.6cm of SW1] (F2) {GPU};
+    \node[dev, left=of F2]  (F1) {GPU};
+    \node[dev, right=of F2] (F3) {GPU};
+
+    \node[dev, below=0.5cm of F2] (F5) {NVMe};
+    \node[dev, left=of F5]  (F4) {NIC};
+    \node[dev, right=of F5] (F6) {NIC};
+
+    \draw[arrow] (SW1) -- (F1);
+    \draw[arrow] (SW1) -- (F2);
+    \draw[arrow] (SW1) -- (F3);
+    \draw[arrow] (SW1) -- (F4);
+    \draw[arrow] (SW1) -- (F5);
+    \draw[arrow] (SW1) -- (F6);
+    \draw[bidir, darkred] (F1) -- (F2);
+    \draw[bidir, darkred] (F2) -- (F3);
+
+    \node[note, below=0.35cm of F5, text width=3cm] (N2) {任意设备直连\\Mesh / Torus 拓扑};
+
+    % ===== Column 3: CXL Fabric =====
+    \node[title, darkblue, right=1.5cm of T2] (T3) {CXL Fabric (含 Memory Semantic)};
+
+    \node[sw, below=0.3cm of T3] (SW2) {CXL\\Switch};
+
+    \node[cpu, below left=0.6cm and 0.8cm of SW2] (C1) {CPU};
+    \node[dev, below right=0.6cm and 0.8cm of SW2] (C2) {GPU};
+
+    \node[mem, below=0.5cm of C1] (M1) {DDR5\\Pool};
+    \node[mem, below=0.5cm of C2] (M2) {DDR5\\Pool};
+
+    \draw[arrow] (SW2) -- (C1);
+    \draw[arrow] (SW2) -- (C2);
+    \draw[arrow] (SW2) -- (M1);
+    \draw[arrow] (SW2) -- (M2);
+    \draw[draw=darkgreen, densely dashed, thick] (C1) to[bend right=25]
+        node[midway, right, font=\tiny\bfseries, darkgreen] {cache coherent} (M1);
+
+    % Center note between M1 and M2
+    \coordinate (C3BOT) at ($(M1.south)!0.5!(M2.south)$);
+    \node[note, below=0.35cm of C3BOT, text width=3.8cm] (N3) {CPU/GPU 直接 load/store\\访问远端内存};
+
+    % ===== Vertical dividers =====
+    \coordinate (DX1) at ($(T1.east)!0.5!(T2.west)$);
+    \coordinate (DX2) at ($(T2.east)!0.5!(T3.west)$);
+    \draw[dashed, gray!50, thick] ($(DX1)+(0,0.25)$) -- ($(DX1 |- N2.south)+(0,-0.35)$);
+    \draw[dashed, gray!50, thick] ($(DX2)+(0,0.25)$) -- ($(DX2 |- N2.south)+(0,-0.35)$);
+
+    % ===== Bottom legend =====
+    \node[rectangle, draw=gray!40, fill=gray!3, rounded corners=2pt,
+          text width=0.92\linewidth, align=center, font=\footnotesize,
+          inner sep=6pt, below=1.2cm of N2] {
+        \textbf{关键区别}：传统 PCIe 中 GPU 不能直接互连（必须经过 CPU Root）；
+        PCIe Fabric (Scorpio) 允许任意设备间直连，且支持灵活的 mesh 拓扑；
+        CXL Fabric 进一步支持 cache-coherent 的 load/store 内存访问语义。};
+
+    \end{tikzpicture}
+    \caption{PCIe 树形拓扑 → PCIe Fabric → CXL Fabric 的演进}
+    \label{fig:pcie-cxl-fabric}
+\end{figure}
+
+\begin{itemize}
+    \item \textbf{PCIe Fabric}：用 PCIe 交换机将多个设备（GPU、NIC、NVMe、CPU）连接成可灵活拓扑的``fabric''网络。传统 PCIe 是树形拓扑（CPU 为根），Fabric 支持 mesh/torus 等更灵活拓扑。
+    \item \textbf{CXL Fabric}：基于 PCIe 电气层但运行 CXL 协议，支持 cache coherency，可以做 load/store 语义的内存访问。CXL 允许 CPU/GPU 通过 load/store 指令直接访问远端内存（像 NUMA 一样），而非通过 DMA 方式。
+\end{itemize}
+
+\subsubsection{Memory Semantic Interconnect}
+
+传统 PCIe 设备只能通过 DMA 方式访问内存，需要软件介入。CXL 允许 CPU/GPU 通过
+load/store 指令直接访问远端内存——这就是``semantic''的含义：
+访问方式从``发消息''变成了``直接读/写内存地址''。
+
+\begin{figure}[htb]
+    \centering
+    \begin{tikzpicture}[
+        node distance=0.4cm and 0.4cm,
+        box/.style={rectangle, draw=darkblue, fill=blue!5, thick, minimum width=2.4cm, minimum height=0.8cm, align=center, rounded corners=3pt, font=\footnotesize},
+        membox/.style={rectangle, draw=darkgreen, fill=green!10, thick, minimum width=2.2cm, minimum height=0.8cm, align=center, font=\footnotesize},
+        arrow/.style={->, >=Stealth, thick},
+        darrow/.style={->, >=Stealth, thick, dashed},
+        archbox/.style={rectangle, draw=darkred, fill=red!5, thick, minimum width=3.5cm, minimum height=0.8cm, align=center, font=\footnotesize\bfseries, rounded corners=2pt},
+        latbox/.style={rectangle, draw=gray, fill=gray!5, minimum width=2.4cm, minimum height=0.65cm, align=center, font=\footnotesize, rounded corners=2pt},
+        divider/.style={dashed, gray!50, thick},
+    ]
+
+    % ===== Left: PCIe DMA =====
+    \node[archbox] (T1) {PCIe DMA (传统)};
+
+    \node[box, below left=0.5cm and 0.30cm of T1] (CPU1) {CPU / GPU};
+    \node[box, draw=darkred, right=3.60cm of CPU1] (RC) {PCIe RC\\(Root Complex)};
+
+    \coordinate (M1TOP) at ($(CPU1.south)!0.5!(RC.south)$);
+    \node[membox, below=0.7cm of M1TOP] (MEM1) {远端内存};
+
+    \draw[arrow] (CPU1) -- node[midway, above, font=\footnotesize] {\textcircled{1} 发起 DMA 请求} (RC);
+    \draw[arrow] (RC)   -- node[midway, right, font=\footnotesize] {\textcircled{2} 数据块拷贝} (MEM1);
+    \draw[darrow] (MEM1) -- node[midway, below, font=\footnotesize, sloped] {\textcircled{3} 中断通知} (CPU1);
+
+    \node[latbox, below=0.4cm of MEM1] (L1) {延迟: $\sim$1--5\,$\mu$s};
+    \node[font=\footnotesize\color{gray}, text width=3.5cm, align=center, below=0.3cm of L1] (DESC1)
+        {\textbf{需软件介入}\\驱动发起 + 中断处理};
+
+    % ===== Right: CXL Memory Semantic =====
+    \node[archbox, right=3cm of T1] (T2) {CXL Memory Semantic (Leo/Scorpio)};
+
+    \node[box, below left=0.5cm and -2.5cm of T2] (CPU2) {CPU / GPU};
+    \node[box, draw=darkgreen, fill=green!5, right=3.5cm of CPU2] (CXL) {CXL Ctrl (Leo)};
+
+    \coordinate (M2TOP) at ($(CPU2.south)!0.5!(CXL.south)$);
+    \node[membox, below=0.7cm of M2TOP] (MEM2) {远端内存 (DDR5)};
+
+    \draw[arrow, darkgreen] (CPU2) -- node[midway, above, font=\footnotesize] {\textcircled{1} ld/st 指令} (CXL);
+    \draw[arrow, darkgreen] (CXL)  -- node[midway, right, font=\footnotesize] {\textcircled{2} CXL.mem 协议} (MEM2);
+    \draw[darrow, darkgreen] (MEM2) -- node[midway, below, font=\footnotesize, sloped] {\textcircled{3} 直接返回数据} (CPU2);
+
+    \node[latbox, fill=green!5, draw=darkgreen!40, below=0.4cm of MEM2] (L2) {延迟: $\sim$+200\,ns};
+    \node[font=\footnotesize\color{gray}, text width=3.5cm, align=center, below=0.3cm of L2] (DESC2)
+        {\textbf{无软件介入}\\硬件自动完成};
+
+    % ===== Vertical divider =====
+    \coordinate (VDIV_TOP) at ($(T1.north east)!0.9!(T2.north west)$);
+    \coordinate (VDIV_BOT) at ($(DESC1.south -| T1.east)!0.9!(DESC2.south -| T2.west)$);
+    \draw[divider] ($(VDIV_TOP)+(0,0.25)$) -- ($(VDIV_BOT)+(0,-0.15)$);
+
+    % ===== Latency comparison title =====
+    \node[font=\footnotesize\bfseries, below=0.8cm of DESC1] (CMP)
+        {延迟对比（本地 DRAM $\sim$100\,ns 为基准）};
+
+    % ===== Scale bar =====
+    \coordinate (BS) at ($(T1.west |- CMP.south) + (0,-0.55)$);
+    \draw[->, thick] (BS) -- ($(BS) + (13,0)$);
+
+    \foreach \off/\lbl/\clr in {
+        0/0\,ns/black,
+        2.5/100\,ns (本地 DRAM)/darkblue,
+        3.9/$\sim$300\,ns/darkgreen,
+        9.5/$\sim$10\,$\mu$s+ (RDMA)/darkred%
+    } {
+        \draw[\clr, very thick] ($(BS)+(\off,0)$) -- ($(BS)+(\off,0.25)$);
+        \node[font=\tiny, \clr, above=1pt] at ($(BS)+(\off,0.25)$) {$\bullet$};
+        \node[font=\tiny, \clr, below=3pt, align=center] at ($(BS)+(\off,0)$) {\lbl};
+    }
+
+    % ===== Technology label above scale =====
+    \node[font=\tiny\bfseries, darkgreen, above=0.15cm of BS] at ($(BS)+(3.9,0)$) {CXL};
+
+    \end{tikzpicture}
+    \caption{Memory Semantic Interconnect：PCIe DMA vs CXL load/store}
+    \label{fig:memory-semantic}
+\end{figure}
+
+延迟仍然比本地 DRAM 高（+200ns 级别），但比走网络的 RDMA（微秒级）低得多。
+这就是 CXL 在 AI 推理场景（KV Cache 扩展）中的核心价值：
+提供比网络快 50$\times$ 的大容量内存访问延迟，成本远低于 HBM。
+
+\subsection{Why Hyperscaler 需要独立 Connectivity Vendor}
+
+\begin{enumerate}
+    \item \textbf{避免 NVIDIA 锁定}：NVLink/NVSwitch 是私有协议，仅 NVIDIA GPU 能用。Hyperscaler 需要基于 PCIe/CXL 开放标准的替代方案来保持多 GPU 供应商策略
+    \item \textbf{统一管理平面}：不同设备（GPU/NIC/NVMe）的连接如果在不同供应商手上，管理和调试极度困难。COSMOS 提供统一 telemetry
+    \item \textbf{定制化需求}：Hyperscaler 需要定制化的拓扑而非标准服务器设计，传统芯片公司（Broadcom）未必愿意定制
+    \item \textbf{信号完整性挑战}：PCIe 6 PAM4 时代，从芯片到 cable 到背板的 SI 挑战呈指数增长，需要深度 know-how
+    \item \textbf{供应链安全}：单供应商风险。Hyperscaler 希望在任何关键组件上至少有 2 个来源
+\end{enumerate}
+
+\begin{figure}[htb]
+    \centering
+    \begin{tikzpicture}[
+        node distance=0.55cm and 0.8cm,
+        layer/.style={rectangle, draw=darkblue, fill=blue!5, thick,
+                      minimum width=4.5cm, minimum height=0.78cm, align=center,
+                      font=\footnotesize, rounded corners=2pt},
+        comp/.style={rectangle, draw=darkred, fill=red!5, thick,
+                     minimum width=5.5cm, minimum height=0.72cm, align=center,
+                     font=\footnotesize\sffamily, rounded corners=2pt},
+        ast/.style={rectangle, draw=gold, fill=yellow!10, very thick,
+                    minimum width=2.4cm, align=center, font=\small\bfseries,
+                    rounded corners=3pt, inner sep=8pt},
+        collabbox/.style={rectangle, draw=darkgreen, fill=green!5, thick,
+                         minimum width=2.3cm, minimum height=0.65cm, align=center,
+                         font=\footnotesize\sffamily, rounded corners=2pt},
+        sectionlabel/.style={font=\footnotesize\bfseries\color{darkgreen}},
+        arrAST/.style={->, >=Stealth, thick, darkblue},
+        compete/.style={<->, >=Stealth, thick, darkred!55, dashed},
+    ]
+    % ---- Center column: 5 technology layers ----
+    \node[layer] (L1) {PCIe Retimer / Cable Module};
+    \node[layer, below=0.55cm of L1] (L2) {PCIe Fabric Switch};
+    \node[layer, below=0.55cm of L2] (L3) {CXL Memory Controller};
+    \node[layer, below=0.55cm of L3] (L4) {Ethernet Cable Module};
+    \node[layer, below=0.55cm of L4] (L5) {Software / Fleet Mgmt};
+
+    % ---- Right column: competitors per layer ----
+    \node[comp, right=0.8cm of L1] (C1) {Broadcom \textbullet{} Credo \textbullet{} Parade};
+    \node[comp, right=0.8cm of L2] (C2) {Broadcom PEX \textbullet{} Microchip};
+    \node[comp, right=0.8cm of L3] (C3) {Samsung \textbullet{} SK hynix \textbullet{} Montage};
+    \node[comp, right=0.8cm of L4] (C4) {Credo \textbullet{} Broadcom \textbullet{} Marvell};
+    \node[comp, right=0.8cm of L5] (C5) {NVIDIA (NVLink) \textbullet{} BMC 厂商};
+
+    % ---- Left: Astera Labs spanning all 5 layers ----
+    \node[ast, left=0.8cm of L3, minimum height=6.2cm] (AST)
+        {Astera Labs\\[0.2cm]\textbf{全栈覆盖}};
+
+    % ---- Arrows: AST → every layer ----
+    \foreach \i in {1,...,5} {
+        \draw[arrAST] (AST.east |- L\i.west) -- (L\i.west);
+    }
+
+    % ---- Competition arrows: layer ↔ competitor ----
+    \foreach \i in {1,...,5} {
+        \draw[compete] (L\i.east) -- (C\i.west);
+    }
+
+    % ---- Bottom: ecosystem collaborations ----
+    \node[sectionlabel, below=0.9cm of L5] (COLLAB_TITLE) {生态系统合作};
+    \node[collabbox, below=0.35cm of COLLAB_TITLE] (NVIDIA) {NVIDIA (GTC)};
+    \node[collabbox, right=0.45cm of NVIDIA] (ARM) {Arm Total Design};
+    \node[collabbox, right=0.45cm of ARM] (INTEL) {Intel (CXL)};
+
+    % ---- Connector: AST → collaboration section ----
+    \draw[->, >=Stealth, thick, darkgreen!70, rounded corners=6pt]
+        (AST.south) |- (COLLAB_TITLE.west);
+
+    \end{tikzpicture}
+    \caption{竞争生态图}
+    \label{fig:competition-eco}
+\end{figure}
+
+Astera Labs 是唯一一家横跨 PCIe Retimer + PCIe Switch + CXL Controller + Ethernet + 软件管理平台的连接件公司。
+其主要竞争对手（Broadcom、Credo、Microchip 等）通常只在其中 1-2 层竞争。
+
+\textbf{``Switzerland of Connectivity''}：Astera 不卖 GPU、不卖 CPU、不卖服务器——只做连接。
+因此理论上可以与所有硬件商合作。NVIDIA 的 NVSwitch 是``只连 NVIDIA GPU 的私有方案''，
+而 Scorpio 连接任何 PCIe 设备。但这个定位是优雅但脆弱的——
+其价值与 NVIDIA 的垄断程度正相关，如果非 NVIDIA GPU 生态规模不足，TAM（Total Addressable Market，潜在市场总规模）会受限。

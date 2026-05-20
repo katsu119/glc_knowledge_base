@@ -1,0 +1,735 @@
+% ============================================================
+%  Astera Labs 全面调研 — 研究计划
+%  编译引擎：XeLaTeX
+%  屏幕比例：16:9
+%  日期：2026-05-19
+% ============================================================
+
+\documentclass[UTF8,11pt,aspectratio=169]{beamer}
+\usepackage{xeCJK}
+\setCJKmainfont{Songti SC}
+\setCJKsansfont{Heiti SC}
+\setCJKmonofont{STFangsong}
+
+\usetheme{Darmstadt}
+\usecolortheme{whale}
+\usefonttheme{professionalfonts}
+
+\definecolor{darkgreen}{RGB}{0,128,0}
+\definecolor{darkred}{RGB}{180,0,0}
+\definecolor{darkblue}{RGB}{0,0,139}
+\definecolor{gold}{RGB}{200,150,0}
+\definecolor{mygray}{RGB}{245,245,245}
+
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{positioning, calc, shapes.geometric, arrows.meta, backgrounds, fit, chains}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage[table]{xcolor}
+\usepackage{amsmath,amssymb}
+\usepackage{mathtools}
+\usepackage{listings}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=darkblue, urlcolor=darkblue}
+\usepackage{bookmark}
+\usepackage{twemojis}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{darkgreen},
+    stringstyle=\color{darkred},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    backgroundcolor=\color{mygray},
+    breaklines=true,
+    frame=single,
+    tabsize=2
+}
+
+\title[Astera Labs 调研计划]{Astera Labs 全面调研 —— 研究计划}
+\subtitle{工程级别、产业级别的深度分析}
+\author[Ge Liangchen]{Ge Liangchen}
+\date{\today}
+\institute{半导体行业分析}
+
+\setbeamertemplate{footline}[frame number]
+
+\AtBeginSection[]{
+    \begin{frame}{目录}
+        \tableofcontents[currentsection]
+    \end{frame}
+}
+
+% ---- 自定义命令 ----
+\newcommand{\risk}[1]{\textcolor{red}{\textbf{[高风险] #1}}}
+\newcommand{\mediumrisk}[1]{\textcolor{orange}{\textbf{[中风险] #1}}}
+\newcommand{\lowrisk}[1]{\textcolor{darkgreen}{\textbf{[低风险] #1}}}
+\newcommand{\sourcecat}[1]{\textcolor{darkblue}{\textbf{#1}}}
+
+\newenvironment{keypoint}{
+    \begin{block}{\textbf{\twemoji{key} 关键结论}}
+}{
+    \end{block}
+}
+
+\newenvironment{warningblock}{
+    \begin{alertblock}{\textbf{\twemoji{warning} 注意}}
+}{
+    \end{alertblock}
+}
+
+\begin{document}
+
+\begin{frame}
+    \titlepage
+\end{frame}
+
+\begin{frame}{目录}{研究计划总览}
+    \tableofcontents
+\end{frame}
+
+% ============================================================
+%  SECTION 1：调研计划
+% ============================================================
+\section{调研计划 (Research Plan)}
+
+\begin{frame}{调研流程总览}{Phase 0 — Phase 5}
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \textbf{Phase 0: 准备阶段 (先做)}
+            \begin{enumerate}
+                \item 收集所有官方Source
+                \item 建立 Source 可靠性分级
+                \item 准备幻觉控制 Checklist
+            \end{enumerate}
+            \vspace{0.3cm}
+            \textbf{Phase 1: 基础信息收集}
+            \begin{enumerate}
+                \item 公司历史/团队/财务
+                \item 产品线全貌
+                \item 核心技术概念
+            \end{enumerate}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \textbf{Phase 2: 深度技术分析}
+            \begin{enumerate}
+                \item Scorpio 架构深度
+                \item Aries SI/Retimer
+                \item Leo CXL 分析
+                \item COSMOS 软件
+            \end{enumerate}
+            \vspace{0.3cm}
+            \textbf{Phase 3: 产业分析}
+            \begin{enumerate}
+                \item 竞争格局地图
+                \item 护城河评估
+                \item 财务/商业模型
+            \end{enumerate}
+            \vspace{0.3cm}
+            \textbf{Phase 4: 交叉验证 \& 撰写}
+            \vspace{0.3cm}
+            \textbf{Phase 5: 最终审查}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Phase 1 详细：基础信息收集}
+    \begin{table}
+        \centering
+        \caption{Phase 1 任务分解}
+        \begin{tabular}{cll}
+            \toprule
+            \textbf{步骤} & \textbf{任务} & \textbf{优先级} \\
+            \midrule
+            1.1 & 访问 asteralabs.com 所有产品页面 & P0 \\
+            1.2 & 阅读 IPO S-1 / 10-K / 季度财报 & P0 \\
+            1.3 & 查阅 Crunchbase/PitchBook 融资历史 & P1 \\
+            1.4 & 收集 OCP/CXL Consortium 相关演讲 & P1 \\
+            1.5 & 收集学术论文 (CXL/PCIe 相关) & P2 \\
+            1.6 & 阅读行业报告 (Gartner/McKinsey/SemiAnalysis) & P1 \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    \textbf{研究目标}：
+    \begin{itemize}
+        \item 建立对公司业务模型的整体理解
+        \item 梳理全部产品线及其关系
+        \item 理解核心技术概念（PCIe/CXL/Retimer/Fabric）
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Phase 2 详细：深度技术分析}
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \textbf{Scorpio 分析框架}：
+            \begin{itemize}
+                \item 本质：PCIe switch? Fabric switch?
+                \item vs NVSwitch/NVLink 对比
+                \item vs Broadcom PCIe switch 对比
+                \item 技术参数(需从 datasheet 验证)
+                \item 在 GPU cluster 中的拓扑位置
+                \item 核心难点：SI/拥塞/routing
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \textbf{Aries 分析框架}：
+            \begin{itemize}
+                \item PCIe 6 PAM4 SI 挑战
+                \item vs Credo/Broadcom 对比
+                \item Smart Cable Module 差异化
+                \item Gearbox 技术原理
+                \item 功耗/延迟 tradeoff
+            \end{itemize}
+            \vspace{0.3cm}
+            \textbf{Leo/CXL 分析框架}：
+            \begin{itemize}
+                \item CXL 实际落地状况
+                \item Memory pooling 现实障碍
+                \item vs 传统 NUMA 对比
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Phase 3-5 详细：产业分析 \& 最终输出}
+    \textbf{Phase 3: 产业分析}
+    \begin{itemize}
+        \item 竞争地图：Broadcom / NVIDIA / Marvell / Credo / Synopsys / Rambus / Microchip
+        \item 财务分析：收入结构/毛利率/客户集中度/TAM/CAPEX依赖
+        \item 护城河评估：技术/生态/客户关系/供应链
+    \end{itemize}
+
+    \vspace{0.3cm}
+    \textbf{Phase 4: 交叉验证}
+    \begin{itemize}
+        \item 每个关键结论至少 2 个独立来源
+        \item 官方声明 vs 第三方分析 vs 推算 → 明确标注
+        \item 技术参数 → 优先 datasheet，其次 conference talk，再次 press release
+    \end{itemize}
+
+    \vspace{0.3cm}
+    \textbf{Phase 5: 最终审查}
+    \begin{itemize}
+        \item Consistency check：产品间关系是否逻辑自洽
+        \item 幻觉审查：逐条检查无可靠来源的声明
+        \item 明确标注 "未确认"/"推测" 部分
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{调研时间估算}
+    \begin{table}
+        \centering
+        \caption{各阶段工作量估算}
+        \begin{tabular}{lcccc}
+            \toprule
+            \textbf{阶段} & \textbf{Web Research} & \textbf{Analysis} & \textbf{Writing} & \textbf{Total} \\
+            \midrule
+            Phase 0: 准备 & 30 min & 15 min & 15 min & 1 hr \\
+            Phase 1: 基础信息 & 90 min & 30 min & 60 min & 3 hr \\
+            Phase 2: 深度技术 & 120 min & 60 min & 90 min & 4.5 hr \\
+            Phase 3: 产业分析 & 60 min & 45 min & 60 min & 2.75 hr \\
+            Phase 4: 交叉验证 & 30 min & 30 min & 30 min & 1.5 hr \\
+            Phase 5: 最终审查 & — & 30 min & 30 min & 1 hr \\
+            \midrule
+            \textbf{合计} & \textbf{5.5 hr} & \textbf{3.5 hr} & \textbf{4.75 hr} & \textbf{13.75 hr} \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    \begin{warningblock}
+        实际调研时间取决于信息可获取性。如果大量技术细节不公开，分析部分将明确标注
+        "信息不可得，属于推测"。
+    \end{warningblock}
+\end{frame}
+
+% ============================================================
+%  SECTION 2：信息来源分类
+% ============================================================
+\section{信息来源分类}
+
+\begin{frame}{Source 可靠性分级体系}
+    \begin{table}
+        \centering
+        \caption{Source Reliability Tier}
+        \begin{tabular}{cll}
+            \toprule
+            \textbf{Tier} & \textbf{来源类型} & \textbf{示例} \\
+            \midrule
+            \rowcolor{darkgreen!15}
+            T1 & 官方可验证文档 & 财报、datasheet、OCP spec、专利 \\
+            \rowcolor{darkgreen!10}
+            T2 & 官方声明 & 产品页面、blog、press release、conference talk \\
+            \rowcolor{yellow!15}
+            T3 & 第三方权威分析 & SemiAnalysis、Gartner、学术论文 \\
+            \rowcolor{orange!15}
+            T4 & 行业媒体 & AnandTech、ServeTheHome、The Next Platform \\
+            \rowcolor{red!15}
+            T5 & 社区/推测 & Reddit、Twitter、论坛讨论 \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    \begin{keypoint}
+        报告中每条关键结论必须标注 Tier 等级。T1-T2 可作主证，T3-T4 作旁证，T5 仅作参考且必须标注"未确认"。
+    \end{keypoint}
+\end{frame}
+
+\begin{frame}{预期信息来源清单 (1)}
+    \begin{table}
+        \centering
+        \caption{核心信息源 (T1-T2)}
+        \begin{tabular}{lll}
+            \toprule
+            \textbf{来源} & \textbf{URL} & \textbf{用途} \\
+            \midrule
+            官网产品页 & asteralabs.com/products & 产品定义 \\
+            官网博客 & asteralabs.com/blog & 技术阐述 \\
+            官网 Whitepaper & asteralabs.com/resources & 技术细节 \\
+            S-1/10-K/10-Q & SEC EDGAR & 财务数据 \\
+            OCP 演讲 & opencompute.org & 技术架构 \\
+            CXL Consortium & computeexpresslink.org & CXL 标准 \\
+            PCI-SIG & pcisig.com & PCIe 标准 \\
+            YouTube 官方频道 & - & Conference talks \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+\end{frame}
+
+\begin{frame}{预期信息来源清单 (2)}
+    \begin{table}
+        \centering
+        \caption{二级信息源 (T3-T4)}
+        \begin{tabular}{lll}
+            \toprule
+            \textbf{来源} & \textbf{类型} & \textbf{用途} \\
+            \midrule
+            SemiAnalysis & 行业分析 & 竞争/市场 \\
+            Dylan Patel 分析 & 行业分析 & 深度技术 \\
+            ServeTheHome & 媒体评测 & 产品实测 \\
+            AnandTech & 技术媒体 & 架构分析 \\
+            The Next Platform & 行业媒体 & 数据中心趋势 \\
+            Hot Chips / ISSCC & 学术会议 & 芯片架构 \\
+            Gartner/IDC & 市场报告 & TAM/份额 \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    \begin{warningblock}
+        SemiAnalysis 的分析虽然权威，但仍有 speculations。必须与官方资料交叉验证。
+    \end{warningblock}
+\end{frame}
+
+\begin{frame}{预期信息来源清单 (3)}
+    \begin{table}
+        \centering
+        \caption{生态/竞争对手信息源}
+        \begin{tabular}{lll}
+            \toprule
+            \textbf{来源} & \textbf{类型} & \textbf{用途} \\
+            \midrule
+            NVIDIA 官方 & 竞争对手 & NVLink/NVSwitch 对比基准 \\
+            Broadcom 官方 & 竞争对手 & PCIe switch 对比基准 \\
+            Intel/AMD 官方 & 生态伙伴 & CXL 生态状态 \\
+            Credo 官方 & 竞争对手 & Retimer 对比基准 \\
+            Marvell 官方 & 竞争对手 & 数据中心芯片对比 \\
+            OCP GitHub & 开源 & Reference design \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+\end{frame}
+
+% ============================================================
+%  SECTION 3：需要验证的问题
+% ============================================================
+\section{需要验证的问题}
+
+\begin{frame}{核心技术声明验证清单 (1)}
+    \begin{table}
+        \centering
+        \caption{Scorpio 相关待验证问题}
+        \begin{tabular}{lp{0.55\textwidth}}
+            \toprule
+            \textbf{\#} & \textbf{问题} \\
+            \midrule
+            Q1 & Scorpio 到底是 PCIe switch 还是 fabric switch？两者区别？\\
+            Q2 & Scorpio 的实际 lane count / radix / latency 数据？\\
+            Q3 & Scorpio 是否真正已部署在 hyperscaler GPU cluster？哪些客户？\\
+            Q4 & 与 NVSwitch 相比的性能差距（需量化，不可只说"更好"）？\\
+            Q5 & Scorpio 的 "memory semantic fabric" 是否只是 marketing？\\
+            Q6 & 软件定义 fabric 是否已有部署？\\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+\end{frame}
+
+\begin{frame}{核心技术声明验证清单 (2)}
+    \begin{table}
+        \centering
+        \caption{Aries / Leo / 其他待验证问题}
+        \begin{tabular}{lp{0.55\textwidth}}
+            \toprule
+            \textbf{\#} & \textbf{问题} \\
+            \midrule
+            Q7 & Aries Smart DSP Retimer 比竞品好在哪里（量化数据）？\\
+            Q8 & Smart Cable Module 是否已大规模部署？\\
+            Q9 & PCIe over cable 的实际距离限制？\\
+            Q10 & CXL memory pooling 在生产环境中是否真正运行？\\
+            Q11 & Leo 的 latency 数据（vs DRAM vs NUMA）？\\
+            Q12 & COSMOS 的差异化功能是什么？开放还是封闭？\\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+\end{frame}
+
+\begin{frame}{商业/竞争待验证问题}
+    \begin{table}
+        \centering
+        \caption{商业与竞争待验证}
+        \begin{tabular}{lp{0.55\textwidth}}
+            \toprule
+            \textbf{\#} & \textbf{问题} \\
+            \midrule
+            Q13 & 前 3 大客户是谁？收入占比？\\
+            Q14 & 毛利率的真实水平及 trend？\\
+            Q15 & TAM 是多大？增长驱动是 AI 还是传统 DC？\\
+            Q16 & Broadcom PCIe switch 市场份额 vs Astera Labs？\\
+            Q17 & NVIDIA 是否会自研类似产品吞食该市场？\\
+            Q18 & "Switzerland of connectivity" 是否为真实定位？\\
+            Q19 & 供应链依赖 TSMC 哪个节点？封测厂是谁？\\
+            Q20 & 研发投入/专利数量/团队规模？\\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+\end{frame}
+
+% ============================================================
+%  SECTION 4：高风险幻觉点
+% ============================================================
+\section{潜在高风险幻觉点}
+
+\begin{frame}{幻觉风险地图 (Hallucination Risk Map)}
+    \begin{table}
+        \centering
+        \caption{幻觉风险评估}
+        \begin{tabular}{clp{0.5\textwidth}}
+            \toprule
+            \textbf{等级} & \textbf{领域} & \textbf{原因} \\
+            \midrule
+            \rowcolor{red!15}
+            \risk{极高} & 性能参数 & LLM 天然会编造数字 \\
+            \rowcolor{red!15}
+            \risk{极高} & 客户名称 & 保密协议下通常不公开 \\
+            \rowcolor{red!15}
+            \risk{极高} & 市场份额 & 细分市场通常无公开报告 \\
+            \rowcolor{orange!15}
+            \mediumrisk{高} & 技术对比 & 无基准测试时只能推测 \\
+            \rowcolor{orange!15}
+            \mediumrisk{高} & 供应链细节 & 部分可查但部分保密 \\
+            \rowcolor{orange!15}
+            \mediumrisk{高} & 价格 & 芯片价格通常不公开 \\
+            \rowcolor{yellow!15}
+            \mediumrisk{中} & 合作关系 & 部分公开部分 NDA \\
+            \rowcolor{darkgreen!10}
+            \lowrisk{低} & 公司基本信息 & 可从官方/SEC 文档验证 \\
+            \rowcolor{darkgreen!10}
+            \lowrisk{低} & CXL/PCIe 标准 & 公开 spec \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+\end{frame}
+
+\begin{frame}{幻觉具体场景}
+    \begin{enumerate}
+        \item \textbf{编造芯片参数}：
+            \begin{itemize}
+                \item LLM 可能 "合理推测" SerDes 速率/lane 数/功耗
+                \item \alert{对策}：无公开 datasheet 则写 "未公开"
+            \end{itemize}
+
+        \item \textbf{编造客户}：
+            \begin{itemize}
+                \item 可能说 "Google/Microsoft/Meta 是其客户"
+                \item \alert{对策}：必须有官方 press release 或财报提及
+            \end{itemize}
+
+        \item \textbf{编造市场份额}：
+            \begin{itemize}
+                \item 可能说 "30\% market share"
+                \item \alert{对策}：必须有第三方报告 citation
+            \end{itemize}
+
+        \item \textbf{编造技术优势}：
+            \begin{itemize}
+                \item 可能说 "比 XX 好 3x"
+                \item \alert{对策}：若来自官方 marketing，标注 "来自官方声称，未经第三方验证"
+            \end{itemize}
+    \end{enumerate}
+\end{frame}
+
+\begin{frame}{幻觉具体场景 (续)}
+    \begin{enumerate}
+        \setcounter{enumi}{4}
+        \item \textbf{编造合作关系}：
+            \begin{itemize}
+                \item 可能说 "与 Intel Sapphire Rapids 深度合作"
+                \item \alert{对策}：必须有公告或联合 whitepaper
+            \end{itemize}
+
+        \item \textbf{编造专利数量}：
+            \begin{itemize}
+                \item \alert{对策}：查询 USPTO / Google Patents
+            \end{itemize}
+
+        \item \textbf{过度推断技术趋势}：
+            \begin{itemize}
+                \item 可能说 "CXL 将在 2026 年大规模普及"
+                \item \alert{对策}：如有来源引用，无则标注 "行业观点/推测"
+            \end{itemize}
+
+        \item \textbf{混淆不同代产品}：
+            \begin{itemize}
+                \item 可能把 Gen 1 的参数套到 Gen 2
+                \item \alert{对策}：逐产品/逐代确认
+            \end{itemize}
+    \end{enumerate}
+\end{frame}
+
+% ============================================================
+%  SECTION 5：数据交叉验证策略
+% ============================================================
+\section{数据交叉验证策略}
+
+\begin{frame}{交叉验证原则}
+    \begin{block}{三条铁律}
+        \begin{enumerate}
+            \item \textbf{双源确认}：每个关键数字/主张至少两个独立来源
+            \item \textbf{来源层级}：T1 源可覆盖 T3-T5；T5 不可独立用作证据
+            \item \textbf{不明确则标注}：宁写"未确认"也不编造
+        \end{enumerate}
+    \end{block}
+
+    \vspace{0.3cm}
+    \begin{exampleblock}{示例：验证"Scorpio 支持 PCIe 6"}
+        \begin{enumerate}
+            \item 检查官方产品页面\sourcecat{[T2]}
+            \item 检查官方 datasheet/whitepaper\sourcecat{[T1]}
+            \item 查看 Hot Chips/OCP conference slides\sourcecat{[T2]}
+            \item 交叉比对 SemiAnalysis/ServeTheHome 分析\sourcecat{[T3-T4]}
+        \end{enumerate}
+    \end{exampleblock}
+\end{frame}
+
+\begin{frame}{层次化验证框架}
+    \centering
+    \begin{tikzpicture}[
+        node distance=1cm and 2cm,
+        box/.style={rectangle, draw=darkblue, fill=blue!5, thick, minimum width=3cm, minimum height=0.7cm, align=center, rounded corners=3pt},
+        arrow/.style={->, >=Stealth, thick, darkblue}
+    ]
+        \node[box, fill=darkgreen!10] (L1) {Level 1: 官方可验证文档};
+        \node[box, fill=darkgreen!10, below=of L1] (L2) {Level 2: 官方声明/演讲};
+        \node[box, fill=yellow!10, below=of L2] (L3) {Level 3: 第三方权威分析};
+        \node[box, fill=orange!10, below=of L3] (L4) {Level 4: 行业媒体};
+        \node[box, fill=red!10, below=of L4] (L5) {Level 5: 社区/推测};
+
+        \draw[arrow] (L1.east) -- ++(1.5,0) |- node[right, text width=2cm] {$\checkmark$ 最高置信度} (L1.east);
+        \draw[arrow] (L2.east) -- ++(1.5,0) |- node[right, text width=2cm] {$\checkmark$ 高置信度} (L2.east);
+        \draw[arrow] (L3.east) -- ++(1.5,0) |- node[right, text width=2cm] {标注"第三方"} (L3.east);
+        \draw[arrow] (L4.east) -- ++(1.5,0) |- node[right, text width=2cm] {标注"媒体引用"} (L4.east);
+        \draw[->, dashed] (L5.east) -- ++(1.5,0) node[right] {\alert{不可独立引用}};
+    \end{tikzpicture}
+
+    \begin{itemize}
+        \item L1-L2 可独立使用；L3-L4 需配合 L1-L2
+        \item 若 L1-L2 信息矛盾 → 报告矛盾，不过度解释
+        \item 若仅有 L3-L4 来源 → 明确标注 "无法从官方验证"
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{特定信息元素的验证方法}
+    \begin{table}
+        \centering
+        \caption{分类型验证策略}
+        \begin{tabular}{lp{0.5\textwidth}}
+            \toprule
+            \textbf{数据类型} & \textbf{验证方法} \\
+            \midrule
+            营收/利润 & 直接引用 SEC filing (10-K/10-Q) \\
+            产品规格 & 官方产品页 + datasheet；无则标注"未公开" \\
+            客户名称 & 仅在财报/官方 PR 中出现时引用 \\
+            市场地位 & 需 Gartner/IDC 或财报中明确引用 \\
+            技术对比 & 官网对比 + 第三方实测；需标注"官方声称/第三方实测" \\
+            供应链 & TSMC news + 财报 supply chain section \\
+            专利 & Google Patents / USPTO 检索 "Astera Labs" \\
+            CXL标准 & computeexpresslink.org 公开 specification \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+\end{frame}
+
+\begin{frame}{Staleness Check 策略}
+    \begin{itemize}
+        \item \textbf{时间戳检查}：每条信息的发布时间
+        \item \textbf{产品代际检查}：
+            \begin{itemize}
+                \item Scorpio: Gen 1 vs Gen 2 区分
+                \item Aries: PCIe 5 vs PCIe 6 版本区分
+                \item Leo: 不同内存标准支持区分
+            \end{itemize}
+        \item \textbf{信息时效性}：
+            \begin{itemize}
+                \item 财报数据 → 最近四个 quarter
+                \item 技术参数 → 确认是否为最新产品代
+                \item 市场预测 → 标注预测时间点
+            \end{itemize}
+        \item \textbf{过时信息处理}：
+            \begin{itemize}
+                \item 如果信息超过 2 年且无更新 → 标注 "截至 20XX 年"
+                \item 如果产品已更新 → 仅引用最新代
+            \end{itemize}
+    \end{itemize}
+\end{frame}
+
+% ============================================================
+%  SECTION 6：调研执行细节
+% ============================================================
+\section{调研执行细节}
+
+\begin{frame}{输出格式规范}
+    \begin{itemize}
+        \item \textbf{文档格式}：LaTeX Beamer (16:9)，遵循项目模板
+        \item \textbf{每个 Part}：一个独立 section
+        \item \textbf{图表要求}：
+            \begin{itemize}
+                \item 公司产业链定位图 (TikZ)
+                \item 产品关系拓扑图 (TikZ)
+                \item 竞争格局图 (TikZ)
+                \item GPU cluster topology 示例 (TikZ)
+                \item Scorpio 架构图 (TikZ)
+                \item 产品对比表 (booktabs)
+                \item 财务数据表 (booktabs)
+            \end{itemize}
+        \item \textbf{引用标注}：每条结论标注 Tier + Source
+        \item \textbf{不确定性标注}：
+            \begin{itemize}
+                \item "未找到可靠来源"
+                \item "无法确认"
+                \item "可能但无直接证据"
+                \item "属于推测"
+            \end{itemize}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{关键约束条件}
+    \begin{warningblock}
+        调研过程中必须严格自我约束：
+        \begin{enumerate}
+            \item WebFetch 可能无法访问 paywalled 内容（SEC 可访问）
+            \item 很多技术细节不公开（SerDes 架构、具体客户、定价）
+            \item 行业报告大多 paywalled（Gartner/IDC/McKinsey）
+            \item Conference talk 的 slides 不一定公开
+            \item 专利可查但解读需专业背景
+        \end{enumerate}
+    \end{warningblock}
+
+    \begin{keypoint}
+        遇到信息缺口时：\alert{宁可明确写"不知道"}，也不要用 plausible 的语言填补空白。
+    \end{keypoint}
+\end{frame}
+
+\begin{frame}{报告结构预览}
+    \begin{enumerate}
+        \item \textbf{Part 1}: 公司整体定位 — 历史/战略/定位/产业链位置
+        \item \textbf{Part 2}: 产品线全景 — 表格总结 + 拓扑关系
+        \item \textbf{Part 3}: Scorpio 深度 — 架构/对比/护城河/真实价值
+        \item \textbf{Part 4}: Aries 深度 — Retimer/Smart Cable/Gearbox
+        \item \textbf{Part 5}: Leo 与 CXL — Memory wall/Memory pooling/落地
+        \item \textbf{Part 6}: COSMOS 软件 — Telemetry/Fleet mgmt/Observability
+        \item \textbf{Part 7}: 技术壁垒 — 真实 vs 虚假护城河
+        \item \textbf{Part 8}: 竞争格局 — 全竞争地图
+        \item \textbf{Part 9}: 财务与商业 — 数据驱动分析
+        \item \textbf{Part 10}: 最终总结 — 综合评估
+        \item \textbf{References}: 完整引用清单
+    \end{enumerate}
+\end{frame}
+
+\begin{frame}{最终交付物}
+    \begin{table}
+        \centering
+        \begin{tabular}{ll}
+            \toprule
+            \textbf{文件} & \textbf{内容} \\
+            \midrule
+            \texttt{research\_plan.tex/pdf} & 本研究计划（当前文件）\\
+            \texttt{asteralabs\_survey\_part1.tex} & Part 1: 公司定位 \\
+            \texttt{asteralabs\_survey\_part2.tex} & Part 2: 产品线全景 \\
+            \texttt{asteralabs\_survey\_part3.tex} & Part 3: Scorpio 深度 \\
+            \texttt{asteralabs\_survey\_part4.tex} & Part 4: Aries 深度 \\
+            \texttt{asteralabs\_survey\_part5.tex} & Part 5: Leo 与 CXL \\
+            \texttt{asteralabs\_survey\_part6.tex} & Part 6: COSMOS \\
+            \texttt{asteralabs\_survey\_part7.tex} & Part 7: 技术壁垒 \\
+            \texttt{asteralabs\_survey\_part8.tex} & Part 8: 竞争格局 \\
+            \texttt{asteralabs\_survey\_part9.tex} & Part 9: 财务商业 \\
+            \texttt{asteralabs\_survey\_part10.tex} & Part 10: 最终总结 + References \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    或者合并为单个主文件 \texttt{asteralabs\_survey.tex}，各 Part 用 \texttt{\textbackslash section\{\}} 分隔。
+\end{frame}
+
+% ============================================================
+\begin{frame}{Beamer 备注使用规范}
+    \begin{itemize}
+        \item \textbf{备注宏包}：使用 \texttt{\textbackslash usepackage\{pgfpages\}} 启用备注页
+        \item \textbf{使用方式}：每个 frame 后用 \texttt{\textbackslash note\{\}} 补充详细说明
+        \item \textbf{何时使用备注}：
+            \begin{itemize}
+                \item Slide 放不下的大段技术分析
+                \item 详细的引用来源和 URL
+                \item 辅助性的背景知识解释
+                \item 数据验证的交叉比对过程
+                \item 与其他产品的详细对比表格
+                \item 潜在的 caveats 和 edge cases
+            \end{itemize}
+        \item \textbf{备注模式输出}：
+            \begin{itemize}
+                \item 编译时用 \texttt{\textbackslash setbeameroption\{show notes on second screen=right\}} 生成带备注的 PDF
+                \item 普通编译（无选项）不显示备注
+            \end{itemize}
+        \item \textbf{原则}：Slide 保持精简（要点/图表），备注承载深度内容
+    \end{itemize}
+
+    \begin{exampleblock}{示例}
+        \texttt{\textbackslash begin\{frame\}\{Scorpio 架构\}} \\
+        \texttt{~~~[Slide 上放架构图和关键要点]} \\
+        \texttt{\textbackslash end\{frame\}} \\
+        \texttt{\textbackslash note\{此处补充：PCIe 6 lane 数量依据 datasheet p.3,} \\
+        \texttt{与 Broadcom PEX 系列详细对比见下表，SerDes 架构细节来自} \\
+        \texttt{ISSCC 2024 paper...\}}
+    \end{exampleblock}
+\end{frame}
+
+% ============================================================
+%  结束
+% ============================================================
+\begin{frame}[plain]
+    \centering
+    \vspace{1.5cm}
+    {\Huge \textbf{研究计划完成}}
+
+    \vspace{1cm}
+    {\Large 请审阅以上计划，确认后开始正式调研}
+
+    \vspace{1cm}
+    {\normalsize 预计总工作时间: $\sim$14 小时(等效)} \\
+    {\normalsize 分 5 个 Phase 执行}
+
+    \vspace{1cm}
+    {\small 编译于 \today}
+\end{frame}
+
+\end{document}

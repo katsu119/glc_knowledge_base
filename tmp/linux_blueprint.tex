@@ -1,0 +1,1233 @@
+\documentclass[tikz,border=10pt]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{positioning,calc,shapes.geometric,shapes.multipart,arrows.meta,backgrounds,fit,math,matrix,decorations.pathreplacing,patterns}
+\usepackage{amsmath,amssymb}
+\usepackage{xeCJK}
+\setCJKmainfont{STHeiti}
+\setCJKsansfont{STHeiti}
+
+\begin{document}
+\begin{tikzpicture}[
+    >=Latex,
+    font=\small,
+    % Title
+    titlefont/.style={font=\LARGE\bfseries},
+    % Overview column blocks
+    ovblock/.style={rectangle, draw, minimum width=16cm, minimum height=1.2cm, align=center, rounded corners=4pt, inner sep=4pt, font=\small\bfseries, text opacity=1},
+    % Overview sub-blocks (inside an overview row)
+    ovsub/.style={rectangle, draw, minimum width=3.6cm, minimum height=0.9cm, align=center, rounded corners=2pt, inner sep=2pt, font=\footnotesize, fill=white!70},
+    % Detail panel (right column)
+    dtpanel/.style={rectangle, draw, minimum width=22cm, align=left, rounded corners=4pt, inner sep=8pt, font=\scriptsize},
+    dttitle/.style={font=\bfseries\normalsize, align=left},
+    dtsubtitle/.style={font=\bfseries\small, align=left},
+    % Detail internal nodes
+    dtblock/.style={rectangle, draw, rounded corners=2pt, inner sep=3pt, font=\scriptsize, minimum width=2.5cm, minimum height=0.7cm, align=center},
+    dtsmall/.style={rectangle, draw, rounded corners=1pt, inner sep=2pt, font=\tiny, minimum width=1.6cm, minimum height=0.5cm, align=center},
+    % Data flow
+    arrow/.style={->, thick, >=Stealth},
+    arrowlabel/.style={font=\tiny, sloped, above, auto},
+    connect/.style={->, dashed, gray!60, thick, >=Stealth},
+    % Boundary/background
+    layerbg/.style={rectangle, draw=black!20, rounded corners=6pt, inner sep=10pt, fill opacity=0.3},
+    sectionbg/.style={rectangle, draw=black!15, rounded corners=4pt, inner sep=6pt, fill opacity=0.2},
+]
+
+% ============================================================
+% GLOBAL LAYOUT GRID (anchor coordinates)
+% ============================================================
+% Left column overview blocks sit at x=0 (west anchor)
+% Right column detail panels sit at x=19 (west anchor)
+% Top: title at (0,0)
+
+% Column separation and row spacing
+\def\ovwidth{16cm}
+\def\dtwidth{22cm}
+\def\colsep{1.5cm}
+\def\rowsep{0.5cm}
+\def\bigrowsep{0.8cm} % between major groups
+
+% Global bounding box — auto-expands with standalone
+
+% ============================================================
+% TITLE
+% ============================================================
+\node[titlefont] (title) at (0,0) [anchor=north west] {Linux 系统全景架构图 —— Architecture Blueprint};
+
+% Subtitle
+\node[font=\normalsize\itshape, below=0.1cm of title.south west, anchor=north west, gray] (subtitle) {内核版本: v6.x \quad | \quad 架构: x86-64 / ARM64 \quad | \quad 标准化 POSIX + Linux 特有接口};
+
+% ============================================================
+% LAYER 1: USER SPACE
+% ============================================================
+\node[ovblock, fill=blue!6, draw=blue!40, below=0.8cm of title.south west, anchor=north west] (ov-user) {\textbf{用户空间} \quad User Space};
+\node[font=\tiny, above right=0cm and 0.3cm of ov-user.north west, blue!60!black] {Layer 1};
+
+% Sub-blocks inside user space overview
+\node[ovsub, fill=blue!15, right=0.3cm of ov-user.west, anchor=west] (ov-user-apps) {用户应用程序};
+\node[ovsub, fill=blue!15, right=0.2cm of ov-user-apps.east, anchor=west] (ov-user-lib) {C 标准库 (glibc/musl)};
+\node[ovsub, fill=blue!15, right=0.2cm of ov-user-lib.east, anchor=west] (ov-user-daemon) {系统守护进程 (systemd/sshd)};
+\node[ovsub, fill=blue!15, right=0.2cm of ov-user-daemon.east, anchor=west] (ov-user-gui) {图形栈 (X11/Wayland)};
+\node[ovsub, fill=blue!15, right=0.2cm of ov-user-gui.east, anchor=west] (ov-user-runtime) {运行时 (JVM/Node/Python)};
+
+% ============================================================
+% LAYER 2: SYSTEM CALL INTERFACE
+% ============================================================
+\node[ovblock, fill=purple!6, draw=purple!40, below=0.3cm of ov-user.south west, anchor=north west] (ov-syscall) {\textbf{系统调用接口} \quad System Call Interface};
+\node[font=\tiny, above right=0cm and 0.3cm of ov-syscall.north west, purple!60!black] {Layer 2};
+
+\node[ovsub, fill=purple!15, right=0.3cm of ov-syscall.west, anchor=west] (ov-sc-sysenter) {syscall/sysenter 指令};
+\node[ovsub, fill=purple!15, right=0.2cm of ov-sc-sysenter.east, anchor=west] (ov-sc-vdso) {vDSO / vsyscall};
+\node[ovsub, fill=purple!15, right=0.2cm of ov-sc-vdso.east, anchor=west] (ov-sc-table) {sys\_call\_table \quad 450+ 调用};
+\node[ovsub, fill=purple!15, right=0.2cm of ov-sc-table.east, anchor=west] (ov-sc-seccomp) {seccomp BPF 过滤器};
+\node[ovsub, fill=purple!15, right=0.2cm of ov-sc-seccomp.east, anchor=west] (ov-sc-signal) {信号传递 (signal\_deliver)};
+
+% ============================================================
+% LAYER 3: PROCESS MANAGEMENT (KERNEL CORE - left column)
+% ============================================================
+\node[ovblock, fill=green!6, draw=green!40, below=0.3cm of ov-syscall.south west, anchor=north west] (ov-proc) {\textbf{进程管理} \quad Process Management};
+\node[font=\tiny, above right=0cm and 0.3cm of ov-proc.north west, green!60!black] {Layer 3a};
+
+\node[ovsub, fill=green!15, right=0.3cm of ov-proc.west, anchor=west] (ov-proc-sched) {调度器 (CFS/RT/Deadline)};
+\node[ovsub, fill=green!15, right=0.2cm of ov-proc-sched.east, anchor=west] (ov-proc-task) {task\_struct};
+\node[ovsub, fill=green!15, right=0.2cm of ov-proc-task.east, anchor=west] (ov-proc-fork) {fork/exec/clone};
+\node[ovsub, fill=green!15, right=0.2cm of ov-proc-fork.east, anchor=west] (ov-proc-ns) {命名空间 + cgroups};
+
+% ============================================================
+% LAYER 3b: MEMORY MANAGEMENT
+% ============================================================
+\node[ovblock, fill=red!6, draw=red!40, below=0.3cm of ov-proc.south west, anchor=north west] (ov-mem) {\textbf{内存管理} \quad Memory Management};
+\node[font=\tiny, above right=0cm and 0.3cm of ov-mem.north west, red!60!black] {Layer 3b};
+
+\node[ovsub, fill=red!15, right=0.3cm of ov-mem.west, anchor=west] (ov-mem-phys) {物理内存 (buddy/slab)};
+\node[ovsub, fill=red!15, right=0.2cm of ov-mem-phys.east, anchor=west] (ov-mem-virt) {虚拟内存 (VMA/mmap)};
+\node[ovsub, fill=red!15, right=0.2cm of ov-mem-virt.east, anchor=west] (ov-mem-pgfault) {缺页异常处理};
+\node[ovsub, fill=red!15, right=0.2cm of ov-mem-pgfault.east, anchor=west] (ov-mem-swap) {Swap / KSM / THP / OOM};
+
+% ============================================================
+% LAYER 3c: VIRTUAL FILE SYSTEM
+% ============================================================
+\node[ovblock, fill=orange!6, draw=orange!40, below=0.3cm of ov-mem.south west, anchor=north west] (ov-vfs) {\textbf{虚拟文件系统} \quad VFS / File Systems};
+\node[font=\tiny, above right=0cm and 0.3cm of ov-vfs.north west, orange!60!black] {Layer 3c};
+
+\node[ovsub, fill=orange!15, right=0.3cm of ov-vfs.west, anchor=west] (ov-vfs-core) {VFS 核心抽象};
+\node[ovsub, fill=orange!15, right=0.2cm of ov-vfs-core.east, anchor=west] (ov-vfs-fs) {ext4 / btrfs / xfs / tmpfs};
+\node[ovsub, fill=orange!15, right=0.2cm of ov-vfs-fs.east, anchor=west] (ov-vfs-pagecache) {Page Cache / bio};
+\node[ovsub, fill=orange!15, right=0.2cm of ov-vfs-pagecache.east, anchor=west] (ov-vfs-block) {块层 (I/O 调度器)};
+
+% ============================================================
+% LAYER 3d: NETWORK STACK
+% ============================================================
+\node[ovblock, fill=cyan!6, draw=cyan!40, below=0.3cm of ov-vfs.south west, anchor=north west] (ov-net) {\textbf{网络协议栈} \quad Network Stack};
+\node[font=\tiny, above right=0cm and 0.3cm of ov-net.north west, cyan!60!black] {Layer 3d};
+
+\node[ovsub, fill=cyan!15, right=0.3cm of ov-net.west, anchor=west] (ov-net-sock) {Socket 层};
+\node[ovsub, fill=cyan!15, right=0.2cm of ov-net-sock.east, anchor=west] (ov-net-tcp) {TCP/UDP 传输};
+\node[ovsub, fill=cyan!15, right=0.2cm of ov-net-tcp.east, anchor=west] (ov-net-ip) {IP 网络层 / netfilter};
+\node[ovsub, fill=cyan!15, right=0.2cm of ov-net-ip.east, anchor=west] (ov-net-tc) {流量控制 \quad NAPI};
+
+% ============================================================
+% LAYER 3e: IPC
+% ============================================================
+\node[ovblock, fill=yellow!6, draw=yellow!50!black!50, below=0.3cm of ov-net.south west, anchor=north west] (ov-ipc) {\textbf{进程间通信} \quad IPC};
+\node[font=\tiny, above right=0cm and 0.3cm of ov-ipc.north west, yellow!60!black] {Layer 3e};
+
+\node[ovsub, fill=yellow!15, right=0.3cm of ov-ipc.west, anchor=west] (ov-ipc-pipe) {Pipe / FIFO};
+\node[ovsub, fill=yellow!15, right=0.2cm of ov-ipc-pipe.east, anchor=west] (ov-ipc-shm) {共享内存 (shm)};
+\node[ovsub, fill=yellow!15, right=0.2cm of ov-ipc-shm.east, anchor=west] (ov-ipc-sem) {信号量 (sem)};
+\node[ovsub, fill=yellow!15, right=0.2cm of ov-ipc-sem.east, anchor=west] (ov-ipc-futex) {futex / 信号 (signal)};
+
+% ============================================================
+% LAYER 3f: INTERRUPT HANDLING
+% ============================================================
+\node[ovblock, fill=magenta!6, draw=magenta!40, below=0.3cm of ov-ipc.south west, anchor=north west] (ov-intr) {\textbf{中断与异常处理} \quad Interrupt Handling};
+\node[font=\tiny, above right=0cm and 0.3cm of ov-intr.north west, magenta!60!black] {Layer 3f};
+
+\node[ovsub, fill=magenta!15, right=0.3cm of ov-intr.west, anchor=west] (ov-intr-irq) {IRQ / 中断控制器};
+\node[ovsub, fill=magenta!15, right=0.2cm of ov-intr-irq.east, anchor=west] (ov-intr-softirq) {SoftIRQ / tasklet};
+\node[ovsub, fill=magenta!15, right=0.2cm of ov-intr-softirq.east, anchor=west] (ov-intr-workq) {workqueue / 线程化 IRQ};
+\node[ovsub, fill=magenta!15, right=0.2cm of ov-intr-workq.east, anchor=west] (ov-intr-exc) {异常 / 陷阱 / 故障};
+
+% ============================================================
+% LAYER 3g: SYNCHRONIZATION
+% ============================================================
+\node[ovblock, fill=brown!6, draw=brown!50!black!50, below=0.3cm of ov-intr.south west, anchor=north west] (ov-sync) {\textbf{同步机制} \quad Synchronization};
+\node[font=\tiny, above right=0cm and 0.3cm of ov-sync.north west, brown!60!black] {Layer 3g};
+
+\node[ovsub, fill=brown!15, right=0.3cm of ov-sync.west, anchor=west] (ov-sync-spin) {spinlock / rwlock};
+\node[ovsub, fill=brown!15, right=0.2cm of ov-sync-spin.east, anchor=west] (ov-sync-mutex) {mutex / rwsem};
+\node[ovsub, fill=brown!15, right=0.2cm of ov-sync-mutex.east, anchor=west] (ov-sync-rcu) {RCU};
+\node[ovsub, fill=brown!15, right=0.2cm of ov-sync-rcu.east, anchor=west] (ov-sync-seq) {seqcount / 原子操作};
+
+% ============================================================
+% LAYER 3h: TIME MANAGEMENT
+% ============================================================
+\node[ovblock, fill=teal!6, draw=teal!50!black!50, below=0.3cm of ov-sync.south west, anchor=north west] (ov-time) {\textbf{时间管理} \quad Time Management};
+\node[font=\tiny, above right=0cm and 0.3cm of ov-time.north west, teal!60!black] {Layer 3h};
+
+\node[ovsub, fill=teal!15, right=0.3cm of ov-time.west, anchor=west] (ov-time-clock) {clock\_source / clocksource};
+\node[ovsub, fill=teal!15, right=0.2cm of ov-time-clock.east, anchor=west] (ov-time-timer) {timer wheel / hrtimer};
+\node[ovsub, fill=teal!15, right=0.2cm of ov-time-timer.east, anchor=west] (ov-time-jiffies) {jiffies / timekeeping};
+\node[ovsub, fill=teal!15, right=0.2cm of ov-time-jiffies.east, anchor=west] (ov-time-posix) {POSIX timer / itimer};
+
+% ============================================================
+% LAYER 4: ARCHITECTURE LAYER
+% ============================================================
+\node[ovblock, fill=gray!10, draw=gray!50, below=0.3cm of ov-time.south west, anchor=north west] (ov-arch) {\textbf{体系结构相关} \quad Architecture Layer};
+\node[font=\tiny, above right=0cm and 0.3cm of ov-arch.north west, gray!70!black] {Layer 4};
+
+\node[ovsub, fill=gray!20, right=0.3cm of ov-arch.west, anchor=west] (ov-arch-boot) {启动流程 (start\_kernel)};
+\node[ovsub, fill=gray!20, right=0.2cm of ov-arch-boot.east, anchor=west] (ov-arch-pgtbl) {页表管理 / TLB};
+\node[ovsub, fill=gray!20, right=0.2cm of ov-arch-pgtbl.east, anchor=west] (ov-arch-mce) {MCE / CPU 特性检测};
+\node[ovsub, fill=gray!20, right=0.2cm of ov-arch-mce.east, anchor=west] (ov-arch-smp) {SMP / CPU hotplug};
+
+% ============================================================
+% LAYER 5: DEVICE DRIVERS
+% ============================================================
+\node[ovblock, fill=olive!6, draw=olive!50!black!40, below=0.3cm of ov-arch.south west, anchor=north west] (ov-drv) {\textbf{设备驱动框架} \quad Device Drivers};
+\node[font=\tiny, above right=0cm and 0.3cm of ov-drv.north west, olive!60!black] {Layer 5};
+
+\node[ovsub, fill=olive!15, right=0.3cm of ov-drv.west, anchor=west] (ov-drv-char) {字符设备 (cdev)};
+\node[ovsub, fill=olive!15, right=0.2cm of ov-drv-char.east, anchor=west] (ov-drv-blk) {块设备 (gendisk)};
+\node[ovsub, fill=olive!15, right=0.2cm of ov-drv-blk.east, anchor=west] (ov-drv-net) {网络设备 (netdev)};
+\node[ovsub, fill=olive!15, right=0.2cm of ov-drv-net.east, anchor=west] (ov-drv-model) {设备模型 (bus/driver/device)};
+
+% ============================================================
+% LAYER 6: HARDWARE
+% ============================================================
+\node[ovblock, fill=black!4, draw=black!40, below=0.3cm of ov-drv.south west, anchor=north west] (ov-hw) {\textbf{硬件层} \quad Hardware};
+\node[font=\tiny, above right=0cm and 0.3cm of ov-hw.north west, black!60] {Layer 6};
+
+\node[ovsub, fill=black!8, right=0.3cm of ov-hw.west, anchor=west] (ov-hw-cpu) {CPU 核心 \& 缓存};
+\node[ovsub, fill=black!8, right=0.2cm of ov-hw-cpu.east, anchor=west] (ov-hw-ram) {RAM (DDR)};
+\node[ovsub, fill=black!8, right=0.2cm of ov-hw-ram.east, anchor=west] (ov-hw-storage) {存储 (NVMe/SATA/SD)};
+\node[ovsub, fill=black!8, right=0.2cm of ov-hw-storage.east, anchor=west] (ov-hw-net) {网卡 / WiFi / 蓝牙};
+\node[ovsub, fill=black!8, right=0.2cm of ov-hw-net.east, anchor=west] (ov-hw-bus) {总线 (PCIe/USB/SPI/I2C)};
+
+% ============================================================
+% LAYER BACKGROUND BOXES (drawn with fit)
+% ============================================================
+\begin{scope}[on background layer]
+  % User space background
+  \node[layerbg, fill=blue!2, draw=blue!20, fit={(ov-user.north west) (ov-user.south east)}] {};
+  % Syscall background - spans connection between user space and kernel
+  \node[layerbg, fill=purple!2, draw=purple!20, fit={(ov-syscall.north west) (ov-syscall.south east)}] {};
+  % Kernel core background
+  \node[layerbg, fill=black!1, draw=black!10, fit={(ov-proc.north west) (ov-time.south east)}] {};
+  % Architecture background
+  \node[layerbg, fill=gray!2, draw=gray!20, fit={(ov-arch.north west) (ov-drv.south east)}] {};
+  % Hardware background
+  \node[layerbg, fill=black!1, draw=black!15, fit={(ov-hw.north west) (ov-hw.south east)}] {};
+\end{scope}
+
+% ============================================================
+% RIGHT COLUMN: DETAIL PANEL A — Process Address Space
+% ============================================================
+% Aligned with User Space overview block
+\def\dtax{20cm}
+\def\dtay{-3.5cm}
+
+\node[dtpanel, fill=blue!3, draw=blue!30, anchor=north west] (dt-addrspace) at (19cm, -2cm) {
+  \textbf{\normalsize Process Address Space Layout \quad 进程地址空间布局}
+  \\[4pt]
+  A Linux process's virtual memory is divided into several regions, managed by \texttt{task\_struct$\rightarrow$mm} (\textbf{mm\_struct}):
+  \\[6pt]
+  \begin{minipage}{21.5cm}
+  \centering
+  \begin{tikzpicture}[font=\scriptsize]
+    % --- Memory Bar (left side) ---
+    \def\barx{0.8}
+    \def\barw{2.0}
+    \def\barheight{9.0}
+
+    % Background outline
+    \fill[black!3] (\barx,0) rectangle (\barx+\barw,\barheight);
+    \draw[draw=black!40] (\barx,0) rectangle (\barx+\barw,\barheight);
+
+    % Kernel space
+    \fill[red!10] (\barx,6.8) rectangle (\barx+\barw,\barheight);
+    \draw[draw=red!30, thick] (\barx,6.8) rectangle (\barx+\barw,\barheight);
+    \node[rotate=90, font=\small, red!70!black] at (\barx+1.0,8.0) {内核空间 (Kernel Space)};
+
+    % User space boundary
+    \draw[dashed, gray!60] (\barx,6.8) -- (\barx+\barw+1.0,6.8);
+    \node[right, font=\tiny, gray!60] at (\barx+\barw+0.1,6.8) {TASK\_SIZE (0x00007FFFFFFFFFFF)};
+
+    % Stack
+    \fill[yellow!15] (\barx,5.8) rectangle (\barx+\barw,6.8);
+    \draw[draw=orange!50!black!50, thick] (\barx,5.8) rectangle (\barx+\barw,6.8);
+    \draw[<->, thick, >=Stealth, orange!70!black] (\barx+\barw+0.3,5.8) -- (\barx+\barw+0.3,6.8);
+    \node[right, font=\small, orange!70!black] at (\barx+\barw+0.5,6.3) {Stack (向下增长)};
+    \node[right, font=\tiny] at (\barx+\barw+0.5,5.8) {0x7FFF...};
+
+    % mmap region
+    \fill[teal!12] (\barx,4.0) rectangle (\barx+\barw,5.8);
+    \draw[draw=teal!50!black!60, thick] (\barx,4.0) rectangle (\barx+\barw,5.8);
+    \node[rotate=90, font=\small, teal!70!black] at (\barx+1.0,4.9) {mmap 区域 (文件映射/匿名映射/共享库)};
+
+    % Heap
+    \fill[green!15] (\barx,2.0) rectangle (\barx+\barw,4.0);
+    \draw[draw=green!50!black!50, thick] (\barx,2.0) rectangle (\barx+\barw,4.0);
+    \draw[<->, thick, >=Stealth, green!70!black] (\barx+\barw+0.3,2.0) -- (\barx+\barw+0.3,4.0);
+    \node[right, font=\small, green!70!black] at (\barx+\barw+0.5,3.0) {Heap (向上增长, brk/sbrk)};
+
+    % BSS
+    \fill[orange!15] (\barx,1.2) rectangle (\barx+\barw,2.0);
+    \draw[draw=orange!50!black!50, thick] (\barx,1.2) rectangle (\barx+\barw,2.0);
+    \node[font=\small] at (\barx+1.0,1.6) {.bss (未初始化数据)};
+
+    % Data
+    \fill[blue!15] (\barx,0.4) rectangle (\barx+\barw,1.2);
+    \draw[draw=blue!50!black!50, thick] (\barx,0.4) rectangle (\barx+\barw,1.2);
+    \node[font=\small] at (\barx+1.0,0.8) {.data (初始化数据)};
+
+    % Text
+    \fill[purple!15] (\barx,0) rectangle (\barx+\barw,0.4);
+    \draw[draw=purple!50!black!50, thick] (\barx,0) rectangle (\barx+\barw,0.4);
+    \node[font=\small] at (\barx+1.0,0.2) {.text (代码)};
+
+    % Labels on left side of bar
+    \node[right, font=\tiny, gray!70] at (0, 9.0) {0xFFFF...FFFF};
+    \node[right, font=\tiny, gray!70] at (0, 6.8) {0x0000...0000};
+
+    % --- Data Structure Detail (right side) ---
+    \begin{scope}[shift={(\barx+\barw+2.0, 6.5)}]
+      % mm_struct block
+      \node[dtblock, fill=blue!8, draw=blue!40, minimum width=6cm, minimum height=1.8cm, align=center] (mm) at (4, 0) {
+        \textbf{mm\_struct} \qquad 进程内存描述符
+      };
+      \node[dtsmall, fill=blue!5, draw=blue!20, below=0.15cm of mm.south, anchor=north, align=center] (mm-fields) {
+        \texttt{pgd} (页全局目录) \quad | \quad \texttt{mmap} (VMA 链表) \quad | \quad \texttt{mm\_rb} (VMA 红黑树)
+      };
+      \node[dtsmall, fill=blue!5, draw=blue!20, below=0.08cm of mm-fields.south, anchor=north, align=center] (mm-fields2) {
+        \texttt{brk} (堆顶) \quad | \quad \texttt{start\_stack} / \texttt{start\_brk} / \texttt{start\_mmap} \quad | \quad \texttt{rss\_stat}
+      };
+
+      % VMA detail
+      \node[dtblock, fill=teal!8, draw=teal!40, minimum width=6cm, align=center] (vma) at (4, -2.2) {
+        \textbf{vm\_area\_struct} \qquad 虚拟内存区域 (VMA)
+      };
+      \node[dtsmall, fill=teal!5, draw=teal!20, below=0.15cm of vma.south, anchor=north, align=center] (vma-fields) {
+        \texttt{vm\_start} / \texttt{vm\_end} \quad | \quad \texttt{vm\_flags} (VM\_READ/WRITE/EXEC/SHARED)
+      };
+      \node[dtsmall, fill=teal!5, draw=teal!20, below=0.08cm of vma-fields.south, anchor=north, align=center] (vma-fields2) {
+        \texttt{vm\_file} (映射文件) \quad | \quad \texttt{vm\_ops} (open/close/fault) \quad | \quad \texttt{vm\_rb} (红黑树节点)
+      };
+
+      % Connection between mm_struct and VMA
+      \draw[arrow, blue!50!black] (mm.south) -- node[right, font=\tiny, align=left] {mmap 指向\\VMA 链表头} (vma.north);
+
+      % grow direction annotations
+      \node[font=\tiny, align=left, blue!60!black] at (0, -3.8) {
+        \textbf{页表:} \texttt{pgd} 指向进程的 4 级/5 级页表\\
+        \textbf{缺页:} 访问未映射地址 → \#PF → do\_page\_fault\\
+        \textbf{brk:} \texttt{sbrk()} / \texttt{brk()} 系统调用调整堆边界\\
+        \textbf{COW:} fork 后父子共享页, 写时复制
+      };
+    \end{scope}
+
+    % --- Flow arrows from bar to structures ---
+    \draw[->, dashed, >=Stealth, gray!50] (5.0, 6.0) -- (7.0, 6.5);
+    \node[font=\tiny, gray!60] at (6.0, 5.7) {每个区域对应一个 VMA};
+
+  \end{tikzpicture}
+  \end{minipage}
+};
+% Connection from overview to detail
+\draw[connect] (ov-user.east) -- (dt-addrspace.west);
+\node[font=\tiny, fill=white, inner sep=1pt, gray!60] at ($(ov-user.east)!0.5!(dt-addrspace.west)$) {展开详情};
+
+% ============================================================
+% RIGHT COLUMN: DETAIL PANEL B — System Call Flow
+% ============================================================
+\node[dtpanel, fill=purple!3, draw=purple!30, below=0.3cm of dt-addrspace.south west, anchor=north west] (dt-syscall) {
+  \textbf{\normalsize System Call Flow \quad 系统调用完整路径}
+  \\[4pt]
+  From user-space library call to kernel execution and back — the life of a syscall:
+  \\[6pt]
+  \begin{minipage}{21.5cm}
+  \centering
+  \begin{tikzpicture}[font=\scriptsize, node distance=0.4cm and 0.3cm]
+    % User space
+    \node[dtblock, fill=blue!15, draw=blue!40] (sc-user) {用户程序: \texttt{read(fd, buf, n)}};
+    \node[dtblock, fill=blue!10, draw=blue!30, below=of sc-user] (sc-libc) {C 库: \texttt{\_\_libc\_read()}};
+    \draw[arrow, blue!50!black] (sc-user) -- (sc-libc);
+    \node[font=\tiny, right=0cm of sc-libc, blue!60!black] {参数编码/errno};
+
+    % vDSO check
+    \node[dtblock, fill=purple!10, draw=purple!30, below=of sc-libc] (sc-vdso) {vDSO 快速路径?};
+    \draw[arrow, blue!50!black] (sc-libc) -- (sc-vdso);
+
+    % Syscall entry
+    \node[dtblock, fill=purple!15, draw=purple!50, below=of sc-vdso] (sc-entry) {\texttt{entry\_SYSCALL\_64} (x86)};
+    \draw[arrow, purple!50!black] (sc-vdso) -- node[right, font=\tiny] {否则: syscall 指令} (sc-entry);
+    \node[font=\tiny, left=0cm of sc-entry, purple!60!black] {rax = 系统调用号};
+
+    % Register save
+    \node[dtblock, fill=purple!8, draw=purple!30, below=of sc-entry] (sc-save) {保存寄存器现场 (pt\_regs)};
+    \draw[arrow, purple!50!black] (sc-entry) -- (sc-save);
+
+    % Seccomp
+    \node[dtblock, fill=red!8, draw=red!30, below=of sc-save] (sc-seccomp) {seccomp BPF 过滤器};
+    \draw[arrow, purple!50!black] (sc-save) -- (sc-seccomp);
+    \node[font=\tiny, right=0cm of sc-seccomp, red!60!black] {允许/拒绝/陷阱};
+
+    % Dispatch
+    \node[dtblock, fill=green!10, draw=green!40, below=of sc-seccomp] (sc-dispatch) {\texttt{sys\_call\_table[rax]}};
+    \draw[arrow, purple!50!black] (sc-seccomp) -- (sc-dispatch);
+    \node[font=\tiny, right=0cm of sc-dispatch, green!60!black] {450+ 项跳转表};
+
+    % Actual handler
+    \node[dtblock, fill=orange!10, draw=orange!40, below=of sc-dispatch] (sc-handler) {内核处理函数 \texttt{sys\_read()}};
+    \draw[arrow, green!50!black] (sc-dispatch) -- (sc-handler);
+    \node[font=\tiny, right=0cm of sc-handler, orange!60!black] {执行实际工作};
+
+    % Return
+    \node[dtblock, fill=purple!15, draw=purple!50, below=of sc-handler] (sc-ret) {\texttt{syscall\_return\_slowpath}};
+    \draw[arrow, orange!50!black] (sc-handler) -- (sc-ret);
+    \node[font=\tiny, right=0cm of sc-ret, purple!60!black] {检查待处理信号};
+
+    % Restore + return
+    \node[dtblock, fill=blue!10, draw=blue!30, below=of sc-ret] (sc-restore) {恢复寄存器 + \texttt{sysretq}};
+    \draw[arrow, purple!50!black] (sc-ret) -- (sc-restore);
+
+    % Back to user
+    \node[dtblock, fill=blue!15, draw=blue!40, below=of sc-restore] (sc-done) {用户程序继续执行};
+    \draw[arrow, blue!50!black] (sc-restore) -- (sc-done);
+
+    % Side annotations
+    \node[dtsmall, fill=purple!5, draw=purple!20, right=0.8cm of sc-entry, anchor=west] (sc-annot1) {rax=0 read, rax=1 write, rax=2 open, ...};
+    \draw[dashed, gray!40, ->] (sc-entry.east) -- (sc-annot1.west);
+    \node[dtsmall, fill=red!5, draw=red!20, right=0.8cm of sc-seccomp, anchor=west] (sc-annot2) {SECCOMP\_SET\_MODE\_FILTER};
+    \draw[dashed, gray!40, ->] (sc-seccomp.east) -- (sc-annot2.west);
+    \node[dtsmall, fill=green!5, draw=green!20, right=0.8cm of sc-dispatch, anchor=west] (sc-annot3) {定义于 \texttt{arch/x86/entry/syscalls/syscall\_64.tbl}};
+    \draw[dashed, gray!40, ->] (sc-dispatch.east) -- (sc-annot3.west);
+  \end{tikzpicture}
+  \end{minipage}
+  \\[4pt]
+  {\footnotesize \textbf{Data flow:} \texttt{userspace $\xrightarrow{\text{syscall}}$ entry\_text $\xrightarrow{\text{pt\_regs}}$ sys\_call\_table $\xrightarrow{\text{return}}$ userspace} \quad | \quad 性能优化: vDSO 避开部分系统调用 (clock\_gettime, gettimeofday)}
+};
+
+\draw[connect] (ov-syscall.east) -- (dt-syscall.west);
+\node[font=\tiny, fill=white, inner sep=1pt, gray!60] at ($(ov-syscall.east)!0.5!(dt-syscall.west)$) {展开详情};
+
+% ============================================================
+% RIGHT COLUMN: DETAIL PANEL C — Process Management Deep Dive
+% ============================================================
+\node[dtpanel, fill=green!3, draw=green!40, below=0.3cm of dt-syscall.south west, anchor=north west] (dt-proc) {
+  \textbf{\normalsize Process Management Deep Dive \quad 进程管理深度剖析}
+  \\[4pt]
+  The Linux scheduler and process lifecycle — from \texttt{task\_struct} to CPU dispatch:
+  \\[6pt]
+  \begin{minipage}{21.5cm}
+  \centering
+  \begin{tikzpicture}[font=\scriptsize, node distance=0.3cm and 0.2cm]
+    % SECTION 1: Scheduler Classes Hierarchy
+    \node[dttitle, font=\bfseries\small, green!70!black, align=left] at (0, 5.8) {1. Scheduler Classes (调度器类层次)};
+    \node[dtsmall, fill=red!10, draw=red!40] (sc-stop) at (0, 5.2) {stop\_sched\_class};
+    \node[dtsmall, fill=orange!10, draw=orange!40, right=0.1cm of sc-stop.east] (sc-dl) {dl\_sched\_class (Deadline)};
+    \node[dtsmall, fill=green!10, draw=green!50, right=0.1cm of sc-dl.east] (sc-rt) {rt\_sched\_class (实时 FIFO/RR)};
+    \node[dtsmall, fill=blue!15, draw=blue!50, right=0.1cm of sc-rt.east] (sc-cfs) {\textbf{fair\_sched\_class (CFS)}};
+    \node[dtsmall, fill=gray!10, draw=gray!40, right=0.1cm of sc-cfs.east] (sc-idle) {idle\_sched\_class};
+
+    % Priority arrows
+    \draw[->, thick, >=Stealth, red!50!black] (sc-stop.north) .. controls +(0,0.3) and +(0,0.3) .. (sc-idle.north);
+    \node[font=\tiny, above, red!50!black] at ($(sc-stop.north)!0.5!(sc-idle.north)$) {优先级: 最高 → 最低};
+
+    % SECTION 2: CFS Runqueue
+    \node[dttitle, font=\bfseries\small, green!70!black, align=left] at (0, 4.4) {2. CFS 调度器内部};
+    \node[dtblock, fill=blue!8, draw=blue!30] (cfs-rq) at (0, 3.6) {cfs\_rq (CFS运行队列)};
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.15cm of cfs-rq.south] (cfs-nr) {nr\_running: 可运行进程数};
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.1cm of cfs-nr.south] (cfs-min) {min\_vruntime: 最小虚拟运行时间};
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.1cm of cfs-min.south] (cfs-load) {load: 运行队列负载权重};
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.1cm of cfs-load.south] (cfs-rb) {tasks\_timeline: 红黑树根节点};
+
+    % RB tree
+    \node[dtblock, fill=green!5, draw=green!30, right=3cm of cfs-rq.east] (rb-root) {红黑树 (Red-Black Tree)};
+    \draw[arrow, green!50!black] (cfs-rb.east) -- (rb-root.west);
+    \node[font=\tiny, above, green!60!black] at ($(cfs-rb.east)!0.5!(rb-root.west)$) {按 vruntime 排序};
+
+    \node[dtsmall, fill=green!8, below=0.15cm of rb-root.south] (rb-left) {左子: vruntime 最小 $\leftarrow$ \textbf{下一个调度}};
+    \node[dtsmall, fill=green!8, below=0.1cm of rb-left.south] (rb-right) {右子: vruntime 较大};
+
+    % vruntime calculation
+    \node[dtblock, fill=orange!5, draw=orange!30, right=0.5cm of rb-root.east] (vruntime) {vruntime 计算};
+    \draw[dashed, gray!40, ->] (rb-root.east) -- (vruntime.west);
+    \node[font=\tiny, align=left, below=0.1cm of vruntime.south] (vruntime-formula) {\texttt{vruntime += delta\_exec $\times$ NICE\_0\_LOAD / load\_weight}};
+    \node[font=\tiny, align=left, below=0.05cm of vruntime-formula.south] (vruntime-note) {NICE\_0\_LOAD = 1024, load\_weight 由 nice 值决定};
+
+    % SECTION 3: task_struct
+    \node[dttitle, font=\bfseries\small, green!70!black, align=left] at (0, 0.0) {3. task\_struct 关键字段};
+    \node[dtblock, fill=green!8, draw=green!40, minimum height=3.5cm] (ts) at (0, -1.8) {
+    \begin{tabular}{l}
+      \texttt{thread\_info} \quad \textcolor{gray}{// 低开销线程信息}\\
+      \texttt{state} \quad \textcolor{gray}{// TASK\_RUNNING/INTERRUPTIBLE/UNINTERRUPTIBLE/ZOMBIE/STOPPED}\\
+      \texttt{stack} \quad \textcolor{gray}{// 内核栈指针}\\
+      \texttt{flags} \quad \textcolor{gray}{// PF\_* 标志位}\\
+      \texttt{prio / static\_prio / normal\_prio} \quad\\
+      \texttt{rt\_priority} \quad \textcolor{gray}{// 实时进程优先级}\\
+      \texttt{se} \quad \textcolor{gray}{// struct sched\_entity (CFS)}\\
+      \texttt{rt} \quad \textcolor{gray}{// struct sched\_rt\_entity}\\
+      \texttt{mm} \quad \textcolor{gray}{// struct mm\_struct * (地址空间)}\\
+      \texttt{active\_mm} \quad\\
+      \texttt{fs} \quad \textcolor{gray}{// struct fs\_struct * (文件系统信息)}\\
+      \texttt{files} \quad \textcolor{gray}{// struct files\_struct * (打开的文件)}\\
+      \texttt{signal} \quad \textcolor{gray}{// struct signal\_struct *}\\
+      \texttt{pid / tgid} \quad\\
+      \texttt{parent / children / sibling} \quad \textcolor{gray}{// 进程树}\\
+      \texttt{real\_parent} \quad\\
+      \texttt{nsproxy} \quad \textcolor{gray}{// 命名空间}\\
+      \texttt{cgroups} \quad\\
+      \texttt{pi\_lock / pi\_waiters} \quad\\
+    \end{tabular}
+    };
+
+    % SECTION 4: Process Lifecycle State Machine
+    \node[dttitle, font=\bfseries\small, green!70!black, align=left] at (9, 5.8) {4. Process Lifecycle (进程生命周期)};
+
+    \node[dtsmall, fill=green!15, draw=green!50] (state-running) at (9, 5.0) {\textbf{TASK\_RUNNING}};
+    \node[dtsmall, fill=red!10, draw=red!40, below=0.3cm of state-running] (state-int) {TASK\_INTERRUPTIBLE};
+    \node[dtsmall, fill=red!8, draw=red!30, below=0.15cm of state-int] (state-unint) {TASK\_UNINTERRUPTIBLE};
+    \node[dtsmall, fill=blue!8, draw=blue!30, below=0.3cm of state-unint] (state-stop) {TASK\_STOPPED / TRACED};
+    \node[dtsmall, fill=gray!10, draw=gray!40, below=0.15cm of state-stop] (state-zombie) {EXIT\_ZOMBIE / EXIT\_DEAD};
+
+    \draw[->, thick, >=Stealth, green!50!black] (state-running.south) -- node[right, font=\tiny] {等待资源} (state-int.north);
+    \draw[->, thick, >=Stealth, green!50!black] (state-running.south) -- node[left, font=\tiny] {不可中断等待} (state-unint.north);
+    \draw[->, thick, >=Stealth, blue!50!black] (state-running.east) .. controls +(0.5,0) and +(0.5,0) .. node[right, font=\tiny] {信号/ptrace} (state-stop.east);
+    \draw[->, thick, >=Stealth, gray!50!black] (state-running.west) .. controls +(-0.5,0) and +(-0.5,0) .. node[left, font=\tiny] {exit()} (state-zombie.west);
+    \draw[->, thick, >=Stealth, red!50!black] (state-int.south) -- node[right, font=\tiny] {资源就绪/信号} (state-running.east);
+    \draw[->, thick, >=Stealth, red!50!black] (state-unint.south) .. controls +(0,-0.2) and +(0,0.3) .. (state-running.west);
+    \draw[->, thick, >=Stealth, red!50!black, dashed] (state-int.east) .. controls +(1,0) and +(1,0) .. (state-running.north);
+
+    % SECTION 5: fork/exec/clone
+    \node[dttitle, font=\bfseries\small, green!70!black, align=left] at (9, 2.8) {5. fork / exec / clone};
+    \node[dtblock, fill=green!8, draw=green!40] (fork-box) at (9, 2.0) {fork() / clone()};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.1cm of fork-box.south] (fork-copy) {复制 task\_struct (copy\_process)};  \node[dtsmall, fill=green!5, draw=green!20, below=0.1cm of fork-copy.south] (fork-wake) {唤醒新进程 (wake\_up\_new\_task)};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.1cm of fork-wake.south] (fork-cow) {写时复制 (COW) 内存页};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.1cm of fork-cow.south] (fork-ns) {命名空间隔离};
+    \draw[arrow, green!50!black] (fork-box) -- (fork-copy);
+
+    \node[dtblock, fill=orange!8, draw=orange!40, right=1.5cm of fork-box.east] (exec-box) {execve()};
+    \draw[arrow, orange!50!black] (fork-box.east) -- (exec-box.west);
+    \node[dtsmall, fill=orange!5, draw=orange!20, below=0.1cm of exec-box.south] (exec-load) {加载 ELF 二进制};
+    \node[dtsmall, fill=orange!5, draw=orange!20, below=0.1cm of exec-load.south] (exec-mm) {重置 mm\_struct};
+    \node[dtsmall, fill=orange!5, draw=orange!20, below=0.1cm of exec-mm.south] (exec-stack) {设置新栈 / 堆 / VDSO};
+
+    % SECTION 6: Namespaces + Cgroups
+    \node[dttitle, font=\bfseries\small, green!70!black, align=left] at (9, -1.0) {6. Namespaces \& Cgroups};
+    \node[dtblock, fill=blue!8, draw=blue!40] (ns-box) at (9, -1.8) {Linux 命名空间 (7 种)};
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.08cm of ns-box.south] (ns-mnt) {Mount: 隔离文件系统挂载点};
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.08cm of ns-mnt.south] (ns-pid) {PID: 独立的进程编号空间};
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.08cm of ns-pid.south] (ns-net) {Net: 独立的网络栈};
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.08cm of ns-net.south] (ns-ipc) {IPC: System V IPC 隔离};
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.08cm of ns-ipc.south] (ns-uts) {UTS: hostname 隔离};
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.08cm of ns-uts.south] (ns-user) {User: UID/GID 隔离};
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.08cm of ns-user.south] (ns-cgroup) {Cgroup: cgroup 根隔离};
+
+    \node[dtblock, fill=green!8, draw=green!40, right=2cm of ns-box.east] (cg-box) {Cgroups v2 控制器};
+    \draw[arrow, green!50!black] (ns-box.east) -- (cg-box.west);
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.08cm of cg-box.south] (cg-cpu) {CPU: cpu.weight / cpu.max};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.08cm of cg-cpu.south] (cg-mem) {Memory: memory.high / memory.max};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.08cm of cg-mem.south] (cg-io) {IO: io.weight / io.max};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.08cm of cg-io.south] (cg-pids) {PIDs: pids.max};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.08cm of cg-pids.south] (cg-cpuset) {CPUSET: CPU/内存节点绑定};
+
+  \end{tikzpicture}
+  \end{minipage}
+};
+
+\draw[connect] (ov-proc.east) -- (dt-proc.west);
+\node[font=\tiny, fill=white, inner sep=1pt, gray!60] at ($(ov-proc.east)!0.5!(dt-proc.west)$) {展开详情};
+
+% ============================================================
+% RIGHT COLUMN: DETAIL PANEL D — Memory Management Deep Dive
+% ============================================================
+\node[dtpanel, fill=red!3, draw=red!40, below=0.3cm of dt-proc.south west, anchor=north west] (dt-mem) {
+  \textbf{\normalsize Memory Management Deep Dive \quad 内存管理深度剖析}
+  \\[4pt]
+  From physical page allocation to virtual address translation — the Linux memory subsystem:
+  \\[6pt]
+  \begin{minipage}{21.5cm}
+  \centering
+  \begin{tikzpicture}[font=\scriptsize, node distance=0.2cm and 0.2cm]
+    % SECTION 1: Memory Hierarchy Overview
+    \node[dttitle, font=\bfseries\small, red!70!black, align=left] at (0, 9.8) {1. Memory Hierarchy (内存层次结构)};
+
+    \node[dtblock, fill=red!10, draw=red!40] (mem-node) at (0, 9.0) {NUMA Node (pglist\_data)};
+    \node[dtsmall, below=0.1cm of mem-node.south] (mem-zone) {Zone: DMA / DMA32 / Normal / Movable};
+    \node[dtsmall, fill=yellow!8, below=0.08cm of mem-zone.south] (mem-free) {Free Area (Buddy System) \quad 2$^0$ ~ 2$^{10}$ 阶};
+    \node[dtsmall, fill=orange!8, below=0.08cm of mem-free.south] (mem-lru) {LRU 链表: active / inactive (anon + file)};
+    \node[dtsmall, fill=green!8, below=0.08cm of mem-lru.south] (mem-slab) {Slab / Slub 分配器 \quad kmem\_cache};
+    \node[dtsmall, fill=blue!8, below=0.08cm of mem-slab.south] (mem-vmalloc) {vmalloc 区域 \quad 非连续映射};
+    \draw[->, thick, >=Stealth, red!50!black] (mem-node) -- (mem-zone);
+    \draw[->, thick, >=Stealth, red!50!black] (mem-zone) -- (mem-free);
+    \draw[->, thick, >=Stealth, red!50!black] (mem-free) -- (mem-lru);
+    \draw[->, thick, >=Stealth, red!50!black] (mem-lru) -- (mem-slab);
+    \draw[->, thick, >=Stealth, red!50!black] (mem-slab) -- (mem-vmalloc);
+
+    % SECTION 2: Buddy Allocator Detailed
+    \node[dttitle, font=\bfseries\small, red!70!black, align=left] at (7, 9.8) {2. Buddy Allocator (伙伴系统)};
+    \node[dtblock, fill=yellow!8, draw=yellow!50!black!50] (buddy) at (7, 9.0) {struct free\_area[MAX\_ORDER]};
+    \node[dtsmall, fill=yellow!5, below=0.08cm of buddy.south] (buddy-0) {order 0: 4KB \quad [page0]$\rightarrow$[page5]$\rightarrow$...};
+    \node[dtsmall, fill=yellow!5, below=0.08cm of buddy-0.south] (buddy-1) {order 1: 8KB \quad [page2-3]$\rightarrow$[page8-9]$\rightarrow$...};
+    \node[dtsmall, fill=yellow!5, below=0.08cm of buddy-1.south] (buddy-2) {order 2: 16KB \quad ...};
+    \node[font=\tiny, align=left, below=0.05cm of buddy-2.south] (buddy-3) {$\vdots$};
+    \node[dtsmall, fill=yellow!5, below=0.05cm of buddy-3.south] (buddy-max) {order MAX\_ORDER-1: 最大连续块};
+    \node[font=\tiny, align=left, below=0.05cm of buddy-max.south, red!50!black] (buddy-alloc) {分配: 从 required\_order 向上搜索, 找到后分裂};
+    \node[font=\tiny, align=left, below=0.02cm of buddy-alloc.south, red!50!black] (buddy-free) {释放: 检查 buddy 是否空闲, 合并回高阶};
+
+    % SECTION 3: Page Table Walk
+    \node[dttitle, font=\bfseries\small, red!70!black, align=left] at (0, 5.8) {3. x86-64 页表遍历 (4-Level Paging)};
+
+    % Draw page table levels
+    \node[dtblock, fill=blue!10, draw=blue!40, minimum height=0.5cm] (pgd) at (0, 5.0) {PGD};
+    \node[dtblock, fill=blue!8, draw=blue!30, right=1.2cm of pgd.east] (p4d) {P4D};
+    \node[dtblock, fill=blue!8, draw=blue!30, right=1.2cm of p4d.east] (pud) {PUD};
+    \node[dtblock, fill=blue!8, draw=blue!30, right=1.2cm of pud.east] (pmd) {PMD};
+    \node[dtblock, fill=blue!10, draw=blue!40, right=1.2cm of pmd.east] (pte) {PTE};
+    \node[dtblock, fill=green!10, draw=green!40, right=1.2cm of pte.east] (page) {物理页};
+
+    \draw[arrow, blue!50!black] (pgd) -- node[above, font=\tiny] {索引} (p4d);
+    \draw[arrow, blue!50!black] (p4d) -- node[above, font=\tiny] {索引} (pud);
+    \draw[arrow, blue!50!black] (pud) -- node[above, font=\tiny] {索引} (pmd);
+    \draw[arrow, blue!50!black] (pmd) -- node[above, font=\tiny] {索引} (pte);
+    \draw[arrow, green!50!black] (pte) -- node[above, font=\tiny] {物理地址} (page);
+
+    % Address bit layout
+    \node[font=\tiny, align=left, below=0.1cm of pgd.south] (addr-bits) {
+      \texttt{Virtual Address: | 47:39 (9) | 38:30 (9) | 29:21 (9) | 20:12 (9) | 11:0 (12) |}\\
+      \hspace*{3.3cm}\textcolor{blue}{PGD}\hspace*{0.8cm}\textcolor{blue}{P4D}\hspace*{0.7cm}\textcolor{blue}{PUD}\hspace*{0.7cm}\textcolor{blue}{PMD}\hspace*{0.6cm}\textcolor{green}{偏移}
+    };
+
+    % PTE structure
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.3cm of addr-bits.south] (pte-bits) {PTE: | NX | PFN (物理页号) | ... | G | PAT | D | A | PCD | PWT | R/W | P |};
+
+    % SECTION 4: Virtual Memory Areas (VMA)
+    \node[dttitle, font=\bfseries\small, red!70!black, align=left] at (0, 2.2) {4. VMA and mmap};
+    \node[dtblock, fill=red!8, draw=red!30] (mm) at (0, 1.4) {mm\_struct};
+    \node[dtsmall, fill=red!5, draw=red!20, below=0.08cm of mm.south] (mm-map) {mmap: VMA 红黑树 + 链表};
+    \node[dtsmall, fill=red!5, draw=red!20, below=0.08cm of mm-map.south] (mm-pgd) {pgd: 进程页表基址};
+    \node[dtsmall, fill=red!5, draw=red!20, below=0.08cm of mm-pgd.south] (mm-brk) {brk: 堆边界};
+    \node[dtsmall, fill=red!5, draw=red!20, below=0.08cm of mm-brk.south] (mm-rss) {rss\_stat: RSS (Resident Set Size)};
+    \node[dtsmall, fill=red!5, draw=red!20, below=0.08cm of mm-rss.south] (mm-lock) {mmap\_lock: 读写锁};
+
+    \node[dtblock, fill=orange!8, draw=orange!30, right=2.5cm of mm.east] (vma) {vm\_area\_struct};
+    \draw[arrow, red!50!black] (mm.east) -- (vma.west);
+    \node[dtsmall, fill=orange!5, draw=orange!20, below=0.08cm of vma.south] (vma-range) {vm\_start / vm\_end: 地址范围};
+    \node[dtsmall, fill=orange!5, draw=orange!20, below=0.08cm of vma-range.south] (vma-flags) {vm\_flags: VM\_READ/WRITE/EXEC/SHARED};
+    \node[dtsmall, fill=orange!5, draw=orange!20, below=0.08cm of vma-flags.south] (vma-ops) {vm\_ops: open/close/fault};
+    \node[dtsmall, fill=orange!5, draw=orange!20, below=0.08cm of vma-ops.south] (vma-file) {vm\_file: 映射的文件};
+    \node[dtsmall, fill=orange!5, draw=orange!20, below=0.08cm of vma-file.south] (vma-rb) {vm\_rb: 红黑树节点};
+
+    % SECTION 5: Page Fault Flow
+    \node[dttitle, font=\bfseries\small, red!70!black, align=left] at (7, 2.2) {5. Page Fault Handler (缺页异常)};
+    \node[dtblock, fill=red!10, draw=red!40] (pf-entry) at (7, 1.4) {page\_fault \#PF};
+    \node[dtsmall, fill=red!8, draw=red!30, below=0.1cm of pf-entry.south] (pf-check) {检查 fault 地址合法性};
+    \node[dtsmall, fill=red!8, draw=red!30, below=0.1cm of pf-check.south] (pf-vma) {查找 VMA (红黑树)};
+    \node[dtsmall, fill=orange!8, draw=orange!30, below=0.1cm of pf-vma.south] (pf-maj) {\textbf{Major PF}: 磁盘 I/O};
+    \node[dtsmall, fill=green!8, draw=green!30, right=2cm of pf-maj.east] (pf-min) {\textbf{Minor PF}: COW / 匿名页};
+    \draw[arrow, red!50!black] (pf-entry) -- (pf-check);
+    \draw[arrow, red!50!black] (pf-check) -- (pf-vma);
+    \draw[arrow, red!50!black] (pf-vma) -- (pf-maj);
+    \draw[arrow, orange!50!black] (pf-maj.east) -- node[above, font=\tiny] {否则} (pf-min.west);
+    \node[dtsmall, fill=orange!5, draw=orange!20, below=0.1cm of pf-maj.south] (pf-maj-flow) {从磁盘读入页 → 添加到 page cache → 映射};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.1cm of pf-min.south] (pf-min-flow) {复制页 → 更新 PTE → 标记 dirty};
+    \node[dtsmall, fill=blue!8, draw=blue!30, below=0.2cm of pf-min-flow.south] (pf-done) {更新 rss / PTE / TLB flush};
+
+    % SECTION 6: Swap + KSM + THP + OOM
+    \node[dttitle, font=\bfseries\small, red!70!black, align=left] at (7, -1.5) {6. Advanced MM Features};
+    \node[dtblock, fill=gray!10, draw=gray!40] (mm-adv) at (7, -2.3) {
+    \begin{tabular}{l}
+      \textbf{Swap}: 缺页时换入, kswapd 异步换出, 交换区优先级\\
+      \textbf{KSM}: 合并相同内容的匿名页 (Kernel Same-page Merging)\\
+      \textbf{THP}: 透明大页, 自动将 4KB 页提升为 2MB 大页\\
+      \textbf{OOM Killer}: 选出打分最高 (badness) 进程杀掉\\
+      \textbf{Mempolicy}: NUMA 内存策略 (bind/preferred/interleave/local)\\
+      \textbf{Zswap/Zram}: 压缩交换 / 压缩块设备\\
+      \textbf{MEMCG}: 内存控制组, memory.max/high/low/min\\
+    \end{tabular}
+    };
+
+  \end{tikzpicture}
+  \end{minipage}
+};
+
+\draw[connect] (ov-mem.east) -- (dt-mem.west);
+\node[font=\tiny, fill=white, inner sep=1pt, gray!60] at ($(ov-mem.east)!0.5!(dt-mem.west)$) {展开详情};
+
+% ============================================================
+% RIGHT COLUMN: DETAIL PANEL E — VFS Deep Dive
+% ============================================================
+\node[dtpanel, fill=orange!3, draw=orange!40, below=0.3cm of dt-mem.south west, anchor=north west] (dt-vfs) {
+  \textbf{\normalsize VFS and File System Deep Dive \quad 虚拟文件系统深度剖析}
+  \\[4pt]
+  The VFS abstraction layer, filesystem implementations, and the block I/O path:
+  \\[6pt]
+  \begin{minipage}{21.5cm}
+  \centering
+  \begin{tikzpicture}[font=\scriptsize, node distance=0.2cm and 0.15cm]
+    % SECTION 1: VFS Core Objects
+    \node[dttitle, font=\bfseries\small, orange!70!black, align=left] at (0, 7.2) {1. VFS 四大核心对象};
+
+    \node[dtblock, fill=orange!10, draw=orange!40] (vfs-super) at (0, 6.5) {super\_block};
+    \node[dtsmall, fill=orange!5, draw=orange!20, below=0.08cm of vfs-super.south] (vfs-sb-fields) {s\_dev, s\_root (dentry), s\_op, s\_type, s\_bdpart};
+    \node[dtsmall, fill=orange!5, draw=orange!20, below=0.08cm of vfs-sb-fields.south] (vfs-sb-ops) {alloc\_inode, destroy\_inode, write\_super, sync\_fs};
+
+    \node[dtblock, fill=orange!10, draw=orange!40, right=2.2cm of vfs-super.east] (vfs-inode) {inode};
+    \node[dtsmall, fill=orange!5, draw=orange!20, below=0.08cm of vfs-inode.south] (vfs-inode-f) {i\_mode (类型+权限), i\_uid, i\_gid};
+    \node[dtsmall, fill=orange!5, draw=orange!20, below=0.08cm of vfs-inode-f.south] (vfs-inode-op) {i\_op: lookup, create, mkdir, link, symlink};
+    \node[dtsmall, fill=orange!5, draw=orange!20, below=0.08cm of vfs-inode-op.south] (vfs-inode-b) {i\_size, i\_blocks, i\_atime/i\_mtime/i\_ctime};
+
+    \node[dtblock, fill=orange!10, draw=orange!40, right=2.2cm of vfs-inode.east] (vfs-dentry) {dentry};
+    \node[dtsmall, fill=orange!5, draw=orange!20, below=0.08cm of vfs-dentry.south] (vfs-dc-f) {d\_name, d\_parent, d\_inode, d\_op};
+    \node[dtsmall, fill=orange!5, draw=orange!20, below=0.08cm of vfs-dc-f.south] (vfs-dc-cache) {dentry cache (dcache): LRU + hash 表};
+
+    \node[dtblock, fill=orange!10, draw=orange!40, right=2.2cm of vfs-dentry.east] (vfs-file) {file};
+    \node[dtsmall, fill=orange!5, draw=orange!20, below=0.08cm of vfs-file.south] (vfs-file-f) {f\_path (dentry), f\_pos, f\_mode, f\_op};
+    \node[dtsmall, fill=orange!5, draw=orange!20, below=0.08cm of vfs-file-f.south] (vfs-file-op) {f\_op: read, write, mmap, open, release};
+
+    \node[font=\tiny, align=left, below=0.15cm of vfs-file-op.south, orange!60!black] (vfs-relationship) {关系: super\_block → inode (1:N) | inode → dentry (1:N) | dentry → file (1:N)};
+
+    % SECTION 2: File Systems
+    \node[dttitle, font=\bfseries\small, orange!70!black, align=left] at (0, 4.5) {2. 具体文件系统实现};
+
+    \node[dtblock, fill=green!8, draw=green!40] (fs-ext4) at (0, 3.8) {ext4};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.06cm of fs-ext4.south] (fs-ext4-f) {extent tree, journal (jbd2), dir\_index, inline data, flex\_bg};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.06cm of fs-ext4-f.south] (fs-ext4-s) {最大卷 1EB, 最大文件 16TB, Htree 目录索引};
+
+    \node[dtblock, fill=blue!8, draw=blue!40, right=2.5cm of fs-ext4.east] (fs-btrfs) {btrfs};
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.06cm of fs-btrfs.south] (fs-btrfs-f) {COW, B-tree, subvolume, snapshot, checksum};
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.06cm of fs-btrfs-f.south] (fs-btrfs-s) {RAID, 压缩, dedup, send/receive};
+
+    \node[dtblock, fill=red!8, draw=red!40, right=2.5cm of fs-btrfs.east] (fs-xfs) {xfs};
+    \node[dtsmall, fill=red!5, draw=red!20, below=0.06cm of fs-xfs.south] (fs-xfs-f) {B+ tree, 延迟分配, 预分配};
+    \node[dtsmall, fill=red!5, draw=red!20, below=0.06cm of fs-xfs-f.south] (fs-xfs-s) {最大文件 8EB, DAX 支持};
+
+    \node[dtblock, fill=teal!8, draw=teal!40, below=0.2cm of fs-ext4.south west, anchor=north west] (fs-tmpfs) {tmpfs};
+    \node[dtblock, fill=purple!8, draw=purple!40, right=2.5cm of fs-tmpfs.east] (fs-proc) {procfs / sysfs};
+    \node[dtblock, fill=gray!10, draw=gray!40, right=2.5cm of fs-proc.east] (fs-overlay) {overlayfs (容器镜像层)};
+
+    % SECTION 3: Page Cache
+    \node[dttitle, font=\bfseries\small, orange!70!black, align=left] at (0, 2.0) {3. Page Cache \& Block Layer};
+
+    \node[dtblock, fill=green!8, draw=green!30] (pc) at (0, 1.3) {Page Cache (address\_space)};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.06cm of pc.south] (pc-rb) {radix tree / xarray: 文件偏移 → 物理页};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.06cm of pc-rb.south] (pc-lru) {PG\_locked / PG\_uptodate / PG\_dirty / PG\_writeback};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.06cm of pc-lru.south] (pc-readahead) {readahead: 预读算法 (同步/异步/提前触发)};
+
+    \node[dtblock, fill=blue!8, draw=blue!30, right=3.5cm of pc.east] (bio) {BIO (Block I/O)};
+    \draw[arrow, green!50!black] (pc.east) -- (bio.west);
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.06cm of bio.south] (bio-f) {bi\_opf (操作/标志), bi\_iter (页向量)};
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.06cm of bio-f.south] (bio-merge) {plug \& merge: 合并相邻 I/O 请求};
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.06cm of bio-merge.south] (bio-elev) {I/O 调度器: mq-deadline / BFQ / kyber / none};
+
+    \node[dtsmall, fill=red!8, draw=red!30, right=0.5cm of bio.east] (blk-mq) {blk-mq: 多队列块层};
+    \draw[arrow, blue!50!black] (bio.east) -- (blk-mq.west);
+    \node[font=\tiny, below=0.05cm of blk-mq.south, red!60!black] {每个 CPU 软件队列 → 硬件分发队列};
+
+  \end{tikzpicture}
+  \end{minipage}
+};
+
+\draw[connect] (ov-vfs.east) -- (dt-vfs.west);
+\node[font=\tiny, fill=white, inner sep=1pt, gray!60] at ($(ov-vfs.east)!0.5!(dt-vfs.west)$) {展开详情};
+
+% ============================================================
+% RIGHT COLUMN: DETAIL PANEL F — Network Stack Deep Dive
+% ============================================================
+\node[dtpanel, fill=cyan!3, draw=cyan!40, below=0.3cm of dt-vfs.south west, anchor=north west] (dt-net) {
+  \textbf{\normalsize Network Stack Deep Dive \quad 网络协议栈深度剖析}
+  \\[4pt]
+  From socket() to wire — the Linux network subsystem architecture and data path:
+  \\[6pt]
+  \begin{minipage}{21.5cm}
+  \centering
+  \begin{tikzpicture}[font=\scriptsize, node distance=0.15cm and 0.1cm]
+    % SECTION 1: Socket Layer
+    \node[dttitle, font=\bfseries\small, cyan!70!black, align=left] at (0, 8.5) {1. Socket Layer (套接字层)};
+
+    \node[dtblock, fill=cyan!10, draw=cyan!40] (sock-sys) at (0, 7.8) {socket, connect, bind, listen, accept};
+    \node[dtsmall, fill=cyan!5, draw=cyan!20, below=0.1cm of sock-sys.south] (sock-proto) {struct proto (tcp\_proto, udp\_proto)};
+    \node[dtsmall, fill=cyan!5, draw=cyan!20, below=0.08cm of sock-proto.south] (sock-ops) {struct proto\_ops (inet\_stream\_ops, inet\_dgram\_ops)};
+    \node[dtsmall, fill=cyan!5, draw=cyan!20, below=0.08cm of sock-ops.south] (sock-sock) {struct sock: sk\_buff 接收/发送队列, 拥塞控制, 内存管理};
+
+    \node[dtblock, fill=blue!8, draw=blue!40, right=2.5cm of sock-sys.east] (sock-api) {System Data Flow};
+    \draw[arrow, cyan!50!black] (sock-sys.east) -- (sock-api.west);
+    \node[font=\tiny, align=left, below=0.1cm of sock-api.south, blue!60!black] (sock-flow) {
+      \texttt{write(fd) → tcp\_sendmsg() → sk\_buff → 网卡驱动}\\
+      \texttt{网卡 → 中断/NAPI → tcp\_rcv() → sk\_buff → read(fd)}
+    };
+
+    % SECTION 2: TCP State Machine
+    \node[dttitle, font=\bfseries\small, cyan!70!black, align=left] at (0, 6.2) {2. TCP State Machine (TCP 状态机)};
+
+    \node[dtsmall, fill=green!10, draw=green!40] (tcp-closed) at (0, 5.5) {CLOSED};
+    \node[dtsmall, fill=blue!8, draw=blue!30, right=0.3cm of tcp-closed.east] (tcp-listen) {LISTEN};
+    \node[dtsmall, fill=blue!8, draw=blue!30, right=0.3cm of tcp-listen.east] (tcp-syn-sent) {SYN\_SENT};
+    \node[dtsmall, fill=cyan!10, draw=cyan!50, right=0.3cm of tcp-syn-sent.east] (tcp-syn-recv) {SYN\_RECV};
+    \node[dtsmall, fill=green!12, draw=green!50, right=0.3cm of tcp-syn-recv.east] (tcp-estab) {\textbf{ESTABLISHED}};
+    \node[dtsmall, fill=red!8, draw=red!30, right=0.3cm of tcp-estab.east] (tcp-fw1) {FIN\_WAIT1};
+    \node[dtsmall, fill=red!8, draw=red!30, right=0.3cm of tcp-fw1.east] (tcp-fw2) {FIN\_WAIT2};
+    \node[dtsmall, fill=red!8, draw=red!30, right=0.3cm of tcp-fw2.east] (tcp-timew) {TIME\_WAIT};
+    \node[dtsmall, fill=gray!8, draw=gray!30, below=0.2cm of tcp-estab.south] (tcp-close-w) {CLOSE\_WAIT};
+    \node[dtsmall, fill=gray!8, draw=gray!30, right=0.3cm of tcp-close-w.east] (tcp-last-ack) {LAST\_ACK};
+
+    % Simple state transitions
+    \draw[->, thick, >=Stealth, blue!50!black] (tcp-closed) -- (tcp-listen);
+    \draw[->, thick, >=Stealth, blue!50!black] (tcp-closed) -- (tcp-syn-sent);
+    \draw[->, thick, >=Stealth, blue!50!black] (tcp-listen) -- (tcp-syn-recv);
+    \draw[->, thick, >=Stealth, blue!50!black] (tcp-syn-sent) -- (tcp-syn-recv);
+    \draw[->, thick, >=Stealth, green!50!black] (tcp-syn-recv) -- (tcp-estab);
+    \draw[->, thick, >=Stealth, green!50!black] (tcp-syn-sent) -- (tcp-estab);
+    \draw[->, thick, >=Stealth, red!50!black] (tcp-estab) -- (tcp-fw1);
+    \draw[->, thick, >=Stealth, red!50!black] (tcp-estab) -- (tcp-close-w);
+    \draw[->, thick, >=Stealth, red!50!black] (tcp-fw1) -- (tcp-fw2);
+    \draw[->, thick, >=Stealth, red!50!black] (tcp-fw2) -- (tcp-timew);
+    \draw[->, thick, >=Stealth, red!50!black] (tcp-close-w) -- (tcp-last-ack);
+    \draw[->, thick, >=Stealth, red!50!black] (tcp-last-ack) -- (tcp-closed);
+    \draw[->, thick, >=Stealth, red!50!black] (tcp-timew) -- (tcp-closed);
+    \draw[->, dashed, thick, >=Stealth, gray!50!black] (tcp-timew.north) -- node[above, font=\tiny] {2MSL} (tcp-fw1.north);
+
+    % SECTION 3: TCP/IP Data Flow
+    \node[dttitle, font=\bfseries\small, cyan!70!black, align=left] at (0, 3.8) {3. 数据发送路径 (Send Path)};
+
+    \node[dtsmall, fill=cyan!10, draw=cyan!40] (send-app) at (0, 3.1) {应用程序 write()};
+    \node[dtsmall, fill=cyan!8, draw=cyan!30, right=0.2cm of send-app.east] (send-sock) {socket 层};
+    \node[dtsmall, fill=cyan!8, draw=cyan!30, right=0.2cm of send-sock.east] (send-tcp) {tcp\_sendmsg};
+    \node[dtsmall, fill=green!8, draw=green!30, right=0.2cm of send-tcp.east] (send-cong) {拥塞控制 (cubic/bbr)};
+    \node[dtsmall, fill=blue!8, draw=blue!30, right=0.2cm of send-cong.east] (send-ip) {IP 路由 + netfilter};
+    \node[dtsmall, fill=blue!8, draw=blue!30, right=0.2cm of send-ip.east] (send-tc) {流量控制 (qdisc)};
+    \node[dtsmall, fill=purple!8, draw=purple!30, right=0.2cm of send-tc.east] (send-drv) {网卡驱动 / NAPI 发送};
+
+    \draw[arrow, cyan!50!black] (send-app) -- (send-sock);
+    \draw[arrow, cyan!50!black] (send-sock) -- (send-tcp);
+    \draw[arrow, cyan!50!black] (send-tcp) -- (send-cong);
+    \draw[arrow, cyan!50!black] (send-cong) -- (send-ip);
+    \draw[arrow, cyan!50!black] (send-ip) -- (send-tc);
+    \draw[arrow, cyan!50!black] (send-tc) -- (send-drv);
+
+    % SECTION 4: Receive Path
+    \node[dttitle, font=\bfseries\small, cyan!70!black, align=left] at (0, 2.2) {4. 数据接收路径 — NAPI};
+
+    \node[dtsmall, fill=purple!10, draw=purple!40] (recv-hw) at (0, 1.5) {网卡 RX DMA};
+    \node[dtsmall, fill=magenta!8, draw=magenta!30, right=0.2cm of recv-hw.east] (recv-isr) {硬中断: ISR 最小处理};
+    \node[dtsmall, fill=magenta!8, draw=magenta!30, right=0.2cm of recv-isr.east] (recv-napi) {NAPI poll (软中断)};
+    \node[dtsmall, fill=blue!8, draw=blue!30, right=0.2cm of recv-napi.east] (recv-ip) {IP 重装 + netfilter PREROUTING};
+    \node[dtsmall, fill=cyan!8, draw=cyan!30, right=0.2cm of recv-ip.east] (recv-tcp) {tcp\_v4\_rcv: TCP 处理};
+    \node[dtsmall, fill=green!8, draw=green!30, right=0.2cm of recv-tcp.east] (recv-sock) {放入 sk 接收队列};
+    \node[dtsmall, fill=cyan!10, draw=cyan!40, right=0.2cm of recv-sock.east] (recv-app) {应用程序 read()};
+
+    \draw[arrow, thick, >=Stealth, magenta!50!black] (recv-hw) -- (recv-isr);
+    \draw[arrow, thick, >=Stealth, magenta!50!black] (recv-isr) -- (recv-napi);
+    \draw[arrow, thick, >=Stealth, blue!50!black] (recv-napi) -- (recv-ip);
+    \draw[arrow, thick, >=Stealth, blue!50!black] (recv-ip) -- (recv-tcp);
+    \draw[arrow, thick, >=Stealth, cyan!50!black] (recv-tcp) -- (recv-sock);
+    \draw[arrow, thick, >=Stealth, cyan!50!black] (recv-sock) -- (recv-app);
+
+    % SECTION 5: netfilter + routing
+    \node[dttitle, font=\bfseries\small, cyan!70!black, align=left] at (0, 0.2) {5. Netfilter \& Routing};
+
+    \node[dtblock, fill=green!8, draw=green!40] (nf) at (0, -0.5) {Netfilter Hooks (5 个挂载点)};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.08cm of nf.south] (nf-preroute) {NF\_IP\_PRE\_ROUTING → 路由决策};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.08cm of nf-preroute.south] (nf-localin) {NF\_IP\_LOCAL\_IN → 本地进程};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.08cm of nf-localin.south] (nf-forward) {NF\_IP\_FORWARD → 路由转发};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.08cm of nf-forward.south] (nf-localout) {NF\_IP\_LOCAL\_OUT → 本地发出};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.08cm of nf-localout.south] (nf-postroute) {NF\_IP\_POST\_ROUTING → 出站};
+
+    \node[dtblock, fill=blue!8, draw=blue!40, right=3.5cm of nf.east] (nf-tables) {iptables / nftables};
+    \draw[arrow, green!50!black] (nf.east) -- (nf-tables.west);
+    \node[font=\tiny, align=left, below=0.1cm of nf-tables.south, blue!60!black] (nf-detail) {
+      \texttt{Table: raw → mangle → nat → filter → security}\\
+      \texttt{Connection tracking (conntrack): TCP/UDP/ICMP 状态追踪}
+    };
+
+    \node[dtblock, fill=orange!8, draw=orange!40, right=0.5cm of nf-tables.east] (nf-conntrack) {conntrack + NAT};
+    \draw[arrow, blue!50!black] (nf-tables.east) -- (nf-conntrack.west);
+
+  \end{tikzpicture}
+  \end{minipage}
+};
+
+\draw[connect] (ov-net.east) -- (dt-net.west);
+\node[font=\tiny, fill=white, inner sep=1pt, gray!60] at ($(ov-net.east)!0.5!(dt-net.west)$) {展开详情};
+
+% ============================================================
+% RIGHT COLUMN: DETAIL PANEL G — Device Driver Framework
+% ============================================================
+\node[dtpanel, fill=olive!3, draw=olive!50!black!40, below=0.3cm of dt-net.south west, anchor=north west] (dt-drv) {
+  \textbf{\normalsize Device Driver Framework \quad 设备驱动框架深度剖析}
+  \\[4pt]
+  The Linux device model, driver binding, and character/block/network driver interfaces:
+  \\[6pt]
+  \begin{minipage}{21.5cm}
+  \centering
+  \begin{tikzpicture}[font=\scriptsize, node distance=0.15cm and 0.1cm]
+    % SECTION 1: Device Model
+    \node[dttitle, font=\bfseries\small, olive!70!black, align=left] at (0, 4.0) {1. Linux Device Model (Linux 设备模型)};
+
+    \node[dtblock, fill=olive!10, draw=olive!50!black!50] (dm-bus) at (0, 3.3) {struct bus\_type};
+    \node[dtsmall, fill=olive!5, draw=olive!30!black!30, below=0.08cm of dm-bus.south] (dm-bus-f) {name, bus\_match, probe, remove, shutdown, pm};
+    \node[dtsmall, fill=olive!5, draw=olive!30!black!30, below=0.08cm of dm-bus-f.south] (dm-bus-ex) {平台总线 (platform\_bus), PCI, USB, I2C, SPI};
+
+    \node[dtblock, fill=olive!10, draw=olive!50!black!50, right=2.5cm of dm-bus.east] (dm-drv) {struct device\_driver};
+    \node[dtsmall, fill=olive!5, draw=olive!30!black!30, below=0.08cm of dm-drv.south] (dm-drv-f) {name, owner, probe, remove, shutdown};
+    \node[dtsmall, fill=olive!5, draw=olive!30!black!30, below=0.08cm of dm-drv-f.south] (dm-drv-id) {of\_match\_table: 设备树匹配};
+
+    \node[dtblock, fill=olive!10, draw=olive!50!black!50, right=2.5cm of dm-drv.east] (dm-dev) {struct device};
+    \node[dtsmall, fill=olive!5, draw=olive!30!black!30, below=0.08cm of dm-dev.south] (dm-dev-f) {init\_name, bus, driver, parent, release};
+
+    \draw[arrow, olive!50!black] (dm-bus) -- node[above, font=\tiny] {match} (dm-drv);
+    \draw[arrow, olive!50!black] (dm-drv) -- node[above, font=\tiny] {bind} (dm-dev);
+
+    % Probe flow
+    \node[dtsmall, fill=green!8, draw=green!30, below=0.3cm of dm-bus.south west, anchor=north west] (probe-flow) {Probe 流程: bus.match() → drv.probe() → dev 初始化 → 注册接口};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.06cm of probe-flow.south] (probe-defer) {延迟 probe: EPROBE\_DEFER → 等待依赖设备};
+
+    % SECTION 2: Char/Blk/Net
+    \node[dttitle, font=\bfseries\small, olive!70!black, align=left] at (0, 1.5) {2. 三种设备类型};
+
+    \node[dtblock, fill=blue!8, draw=blue!40] (cd) at (0, 0.8) {字符设备 (Character Device)};
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.06cm of cd.south] (cd-ops) {struct file\_operations: read, write, ioctl, open, mmap};
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.06cm of cd-ops.south] (cd-reg) {register\_chrdev\_region + cdev\_add};
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.06cm of cd-reg.south] (cd-dev) {\texttt{mknod /dev/ttyS0 c 4 64}};
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.06cm of cd-dev.south] (cd-ex) {例: tty, serial, GPIO, /dev/null, /dev/random};
+
+    \node[dtblock, fill=red!8, draw=red!40, right=2.5cm of cd.east] (bd) {块设备 (Block Device)};
+    \node[dtsmall, fill=red!5, draw=red!20, below=0.06cm of bd.south] (bd-ops) {struct block\_device\_operations: open, submit\_bio};
+    \node[dtsmall, fill=red!5, draw=red!20, below=0.06cm of bd-ops.south] (bd-gendisk) {struct gendisk: 磁盘分区表, 请求队列};
+    \node[dtsmall, fill=red!5, draw=red!20, below=0.06cm of bd-gendisk.south] (bd-part) {分区: partition\_table → hd\_struct};
+    \node[dtsmall, fill=red!5, draw=red!20, below=0.06cm of bd-part.south] (bd-ex) {例: NVMe, SATA, virtio-blk, loop, MD RAID};
+
+    \node[dtblock, fill=cyan!8, draw=cyan!40, right=2.5cm of bd.east] (nd) {网络设备 (Network Device)};
+    \node[dtsmall, fill=cyan!5, draw=cyan!20, below=0.06cm of nd.south] (nd-ops) {struct net\_device\_ops: ndo\_start\_xmit, ndo\_poll};
+    \node[dtsmall, fill=cyan!5, draw=cyan!20, below=0.06cm of nd-ops.south] (nd-reg) {register\_netdev + struct net\_device};
+    \node[dtsmall, fill=cyan!5, draw=cyan!20, below=0.06cm of nd-reg.south] (nd-napi) {NAPI: poll\_weight, 中断缓解};
+    \node[dtsmall, fill=cyan!5, draw=cyan!20, below=0.06cm of nd-napi.south] (nd-ex) {例: e1000e, i40e, virtio-net, wifi};
+
+    % Bottom note
+    \node[font=\footnotesize, align=left, below=0.2cm of nd-ex.south, olive!70!black] (drv-note) {
+      \textbf{Device Tree (设备树):} \texttt{.dts} → \texttt{.dtb} → \texttt{of\_match\_table} | \textbf{ACPI:} \texttt{DSDT/SSDT} → x86 设备枚举\\
+      \textbf{DMA API:} \texttt{dma\_alloc\_coherent, dma\_map\_sg, streaming DMA} | \textbf{IOMMU:} 设备地址转换 + 隔离
+    };
+
+  \end{tikzpicture}
+  \end{minipage}
+};
+
+\draw[connect] (ov-drv.east) -- (dt-drv.west);
+\node[font=\tiny, fill=white, inner sep=1pt, gray!60] at ($(ov-drv.east)!0.5!(dt-drv.west)$) {展开详情};
+
+% ============================================================
+% RIGHT COLUMN: DETAIL PANEL H — IPC Deep Dive
+% ============================================================
+\node[dtpanel, fill=yellow!3, draw=yellow!50!black!50, below=0.3cm of dt-drv.south west, anchor=north west] (dt-ipc) {
+  \textbf{\normalsize IPC Mechanisms \quad 进程间通信机制}
+  \\[4pt]
+  Linux provides multiple IPC channels with different semantics and performance characteristics:
+  \\[6pt]
+  \begin{minipage}{21.5cm}
+  \centering
+  \begin{tikzpicture}[font=\scriptsize, node distance=0.12cm and 0.1cm]
+    % Pipe/FIFO
+    \node[dttitle, font=\bfseries\small, yellow!70!black, align=left] at (0, 3.2) {1. PIPE / FIFO / 信号};
+
+    \node[dtblock, fill=blue!8, draw=blue!30] (pipe) at (0, 2.6) {管道 (pipe / FIFO)};
+    \node[dtsmall, fill=blue!5, below=0.06cm of pipe.south] (pipe-d) {pipe\_fs → struct pipe\_inode\_info → 环形缓冲区};
+    \node[dtsmall, fill=blue!5, below=0.06cm of pipe-d.south] (pipe-rw) {read(fd[0]) / write(fd[1]) → splice 零拷贝};
+    \node[font=\tiny, below=0.04cm of pipe-rw.south, blue!60!black] {限制: 仅父子进程/命名 FIFO, 无随机访问};
+
+    \node[dtblock, fill=red!8, draw=red!30, right=2cm of pipe.east] (signal) {信号 (Signal)};
+    \node[dtsmall, fill=red!5, below=0.06cm of signal.south] (sig-table) {struct sighand\_struct: 每个进程维护信号处理句柄};
+    \node[dtsmall, fill=red!5, below=0.06cm of sig-table.south] (sig-flow) {发送: kill → 递送到目标进程 → do\_signal};
+    \node[dtsmall, fill=red!5, below=0.06cm of sig-flow.south] (sig-pending) {pending: SIGKILL/SIGSTOP 不可捕捉};
+    \node[font=\tiny, below=0.04cm of sig-pending.south, red!60!black] {实时信号: SIGRTMIN~SIGRTMAX, 支持队列和数据载荷};
+
+    \node[dtblock, fill=green!8, draw=green!30, right=2cm of signal.east] (futex) {futex (Fast Userspace Mutex)};
+    \node[dtsmall, fill=green!5, below=0.06cm of futex.south] (futex-d) {内核只维护等待队列, 大部分操作在用户空间};
+    \node[dtsmall, fill=green!5, below=0.06cm of futex-d.south] (futex-op) {\_\_futex\_wait / \_\_futex\_wake → sys\_futex};
+    \node[dtsmall, fill=green!5, below=0.06cm of futex-op.south] (futex-pi) {PI futex: 优先级继承防反转};
+    \node[font=\tiny, below=0.04cm of futex-pi.south, green!60!black] {NPTL: pthread 互斥锁的内核基础};
+
+    % System V IPC
+    \node[dttitle, font=\bfseries\small, yellow!70!black, align=left] at (0, 0.2) {2. System V IPC};
+
+    \node[dtblock, fill=teal!8, draw=teal!40] (sv-sem) at (0, -0.4) {信号量 (semaphore)};  \node[dtblock, fill=teal!8, draw=teal!40, right=0.5cm of sv-sem.east] (sv-msg) {消息队列 (msg)};
+    \node[dtblock, fill=teal!8, draw=teal!40, right=0.5cm of sv-msg.east] (sv-shm) {共享内存 (shm)};
+    \node[dtblock, fill=green!8, draw=green!40, right=0.5cm of sv-shm.east] (sv-mmap) {mmap 共享映射};
+
+    \node[font=\tiny, align=left, below=0.1cm of sv-sem.south, teal!60!black] (sv-note) {
+      ipc\_namespace 隔离 | ipcmk/ipcrm 管理 | struct ipc\_ids → IDR 树索引\\
+      \textbf{选择:} 性能: shm/mmap $\gg$ msg $\gg$ sem | 同步: futex $\gg$ semaphore\\
+      容器化: 优先 Unix Domain Socket / mmap 而不是 System V IPC
+    };
+
+  \end{tikzpicture}
+  \end{minipage}
+};
+
+\draw[connect] (ov-ipc.east) -- (dt-ipc.west);
+\node[font=\tiny, fill=white, inner sep=1pt, gray!60] at ($(ov-ipc.east)!0.5!(dt-ipc.west)$) {展开详情};
+
+% ============================================================
+% RIGHT COLUMN: DETAIL PANEL I — Interrupt Handling Deep Dive
+% ============================================================
+\node[dtpanel, fill=magenta!3, draw=magenta!40, below=0.3cm of dt-ipc.south west, anchor=north west] (dt-intr) {
+  \textbf{\normalsize Interrupt Handling \quad 中断与异常处理}
+  \\[4pt]
+  From hardware interrupt to bottom-half execution — the Linux IRQ subsystem:
+  \\[6pt]
+  \begin{minipage}{21.5cm}
+  \centering
+  \begin{tikzpicture}[font=\scriptsize, node distance=0.12cm and 0.1cm]
+    % Interrupt flow
+    \node[dttitle, font=\bfseries\small, magenta!70!black, align=left] at (0, 4.5) {1. 中断处理路径};
+
+    \node[dtsmall, fill=red!10, draw=red!40] (int-hw) at (0, 3.9) {硬件中断事件};
+    \node[dtsmall, fill=red!10, draw=red!30, right=0.2cm of int-hw.east] (int-ctrl) {中断控制器 (APIC/GIC)};
+    \node[dtsmall, fill=magenta!15, draw=magenta!50, right=0.2cm of int-ctrl.east] (int-isr) {\textbf{ISR (top-half)}};
+    \node[dtsmall, fill=magenta!10, draw=magenta!40, right=0.2cm of int-isr.east] (int-sirq) {SoftIRQ};
+    \node[fill=gray!5, draw=gray!30, right=0.2cm of int-sirq.east, rectangle, rounded corners=1pt, inner sep=2pt, font=\tiny] (int-bh) {\shortstack{tasklet\\workqueue}};
+
+    \draw[arrow, thick, >=Stealth, red!50!black] (int-hw) -- (int-ctrl);
+    \draw[arrow, thick, >=Stealth, red!50!black] (int-ctrl) -- (int-isr);
+    \draw[arrow, thick, >=Stealth, magenta!50!black] (int-isr) -- (int-sirq);
+    \draw[arrow, thick, >=Stealth, magenta!50!black] (int-sirq) -- (int-bh);
+
+    % IRQ flags
+    \node[font=\tiny, align=left, below=0.15cm of int-isr.south, magenta!60!black] (isr-flag) {
+      ISR: \texttt{irqreturn\_t} (IRQ\_NONE / IRQ\_HANDLED / IRQ\_WAKE\_THREAD)\\
+      要求: 最小化, 只做 ack + 调度 bottom-half, 关本中断
+    };
+
+    % Bottom halves
+    \node[dttitle, font=\bfseries\small, magenta!70!black, align=left] at (0, 2.2) {2. Bottom Halves (中断下半部)};
+
+    \node[dtblock, fill=magenta!8, draw=magenta!40] (bh-sirq) at (0, 1.6) {SoftIRQ (软中断)};
+    \node[dtsmall, fill=magenta!5, below=0.06cm of bh-sirq.south] (sirq-list) {HI\_SCHED, TIMER, NET\_TX, NET\_RX, BLOCK, BLOCK\_IOPOLL, TASKLET, SCHED, HRTIMER, RCU};
+    \node[dtsmall, fill=magenta!5, below=0.06cm of sirq-list.south] (sirq-sched) {软中断上下文 = hardirq\_count + softirq\_count};
+    \node[dtsmall, fill=magenta!5, below=0.06cm of sirq-sched.south] (sirq-trigger) {触发: raise\_softirq → do\_softirq → ksotirqd};
+
+    \node[dtblock, fill=teal!8, draw=teal!40, right=1.5cm of bh-sirq.east] (bh-tasklet) {tasklet};
+    \node[dtsmall, fill=teal!5, below=0.06cm of bh-tasklet.south] (tasklet-l) {基于 SoftIRQ TASKLET, 串行执行};
+    \node[dtsmall, fill=teal!5, below=0.06cm of tasklet-l.south] (tasklet-f) {struct tasklet\_struct → func(data)};
+    \node[dtsmall, fill=teal!5, below=0.06cm of tasklet-f.south] (tasklet-b) {tasklet\_hi\_schedule / tasklet\_schedule};
+
+    \node[dtblock, fill=green!8, draw=green!40, right=1.5cm of bh-tasklet.east] (bh-workq) {workqueue};
+    \node[dtsmall, fill=green!5, below=0.06cm of bh-workq.south] (workq-f) {struct work\_struct → worker\_pool};
+    \node[dtsmall, fill=green!5, below=0.06cm of workq-f.south] (workq-cpu) {per-CPU kworker 线程};
+    \node[dtsmall, fill=green!5, below=0.06cm of workq-cpu.south] (workq-cm) {CMWQ: 并发管理, unbound pool};
+    \node[font=\tiny, below=0.04cm of workq-cm.south, green!60!black] {推荐使用: workqueue 优先级最低, 可调度, 睡眠};
+
+    % Exceptions
+    \node[dttitle, font=\bfseries\small, magenta!70!black, align=left] at (0, -0.2) {3. 异常 / 陷阱 / 故障};
+
+    \node[dtsmall, fill=gray!10, draw=gray!40] (exc-fault) at (0, -0.7) {Fault: \#PF (缺页), \#GP (保护), \#DF (双重故障)};
+    \node[dtsmall, fill=gray!10, draw=gray!40, right=0.3cm of exc-fault.east] (exc-trap) {Trap: int3 (断点), into (溢出)};
+    \node[dtsmall, fill=gray!10, draw=gray!40, right=0.3cm of exc-trap.east] (exc-abort) {Abort: \#MC (MCE 机器检查)};
+    \node[font=\tiny, below=0.1cm of exc-fault.south, gray!60!black] {IDT (Interrupt Descriptor Table): 256 个中断向量, gate\_desc};
+
+  \end{tikzpicture}
+  \end{minipage}
+};
+
+\draw[connect] (ov-intr.east) -- (dt-intr.west);
+\node[font=\tiny, fill=white, inner sep=1pt, gray!60] at ($(ov-intr.east)!0.5!(dt-intr.west)$) {展开详情};
+
+% ============================================================
+% RIGHT COLUMN: DETAIL PANEL J — Synchronization Deep Dive
+% ============================================================
+\node[dtpanel, fill=brown!3, draw=brown!50!black!50, below=0.3cm of dt-intr.south west, anchor=north west] (dt-sync) {
+  \textbf{\normalsize Synchronization Primitives \quad 同步机制深度剖析}
+  \\[4pt]
+  Linux kernel locking primitives — from atomic operations to RCU:
+  \\[6pt]
+  \begin{minipage}{21.5cm}
+  \centering
+  \begin{tikzpicture}[font=\scriptsize, node distance=0.12cm and 0.1cm]
+    \node[dttitle, font=\bfseries\small, brown!70!black, align=left] at (0, 3.5) {1. Locking Hierarchy (锁层次)};
+
+    % Spinning locks
+    \node[dtblock, fill=red!8, draw=red!40] (spinlock) at (0, 2.8) {spinlock / rwlock};
+    \node[dtsmall, fill=red!5, draw=red!20, below=0.06cm of spinlock.south] (spinlock-f) {arch\_spin\_lock: 原子 TAS (test-and-set)};
+    \node[dtsmall, fill=red!5, draw=red!20, below=0.06cm of spinlock-f.south] (spinlock-irq) {spin\_lock\_irqsave: 关本地中断};
+    \node[dtsmall, fill=red!5, draw=red!20, below=0.06cm of spinlock-irq.south] (spinlock-raw) {raw\_spinlock: 内部原始自旋锁};
+    \node[font=\tiny, below=0.04cm of spinlock-raw.south, red!60!black] {使用场景: 中断上下文, 短临界区, 不可睡眠};
+    \node[font=\tiny, below=0.02cm of spinlock-raw.south, red!60!black] {RT 内核: spinlock → rt\_mutex (可抢占)};
+
+    % Sleeping locks
+    \node[dtblock, fill=green!8, draw=green!40, right=3cm of spinlock.east] (mutex) {mutex / rwsem};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.06cm of mutex.south] (mutex-f) {struct mutex: optimistic spinning};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.06cm of mutex-f.south] (mutex-mcs) {MCS lock: 避免 cacheline 竞争};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.06cm of mutex-mcs.south] (mutex-pi) {mutex\_lock → 睡眠 → 等待队列};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.06cm of mutex-pi.south] (rwsem) {rwsem: down\_read / down\_write 多读单写};
+    \node[font=\tiny, below=0.04cm of rwsem.south, green!60!black] {使用场景: 进程上下文, 长临界区, 可睡眠};
+
+    % RCU
+    \node[dttitle, font=\bfseries\small, brown!70!black, align=left] at (0, 0.8) {2. RCU (Read-Copy-Update)};
+
+    \node[dtblock, fill=blue!10, draw=blue!40] (rcu) at (0, 0.2) {
+    \begin{tabular}{l}
+      \textbf{RCU}: lock-free read side + deferred write side\\
+      rcu\_read\_lock / rcu\_read\_unlock (几乎零开销)\\
+      synchronize\_rcu / call\_rcu (宽限期后释放旧数据)\\
+      rcu\_assign\_pointer / rcu\_dereference\\
+      \textbf{宽限期 (GP)}: 所有 CPU 都经过一次 quiescent state\\
+      数据结构: rcu\_node / rcu\_data / rcu\_cb (回调链表)
+    \end{tabular}
+    };
+
+    % Atomic ops
+    \node[dttitle, font=\bfseries\small, brown!70!black, align=left] at (8, 3.5) {3. 原子操作 \& 内存屏障};
+
+    \node[dtblock, fill=gray!8, draw=gray!40] (atomic) at (8, 2.8) {
+    \begin{tabular}{l}
+      \textbf{原子整数:} atomic\_t, atomic\_inc/dec/add/sub/xchg/cmpxchg\\
+      \textbf{原子位:} set\_bit, clear\_bit, test\_and\_set\_bit\\
+      \textbf{原子长:} atomic64\_t\\
+      \textbf{refcount\_t:} 引用计数 (溢出保护)\\
+      \textbf{内存屏障:} smp\_mb/wmb/rmb — 避免 CPU/编译器重排\\
+      \textbf{seqcount:} 写者优先, 读者重试 (seqlock\_t)
+    \end{tabular}
+    };
+
+    \node[font=\tiny, align=left, below=0.15cm of atomic.south, gray!60!black] (atomic-note) {
+      \textbf{选择指南:} 中断上下文 $\rightarrow$ spinlock | 读者多写者少 $\rightarrow$ RCU | 进程 $\rightarrow$ mutex\\
+      读多写少 + 短临界 $\rightarrow$ rwlock | 计数器 $\rightarrow$ atomic | 时间戳 $\rightarrow$ seqcount
+    };
+
+  \end{tikzpicture}
+  \end{minipage}
+};
+
+\draw[connect] (ov-sync.east) -- (dt-sync.west);
+\node[font=\tiny, fill=white, inner sep=1pt, gray!60] at ($(ov-sync.east)!0.5!(dt-sync.west)$) {展开详情};
+
+% ============================================================
+% RIGHT COLUMN: DETAIL PANEL K — Time Management + Architecture
+% ============================================================
+\node[dtpanel, fill=gray!3, draw=gray!50, below=0.3cm of dt-sync.south west, anchor=north west] (dt-time-arch) {
+  \textbf{\normalsize Time Management \& Architecture Layer \quad 时间管理 + 体系结构}
+  \\[4pt]
+  Clock sources, timers, boot flow, and CPU architecture-specific details:
+  \\[6pt]
+  \begin{minipage}{21.5cm}
+  \centering
+  \begin{tikzpicture}[font=\scriptsize, node distance=0.12cm and 0.1cm]
+    % Time Management
+    \node[dttitle, font=\bfseries\small, teal!70!black, align=left] at (0, 4.5) {1. Time Management (时间管理)};
+
+    \node[dtblock, fill=teal!8, draw=teal!40] (clk) at (0, 3.8) {clock\_source};
+    \node[dtsmall, fill=teal!5, draw=teal!20, below=0.06cm of clk.south] (clk-src) {TSC, HPET, ACPI PM, PIT — 按精度排序};
+    \node[dtsmall, fill=teal!5, draw=teal!20, below=0.06cm of clk-src.south] (clk-mult) {mult/shift: ns 转换, NTP 频率调节};
+
+    \node[dtblock, fill=green!8, draw=green!40, right=3cm of clk.east] (timer) {timer wheel};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.06cm of timer.south] (timer-w) {5 级时间轮: TV1~TV5, O(1) 添加/删除};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.06cm of timer-w.south] (timer-add) {struct timer\_list: expires, function, data};
+
+    \node[dtblock, fill=orange!8, draw=orange!40, right=3cm of timer.east] (hrtimer) {hrtimer (高精度)};
+    \node[dtsmall, fill=orange!5, draw=orange!20, below=0.06cm of hrtimer.south] (hrtimer-d) {红黑树, ns 级精度};
+    \node[dtsmall, fill=orange!5, draw=orange!20, below=0.06cm of hrtimer-d.south] (hrtimer-m) {clock\_monotonic / clock\_realtime};
+
+    \node[font=\tiny, align=left, below=0.1cm of hrtimer.south, teal!60!black] (time-note) {
+      jiffies: HZ 值 (100~1000), jiffies 增量 | timekeeping: 系统时间 + 墙上时钟\\
+      POSIX timer: timer\_create → struct k\_itimer (SIGEV\_SIGNAL 或 SIGEV\_THREAD)\\
+      itimer: ITIMER\_REAL / VIRTUAL / PROF (进程计时)
+    };
+
+    % Architecture Layer
+    \node[dttitle, font=\bfseries\small, gray!70!black, align=left] at (0, 1.8) {2. Architecture Layer (体系结构层)};
+
+    \node[dtblock, fill=gray!10, draw=gray!40] (boot) at (0, 1.1) {Boot Flow (启动流程)};
+    \node[dtsmall, fill=gray!5, below=0.06cm of boot.south] (boot-steps) {BIOS/UEFI → bootloader → start\_kernel → setup\_arch → mm\_init → rest\_init};
+    \node[dtsmall, fill=gray!5, below=0.06cm of boot-steps.south] (boot-cpu) {CPU 检测: cpuid → 启用特性 (SSE/AVX/VMX/SGX)};
+    \node[dtsmall, fill=gray!5, below=0.06cm of boot-cpu.south] (boot-mem) {内存映射: e820 → memblock → page allocator};
+
+    \node[dtblock, fill=blue!8, draw=blue!40, right=3cm of boot.east] (pgt) {x86-64 Paging};
+    \node[dtsmall, fill=blue!5, below=0.06cm of pgt.south] (pgt-lvl) {4级/5级页表: PGD→P4D→PUD→PMD→PTE};
+    \node[dtsmall, fill=blue!5, below=0.06cm of pgt-lvl.south] (pgt-tlb) {TLB: 4KB/2MB/1GB 页 → TLB flush (invlpg/CR3 切换)};
+    \node[dtsmall, fill=blue!5, below=0.06cm of pgt-tlb.south] (pgt-huge) {HugeTLB: 2MB (PSE) / 1GB (PSE\_1GB)};
+
+    \node[dtblock, fill=purple!8, draw=purple!40, right=3cm of pgt.east] (smp) {SMP \& CPU Hotplug};
+    \node[dtsmall, fill=purple!5, below=0.06cm of smp.south] (smp-cpu) {AP 启动: SIPI → trampoline → start\_secondary};
+    \node[dtsmall, fill=purple!5, below=0.06cm of smp-cpu.south] (smp-topo) {拓扑: socket → die → core → thread};
+    \node[dtsmall, fill=purple!5, below=0.06cm of smp-topo.south] (smp-mce) {MCE: 机器检查异常, mcelog 记录};
+    \node[font=\tiny, below=0.04cm of smp-mce.south, purple!60!black] {ACPI: 电源管理 / CPU hotplug / C-states / P-states};
+
+  \end{tikzpicture}
+  \end{minipage}
+};
+
+\draw[connect] (ov-time.east) -- (dt-time-arch.west);
+\node[font=\tiny, fill=white, inner sep=1pt, gray!60] at ($(ov-time.east)!0.5!(dt-time-arch.west)$) {展开详情};
+
+% ============================================================
+% RIGHT COLUMN: DETAIL PANEL L — Hardware Topology
+% ============================================================
+\node[dtpanel, fill=black!2, draw=black!40, below=0.3cm of dt-time-arch.south west, anchor=north west] (dt-hw) {
+  \textbf{\normalsize Hardware Topology \quad 硬件拓扑与 I/O 互联}
+  \\[4pt]
+  The physical hardware that the kernel manages — CPU topology, memory hierarchy, storage, and interconnects:
+  \\[6pt]
+  \begin{minipage}{21.5cm}
+  \centering
+  \begin{tikzpicture}[font=\scriptsize, node distance=0.1cm and 0.08cm]
+    \node[dttitle, font=\bfseries\small, black!70, align=left] at (0, 2.2) {1. Modern x86-64 / ARM64 System Topology};
+
+    \node[dtblock, fill=red!8, draw=red!40] (cpu-die) at (0, 1.6) {Socket 0};
+    \node[dtsmall, fill=red!5, draw=red!20, below=0.06cm of cpu-die.south] (cpu-core) {Core 0-3 (P-core) / Core 4-7 (E-core)};
+    \node[dtsmall, fill=red!5, draw=red!20, below=0.06cm of cpu-core.south] (cpu-hyper) {SMT: 每个核心 2 线程 (hyperthreading)};
+    \node[dtsmall, fill=red!5, draw=red!20, below=0.06cm of cpu-hyper.south] (cpu-cache) {L1 (32KB I + 32KB D) → L2 (1MB/core) → L3 (shared LLC)};
+
+    \node[dtblock, fill=blue!8, draw=blue!40, right=3cm of cpu-die.east] (mem-hw) {Memory Hierarchy};
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.06cm of mem-hw.south] (mem-ddr) {DDR4/DDR5: 通道交叉, NUMA 距离};
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.06cm of mem-ddr.south] (mem-bw) {带宽: ~50-100 GB/s (DDR5)};
+    \node[dtsmall, fill=blue!5, draw=blue!20, below=0.06cm of mem-bw.south] (mem-cxl) {CXL.mem: 内存扩展, 一致互联};
+
+    \node[dtblock, fill=green!8, draw=green!40, right=3cm of mem-hw.east] (io-hw) {I/O Interconnect};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.06cm of io-hw.south] (io-pcie) {PCIe Gen5/6: x16 GPU, x4 NVMe};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.06cm of io-pcie.south] (io-nvme) {NVMe: 队列深度 65536, 4KB 随机 ~1M IOPS};
+    \node[dtsmall, fill=green!5, draw=green!20, below=0.06cm of io-nvme.south] (io-dma) {DMA: 网卡→内存直通 (RDMA, DPDK)};
+
+    \node[font=\tiny, align=left, below=0.15cm of cpu-cache.south, black!60!black] (hw-note) {
+      \textbf{中断拓扑:} I/O APIC (设备) → Local APIC (CPU) → 中断亲和性 (IRQ balancing)\\
+      \textbf{IOMMU:} VT-d / SMMU — 设备 DMA 隔离 + 地址重映射\\
+      \textbf{电源管理:} C-states (CPU 睡眠) / P-states (频率电压) / RAPL (功耗限制)\\
+      \textbf{固件:} UEFI → ACPI → Device Tree → 平台设备枚举
+    };
+
+  \end{tikzpicture}
+  \end{minipage}
+};
+
+\draw[connect] (ov-hw.east) -- (dt-hw.west);
+\node[font=\tiny, fill=white, inner sep=1pt, gray!60] at ($(ov-hw.east)!0.5!(dt-hw.west)$) {展开详情};
+
+% ============================================================
+% VERTICAL CONNECTION ARROWS (overview left column)
+% ============================================================
+\draw[arrow] (ov-user.south) -- (ov-syscall.north);
+\node[font=\tiny, fill=white, inner sep=1pt] at ($(ov-user.south)!0.5!(ov-syscall.north)$) {syscall / libc};
+\draw[arrow] (ov-syscall.south) -- (ov-proc.north);
+\node[font=\tiny, fill=white, inner sep=1pt] at ($(ov-syscall.south)!0.5!(ov-proc.north)$) {dispatch};
+\draw[arrow, draw=green!50!black!50] (ov-proc.south) -- (ov-mem.north);
+\node[font=\tiny, fill=white, inner sep=1pt] at ($(ov-proc.south)!0.5!(ov-mem.north)$) {fork/COW/mm};
+\draw[arrow, draw=red!50!black!50] (ov-mem.south) -- (ov-vfs.north);
+\node[font=\tiny, fill=white, inner sep=1pt] at ($(ov-mem.south)!0.5!(ov-vfs.north)$) {mmap/page cache};
+\draw[arrow, draw=orange!50!black!50] (ov-vfs.south) -- (ov-net.north);
+\node[font=\tiny, fill=white, inner sep=1pt] at ($(ov-vfs.south)!0.5!(ov-net.north)$) {socket I/O};
+\draw[arrow, draw=cyan!50!black!50] (ov-net.south) -- (ov-ipc.north);
+\node[font=\tiny, fill=white, inner sep=1pt] at ($(ov-net.south)!0.5!(ov-ipc.north)$) {Unix socket};
+\draw[arrow, draw=yellow!50!black!50] (ov-ipc.south) -- (ov-intr.north);
+\node[font=\tiny, fill=white, inner sep=1pt] at ($(ov-ipc.south)!0.5!(ov-intr.north)$) {信号/事件};
+\draw[arrow, draw=magenta!50!black!50] (ov-intr.south) -- (ov-sync.north);
+\node[font=\tiny, fill=white, inner sep=1pt] at ($(ov-intr.south)!0.5!(ov-sync.north)$) {锁依赖};
+\draw[arrow, draw=brown!50!black!50] (ov-sync.south) -- (ov-time.north);
+\node[font=\tiny, fill=white, inner sep=1pt] at ($(ov-sync.south)!0.5!(ov-time.north)$) {超时/调度};
+\draw[arrow, draw=gray!50!black!50] (ov-time.south) -- (ov-arch.north);
+\node[font=\tiny, fill=white, inner sep=1pt] at ($(ov-time.south)!0.5!(ov-arch.north)$) {时钟源};
+\draw[arrow, draw=gray!50!black!50] (ov-arch.south) -- (ov-drv.north);
+\node[font=\tiny, fill=white, inner sep=1pt] at ($(ov-arch.south)!0.5!(ov-drv.north)$) {MMIO/IRQ};
+\draw[arrow, draw=olive!50!black!50] (ov-drv.south) -- (ov-hw.north);
+\node[font=\tiny, fill=white, inner sep=1pt] at ($(ov-drv.south)!0.5!(ov-hw.north)$) {IRQ / DMA / MMIO};
+
+\end{tikzpicture}
+\end{document}

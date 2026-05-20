@@ -1,0 +1,163 @@
+% ============================================================
+%  Part 4: Aries 深度研究
+% ============================================================
+
+\section{Aries 深度研究}
+
+\subsection{什么是 Retimer}
+
+Retimer 是一种信号完整性芯片，执行\textbf{完整的信号再生}而非简单的放大或均衡。
+在 PCIe 6 (64 GT/s PAM4) 时代，Retimer 从``可选''变成了``必需''。
+
+\begin{figure}[htb]
+    \centering
+    \begin{tikzpicture}[
+        node distance=0.8cm,
+        block/.style={rectangle, draw=darkblue, fill=blue!5, thick, minimum width=2cm, minimum height=0.9cm, align=center, rounded corners=3pt},
+        signal/.style={->, >=Stealth, thick}
+    ]
+        \node[block] (TX) {TX\\发送端};
+        \node[block, right=of TX] (CHANNEL) {Channel\\PCB/背板/电缆};
+        \node[block, right=of CHANNEL] (RETIMER) {Retimer\\CDR + 重新驱动};
+        \node[block, right=of RETIMER] (CHANNEL2) {Channel};
+        \node[block, right=of CHANNEL2] (RX) {RX\\接收端};
+
+        \draw[signal] (TX) -- (CHANNEL) node[midway, above, font=\footnotesize] {信号衰减};
+        \draw[signal, darkred, very thick] (CHANNEL) -- (RETIMER) node[midway, above, font=\footnotesize] {弱/噪声信号};
+        \draw[signal, darkgreen, very thick] (RETIMER) -- (CHANNEL2) node[midway, above, font=\footnotesize] {干净信号};
+        \draw[signal] (CHANNEL2) -- (RX);
+    \end{tikzpicture}
+    \caption{Retimer 工作原理}
+    \label{fig:retimer-principle}
+\end{figure}
+
+\subsubsection{Redriver vs Retimer vs DSP Retimer}
+
+\begin{table}[htb]
+    \centering
+    \caption{信号调理技术对比}
+    \label{tab:redriver-retimer}
+    \begin{tabular}{lccc}
+        \toprule
+        \textbf{特性} & \textbf{Redriver} & \textbf{Analog Retimer} & \textbf{DSP Retimer (Aries)} \\
+        \midrule
+        功能 & 放大 + 模拟均衡 & CDR + 模拟重驱动 & CDR + DSP + 数字重驱动 \\
+        时钟恢复 & 无 & 有 & 有 \\
+        延迟 & $<$100 ps & 10-20 ns & 20-50 ns \\
+        噪声处理 & \textbf{放大噪声} & 消除 & \textbf{完全消除} \\
+        PCIe 5 & 部分可用 & 可用 & 推荐 \\
+        PCIe 6 (PAM4) & \textbf{不可用} & 勉强可用 & \textbf{必需} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+PCIe 6 从 NRZ（2 电平）切换到 PAM4（4 电平），眼图开口是 NRZ 的 1/3（相同电压摆幅下）。
+Redriver 的模拟均衡会同时放大信号和噪声，无法满足 PAM4 的信噪比要求。
+DSP Retimer 的核心流程：CTLE（模拟前端均衡）→ ADC 数字化 → DSP（FFE/DFE/CDR/PAM4 解码/FEC）→ PAM4 编码 + DAC + Driver 输出。这个过程消除了所有累积的抖动和噪声。
+
+\subsection{为什么 AI Server 更需要 Retimer}
+
+传统服务器中 CPU 到 PCIe slot 距离短（$<$6 inches），通常只有 1-2 个 PCIe 设备。
+AI Server 的情况完全不同：
+
+\begin{itemize}
+    \item GPU 底板面积大（$>$12 inches trace length）
+    \item 8-72+ GPU per node
+    \item PCIe 5/6 必需，更高 lane 数
+    \item 密集 crosstalk 管理
+    \item Multi-rack 需要 cable（$>$3m）
+    \item 每个 GPU 需要多个 PCIe/CXL 连接
+\end{itemize}
+
+AI server 的 SI 挑战呈指数级增长：更多 GPU $\times$ 更高速度 $\times$ 更复杂拓扑 = Retimer 不可省略。
+Astera Labs 声称其芯片在``80\%+ 的 AI 服务器''中使用 \sourceT{3}。
+这个数字无法从官方验证 \unverified{}。
+
+\subsection{Aries 产品线细分}
+
+\subsubsection{Aries Smart DSP Retimer}
+
+PCIe 6 / CXL 3.x 信号调理芯片，集成 DSP 进行 per-lane 均衡和信号再生。
+与``所有主要 root complex 和 50+ endpoints''进行了互操作测试，
+经过``chip-to-chip, box-to-box, rack-to-rack''拓扑的验证，配对不同 insertion loss 条件。\sourceT{2}
+已与 5th Gen Intel Xeon Scalable 和 4th Gen AMD EPYC 完成互操作验证。
+
+\subsubsection{Aries Smart Cable Module}
+
+将 Aries DSP Retimer 集成到 cable paddle card 中。关键规格 \sourceT{2}：
+\begin{itemize}
+    \item \textbf{7m reach at 64 GT/s} — 被动铜缆 (DAC) 仅 3m（在 PAM4 下插入损耗极限）
+    \item 细径电缆：32AWG for 4m, 27AWG for 6m — 不阻塞气流
+    \item BER 显著优于 PCIe 规范要求
+    \item 生态伙伴：Amphenol（OSFP-XD Gen6 AEC）、Molex（PCIe 6.0 AEC）
+    \item 与 CXL 3.x 兼容
+\end{itemize}
+
+Astera 采取``inside''策略——芯片内置在 cable connector 里，终端用户看到的是 Amphenol/Molex 品牌，
+但 Astera 提供端到端的固件/软件/硬件支持（``单点责任''）。
+
+传统模式 vs Astera 模式：
+\begin{itemize}
+    \item 传统：客户从 Amphenol/Molex 买 cable，从 Broadcom 买 retimer，自己集成
+    \item Astera：客户从 Amphenol/Molex 买``内置 Aries 的 cable''，Astera 提供统一支持
+\end{itemize}
+
+这对 hyperscaler 的价值：减少供应链复杂度、单一责任方、统一管理平面（COSMOS）。
+
+\subsubsection{Aries Smart Gearbox}
+
+Gearbox 是一种协议桥接芯片——一端是 PCIe 6 (64 GT/s PAM4, FLIT mode)，
+另一端是 PCIe 5 (32 GT/s NRZ, TLP format)。解决的核心问题是：
+Hyperscaler 有数千台已验证的 PCIe 5 NIC（如 NVIDIA ConnectX-7、Intel E810），
+server 升级到 PCIe 6 CPU/GPU 后，NIC requalification 耗时 12-18 个月，
+Gearbox 消除了 requal 障碍，允许增量式 PCIe 6 迁移。
+
+Gearbox 是一个``过渡产品''——当所有 NIC 都升级到 PCIe 6 后需求会下降。
+但从 PCIe 5 到 PCIe 6 的全面过渡需要 3-5 年，为 Gearbox 提供了足够的市场窗口。
+
+\subsection{功耗/延迟/SI Trade-off}
+
+SerDes 设计面临三重约束：
+
+\begin{itemize}
+    \item \textbf{功耗}：每代 PCIe 翻倍。PCIe 5 NRZ $\sim$300-400 mW/lane，PCIe 6 PAM4 DSP $\sim$500-700 mW/lane（推测 \speculation{}）
+    \item \textbf{延迟}：DSP pipeline 深度决定延迟。更多的均衡 tap (FFE/DFE) $\to$ 更好的 SI 但更高延迟
+    \item \textbf{SI 质量}：PAM4 SNR 要求远高于 NRZ，更多 DSP 处理 $\to$ 更高功耗和延迟
+\end{itemize}
+
+Astera Labs 通过自有 DSP 架构优化这个 triple trade-off，但具体数字未公开。\unverified{}
+SerDes 参数通常是芯片公司最核心的商业秘密。
+
+\subsection{竞争对比}
+
+\begin{table}[htb]
+    \centering
+    \caption{PCIe Retimer/AEC 竞争格局}
+    \label{tab:aries-competition}
+    \begin{tabular}{lcccc}
+        \toprule
+        \textbf{能力} & \textbf{Astera Aries} & \textbf{Broadcom} & \textbf{Credo} & \textbf{Parade/Renesas} \\
+        \midrule
+        PCIe 6 支持 & \checkmark & \checkmark & \checkmark & Renesas \checkmark, Parade ? \\
+        DSP Retimer & \checkmark & \checkmark & \checkmark & 部分 \\
+        Smart Cable (AEC) & \checkmark（Aries SCM）& — & \checkmark（Dove AEC）& — \\
+        Gearbox & \checkmark & — & — & — \\
+        COSMOS 集成 & \checkmark & — & — & — \\
+        Hyperscaler 直接关系 & 强 & 强（通过 OEM）& 中强 & 弱 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+在\textbf{retimer 单一产品}上，Astera/Broadcom/Credo 都有竞争力。
+Astera 的优势在于\textbf{全栈集成}：Retimer + Cable + Gearbox + Switch + CXL + Software。
+Credo 在 AEC 市场有先发优势（Dove 系列是最知名的 PCIe AEC），Astera 在后追赶但增速快。
+Credo 的最大优势在于低功耗 SerDes IP。
+
+\subsection{技术优势评估}
+
+Astera Labs 在 Aries 领域的技术评估：
+\begin{itemize}
+    \item \textbf{已验证的优势}：PCIe 6 DSP Retimer 出货（时间先发）、50+ endpoint 互操作验证、Smart Cable 集成 DSC telemetry
+    \item \textbf{可能为营销} \marketing{}：声称 BER``显著优于''PCIe 规范——在没有具体测试条件的情况下无法验证；``industry-leading 7m reach''——Credo 也有类似能力
+    \item \textbf{无法确认} \unverified{}：具体功耗/延迟数据、具体 ASP/margin、市场份额
+\end{itemize}
