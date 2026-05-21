@@ -1,0 +1,626 @@
+% ====================================================
+%  PicoSoC 移植与验证进展汇报 — 组会 PPT
+%  Author: 葛良晨
+%  Date: 2026-05-21
+%  Compile: latexmk -xelatex -shell-escape
+% ====================================================
+\documentclass[aspectratio=169, 10pt, UTF8]{ctexbeamer}
+
+% ---------- 主题 ----------
+\usetheme{Madrid}
+\usecolortheme{default}
+
+\definecolor{ieeeBlue}{RGB}{0, 83, 159}
+\definecolor{ieeeRed}{RGB}{198, 38, 46}
+\definecolor{ieeeGreen}{RGB}{0, 114, 41}
+\definecolor{ieeeOrange}{RGB}{235, 110, 31}
+\definecolor{darkGray}{RGB}{66, 66, 66}
+
+\setbeamercolor{structure}{fg=ieeeBlue}
+\setbeamercolor{alerted text}{fg=ieeeRed}
+\setbeamercolor{example text}{fg=ieeeGreen}
+\setbeamercolor{frametitle}{bg=ieeeBlue!15, fg=ieeeBlue}
+\setbeamercolor{block title}{bg=ieeeBlue!15, fg=ieeeBlue}
+\setbeamercolor{block body}{bg=ieeeBlue!5}
+\setbeamercolor{block title example}{bg=ieeeGreen!15, fg=ieeeGreen}
+\setbeamercolor{block body example}{bg=ieeeGreen!5}
+\setbeamercolor{block title alerted}{bg=ieeeRed!15, fg=ieeeRed}
+\setbeamercolor{block body alerted}{bg=ieeeRed!5}
+
+% ---------- 包 ----------
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage[table]{xcolor}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usetikzlibrary{positioning, calc, shapes.geometric, arrows.meta, backgrounds, fit}
+\usepackage{hyperref}
+\usepackage{twemojis}
+
+\graphicspath{{/Volumes/mac_db/latex_prjs/riscv_doc/out/}}
+
+% ---------- 页脚 ----------
+\setbeamertemplate{footline}[frame number]
+
+% ---------- 每节前目录 ----------
+\AtBeginSection[]{
+  \begin{frame}{本节内容}
+    \tableofcontents[currentsection]
+  \end{frame}
+}
+
+% ---------- 元信息 ----------
+\title[PicoSoC 移植进展]{PicoSoC 移植与验证进展汇报}
+\subtitle{基于 RISC-V 的 SoC 系统：C 固件、AXI-Lite 外设驱动与 FPGA 验证}
+\author[葛良晨]{葛良晨}
+\institute[组会汇报]{组会汇报}
+\date{2026年5月21日}
+
+\begin{document}
+
+% ============================================
+\section{开场}
+% ============================================
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{汇报大纲}
+  \tableofcontents
+\end{frame}
+
+% ============================================
+\section{项目背景与系统架构}
+% ============================================
+
+\begin{frame}{项目背景与技术目标}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{项目背景}
+        \begin{itemize}
+          \item 基于开源 PicoRV32 (RV32IMC) 构建完整 SoC
+          \item 采用 AXI4-Lite 总线连接外设
+          \item 目标：C 语言固件开发 + FPGA 原型验证
+        \end{itemize}
+      \end{block}
+
+      \begin{exampleblock}{已完成目标 \checkmark}
+        \begin{enumerate}
+          \item SoC 系统搭建 (PicoRV32 + AXI4-Lite + 外设)
+          \item C 语言固件工具链与编译流程
+          \item AXI-Lite 外设驱动 (UART/SPI/BRAM/GPIO)
+          \item FPGA 原型验证 (UART 输出, GPIO LED)
+          \item 仿真验证 (SPI 驱动)
+        \end{enumerate}
+      \end{exampleblock}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{block}{关键组件}
+        \begin{itemize}
+          \item \textbf{CPU}：PicoRV32 (RV32IMC)
+          \item \textbf{总线}：AXI4-Lite 1主4从
+          \item \textbf{指令存储}：XIP SPI Flash
+          \item \textbf{数据存储}：内部 SRAM
+          \item \textbf{外设}：UART, SPI Master, GPIO (MMR)
+          \item \textbf{加速器}：PCPI 乘除法器
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{PicoSoC 系统架构总览}
+  \centering
+  \includegraphics[width=0.92\textwidth, height=0.75\textheight, keepaspectratio]{diagram_v2.pdf}
+\end{frame}
+
+\begin{frame}{PicoSoC 内部模块连接}
+  \centering
+  \includegraphics[width=0.78\textwidth, height=0.78\textheight, keepaspectratio]{picosoc.pdf}
+\end{frame}
+
+\begin{frame}{PicoRV32 处理器核心架构}
+  \centering
+  \includegraphics[width=0.80\textwidth, height=0.78\textheight, keepaspectratio]{picorv32_arch.pdf}
+\end{frame}
+
+% ============================================
+\section{AXI4-Lite 总线与地址映射}
+% ============================================
+
+\begin{frame}{AXI4-Lite 总线架构}
+  \begin{columns}[T]
+    \begin{column}{0.52\textwidth}
+      \begin{block}{AXI4-Lite 特性}
+        \begin{itemize}
+          \item ARM AMBA 协议精简版
+          \item 5 个独立通道 (AW, W, B, AR, R)
+          \item 单次读写 (single-beat)，无突发
+          \item 固定 32-bit 字对齐
+          \item VALID/READY 双向流水握手
+        \end{itemize}
+      \end{block}
+
+      \begin{exampleblock}{本系统拓扑}
+        \begin{itemize}
+          \item \textbf{1 主}：PicoRV32 (Native AXI Master)
+          \item \textbf{4 从}：SPI Flash / SRAM / UART / MMRs
+          \item 地址译码选择从设备
+        \end{itemize}
+      \end{exampleblock}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \centering
+      \begin{tikzpicture}[
+        scale=0.75,
+        box/.style={rectangle, draw=ieeeBlue, fill=ieeeBlue!5, thick,
+                    minimum width=2.5cm, minimum height=0.7cm, align=center,
+                    rounded corners=3pt, font=\footnotesize},
+        arrow/.style={->, >=Stealth, thick, ieeeBlue},
+      ]
+        \node[box, fill=ieeeRed!8] (CPU) {PicoRV32\\Master};
+        \node[box, fill=ieeeGreen!8, below=1.0cm of CPU, minimum width=5cm,
+              minimum height=0.9cm] (AXI) {AXI4-Lite Interconnect\\(地址译码 / 读 Mux / Ready 生成)};
+
+        \node[box, fill=gray!5, below left=1.0cm and 1.5cm of AXI] (SPI) {S0: SPI Flash};
+        \node[box, fill=gray!5, below left=1.0cm and 0cm of AXI] (SRAM) {S1: SRAM};
+        \node[box, fill=gray!5, below right=1.0cm and 0cm of AXI] (UART) {S2: UART};
+        \node[box, fill=gray!5, below right=1.0cm and 1.5cm of AXI] (MMR) {S3: MMRs};
+
+        \draw[arrow] (CPU) -- (AXI);
+        \draw[arrow] (AXI) -- (SPI);
+        \draw[arrow] (AXI) -- (SRAM);
+        \draw[arrow] (AXI) -- (UART);
+        \draw[arrow] (AXI) -- (MMR);
+      \end{tikzpicture}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{地址空间布局 (Memory Map)}
+  \centering
+  \includegraphics[width=0.55\textwidth, height=0.75\textheight, keepaspectratio]{picosoc_memory_map.pdf}
+
+  \vspace{5pt}
+  \begin{columns}[T]
+    \begin{column}{0.32\textwidth}
+      \centering \textbf{0x0000\_0000}\\{\footnotesize Internal SRAM (16 MiB)}\\\footnotesize 指令/数据高速访问
+    \end{column}
+    \begin{column}{0.32\textwidth}
+      \centering \textbf{0x0100\_0000}\\{\footnotesize External Flash (16 MiB)}\\\footnotesize XIP 固件存储
+    \end{column}
+    \begin{column}{0.32\textwidth}
+      \centering \textbf{0x0200\_0000}\\{\footnotesize System MMIO (16 MiB)}\\\footnotesize UART/SPI/GPIO 控制寄存器
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{AXI4-Lite 握手机制}
+  \centering
+  \includegraphics[width=0.78\textwidth, height=0.72\textheight, keepaspectratio]{axi_lite_timing.pdf}
+
+  \vspace{3pt}
+  \begin{exampleblock}{关键原则}
+    \textbf{VALID} (源端) + \textbf{READY} (目的端) 同时为高 → 握手成功。
+    源端不得等待 READY 后才拉 VALID — 防止死锁。
+  \end{exampleblock}
+\end{frame}
+
+% ============================================
+\section{AXI-Lite 外设}
+% ============================================
+
+\begin{frame}{AXI4-Lite SPI Master 架构}
+  \centering
+  \includegraphics[width=0.78\textwidth, height=0.75\textheight, keepaspectratio]{spi_master.pdf}
+\end{frame}
+
+\begin{frame}{外设寄存器映射 (MMR)}
+  \begin{table}[h]
+    \centering
+    \footnotesize
+    \begin{tabular}{lllp{0.45\textwidth}}
+      \toprule
+      \textbf{外设}   & \textbf{基地址} & \textbf{寄存器}     & \textbf{功能} \\
+      \midrule
+      \rowcolor{ieeeBlue!5}
+      UART            & 0x0200\_0000  & DAT (r/w), DIV       & 串口收发, 波特率配置 \\
+      \rowcolor{ieeeGreen!5}
+      SPI             & 0x0200\_0100  & CTRL, CS\_SEL, LEN, TX\_IDX, RX\_IDX, TX\_MEM, RX\_MEM & SPI 收发, 片选, 时钟配置 \\
+      \rowcolor{ieeeOrange!5}
+      GPIO            & 0x0200\_0200  & OUT, IN, DIR         & 通用 I/O 方向与电平 \\
+      \rowcolor{ieeeRed!5}
+      BRAM            & 0x0000\_0000  & —                    & AXI-Lite 直接读写 SRAM \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+
+  \begin{itemize}
+    \item 所有外设通过 AXI4-Lite 总线统一编址
+    \item CPU 以 load/store 指令直接访问外设寄存器
+    \item MMR 寄存器由 Python 脚本自动生成 RTL (Verilog)
+  \end{itemize}
+\end{frame}
+
+% ============================================
+\section{C 固件与设备驱动}
+% ============================================
+
+\begin{frame}{C 语言固件开发环境}
+  \begin{columns}[T]
+    \begin{column}{0.45\textwidth}
+      \begin{block}{工具链}
+        \begin{itemize}
+          \item \textbf{编译器}：riscv32-unknown-elf-gcc
+          \item \textbf{链接脚本}：定制 linker script (.ld)
+          \item \textbf{启动代码}：汇编启动 (crt0.S)
+          \item \textbf{烧录}：SPI Flash 编程器
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.55\textwidth}
+      \begin{block}{内存布局}
+        \begin{itemize}
+          \item \texttt{.text}：XIP Flash (0x0100\_0000)
+          \item \texttt{.rodata}：XIP Flash
+          \item \texttt{.data}：SRAM (初始化数据)
+          \item \texttt{.bss}：SRAM (零初始化)
+          \item \texttt{.stack}：SRAM 顶部向下增长
+          \item \texttt{.heap}：SRAM 底部向上增长 (可选)
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+
+  \vspace{8pt}
+  \begin{exampleblock}{固件编译与加载流程}
+    C 源码 $\xrightarrow{\text{gcc}}$ ELF $\xrightarrow{\text{objcopy}}$ BIN
+    $\xrightarrow{\text{烧录器}}$ SPI Flash $\xrightarrow{\text{XIP}}$ PicoRV32 取指执行
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{设备驱动: UART}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{驱动 API}
+        \begin{itemize}
+          \item \texttt{uart\_init(baudrate)} — 初始化波特率
+          \item \texttt{uart\_putc(char c)} — 发送单字符
+          \item \texttt{uart\_puts(const char *s)} — 发送字符串
+          \item \texttt{uart\_getc()} — 接收单字符 (阻塞)
+          \item \texttt{uart\_printf(fmt, ...)} — 格式化输出
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{block}{底层实现}
+        \begin{itemize}
+          \item 寄存器映射到固定地址\\
+                {\footnotesize \texttt{\#define UART\_BASE 0x02000000}}
+          \item 发送：写 DAT 寄存器 $\to$ TX 引脚
+          \item 接收：轮询 RX 状态 $\to$ 读 DAT 寄存器
+          \item 波特率：写 DIV 分频器
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+
+  \vspace{5pt}
+  \begin{exampleblock}{验证方式}
+    \begin{itemize}
+      \item FPGA 上板：通过 FTDI USB-UART 桥接芯片输出到 PC 串口终端
+      \item 测试输出：\texttt{"PicoSoC Boot OK. Hello World!"}
+    \end{itemize}
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{设备驱动: SPI Master}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{驱动 API}
+        \begin{itemize}
+          \item \texttt{spi\_init(mode, clk\_div)} — 配置 SPI 模式与速率
+          \item \texttt{spi\_transfer(tx\_buf, rx\_buf, len)} — 全双工传输
+          \item \texttt{spi\_cs\_select(n)} — 片选控制
+          \item \texttt{spi\_write\_byte(byte)} — 单字节发送
+          \item \texttt{spi\_read\_byte()} — 单字节接收
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{block}{硬件特性}
+        \begin{itemize}
+          \item 支持 CPOL/CPHA 四种 SPI 模式
+          \item 可配置时钟分频
+          \item TX/RX 独立内存阵列
+          \item 控制 FSM: IDLE $\to$ SHIFT $\to$ DONE
+          \item 自动 CS 控制逻辑
+          \item 支持多字节连续传输
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+
+  \vspace{5pt}
+  \begin{exampleblock}{验证方式}
+    \begin{itemize}
+      \item 仿真验证：Testbench 驱动 SPI Slave 模型，比对 MISO/MOSI 数据
+    \end{itemize}
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{设备驱动: BRAM 与 GPIO}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{BRAM (SRAM) 访问}
+        \begin{itemize}
+          \item 直接通过 AXI-Lite 读写\\
+                {\footnotesize 地址区间: 0x0000\_0000 — 0x00FF\_FFFF}
+          \item C 指针直接操作：\\
+                {\footnotesize \texttt{uint32\_t *p = (uint32\_t*)0x00000000;}}\\
+                {\footnotesize \texttt{*p = 0xDEADBEEF;}}
+          \item 用途：堆栈、全局变量、数据缓冲
+          \item 性能：单周期 SRAM 访问 (无等待)
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{block}{GPIO 驱动}
+        \begin{itemize}
+          \item MMR 映射 GPIO 寄存器：\\
+                {\footnotesize OUT (0x0200\_0200): 输出值}\\
+                {\footnotesize DIR (0x0200\_0204): 方向 (1=输出)}\\
+                {\footnotesize IN  (0x0200\_0208): 输入值}
+          \item LED 控制：\\
+                {\footnotesize \texttt{gpio\_set\_dir(0xFF);}}\\
+                {\footnotesize \texttt{gpio\_write(0xAA); // 交替亮灭}}
+          \item 支持位操作与批量读写
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ============================================
+\section{FPGA 验证结果}
+% ============================================
+
+\begin{frame}{FPGA 验证环境}
+  \centering
+  \begin{tikzpicture}[
+    node distance=0.6cm and 1.2cm,
+    block/.style={rectangle, draw=ieeeBlue, fill=ieeeBlue!5, thick,
+                  minimum width=3.2cm, minimum height=0.9cm, align=center,
+                  rounded corners=4pt, font=\footnotesize},
+    arrow/.style={->, >=Stealth, thick},
+    bidir/.style={<->, >=Stealth, thick},
+  ]
+    % Host PC
+    \node[block, fill=ieeeGreen!8] (PC) {Host PC\\串口终端 + 烧录工具};
+
+    % FPGA Board
+    \node[block, fill=ieeeRed!8, right=of PC, minimum width=4.5cm, minimum height=3.5cm] (FPGA) {
+      \textbf{FPGA 开发板}\\[3pt]
+      \begin{tikzpicture}[scale=0.7, font=\tiny]
+        \node[rectangle, draw=gray, fill=gray!10, minimum width=3.5cm,
+              minimum height=2.0cm, rounded corners=2pt] (SOC) {PicoSoC (RTL)};
+        \node[rectangle, draw=gray, fill=gray!10, minimum width=1.5cm,
+              minimum height=0.6cm, below right=0.3cm and 0cm of SOC] (SPIF) {SPI Flash};
+        \node[rectangle, draw=gray, fill=gray!10, minimum width=1.5cm,
+              minimum height=0.6cm, below left=0.3cm and 0cm of SOC] (FTDI) {FTDI\\UART-USB};
+        \draw[->] (SOC) -- (FTDI);
+        \draw[<->] (SOC) -- (SPIF);
+      \end{tikzpicture}
+    };
+
+    % Connections
+    \draw[bidir] (PC) -- node[above, font=\footnotesize] {USB-UART} (FPGA);
+    \draw[arrow] (PC.south) -- ++(0,-0.5) -| node[below, font=\footnotesize] {烧录器} (FPGA.south);
+
+    \node[font=\footnotesize\bfseries, below=0.3cm of FPGA, text width=6cm, align=center]
+      {FPGA 板载 FTDI 芯片提供 UART-USB 桥接\\PC 终端显示 PicoSoC 串口输出};
+  \end{tikzpicture}
+\end{frame}
+
+\begin{frame}{验证结果: UART 输出}
+  \begin{columns}[T]
+    \begin{column}{0.45\textwidth}
+      \begin{block}{测试用例}
+        \begin{enumerate}
+          \item \textbf{Boot 信息}：上电自动打印系统信息
+          \item \textbf{Hello World}：C 标准 printf 输出
+          \item \textbf{寄存器回读}：打印外设寄存器状态
+          \item \textbf{连续发送}：循环发送数据包
+        \end{enumerate}
+      \end{block}
+    \end{column}
+    \begin{column}{0.55\textwidth}
+      \begin{exampleblock}{UART 终端输出示例}
+        {\footnotesize\ttfamily
+        ==========================\\
+        PicoSoC Boot v1.0\\
+        CPU:  PicoRV32 @ 50MHz\\
+        Bus:  AXI4-Lite (1M×4S)\\
+        SRAM: 16 MiB @ 0x00000000\\
+        Flash:16 MiB @ 0x01000000\\
+        ==========================\\
+        [UART] Init OK (115200 bps)\\
+        [SPI]  Init OK (Mode 0, 10MHz)\\
+        [GPIO] Init OK (8-bit OUT)\\
+        \mbox{}\\
+        Hello World from PicoSoC!\\
+        System test: PASS\\
+        }
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{验证结果: GPIO LED 驱动}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{GPIO LED 测试}
+        \begin{itemize}
+          \item 配置 GPIO[7:0] 为输出模式
+          \item 逐位点亮 LED 流水灯
+          \item 全亮 → 全灭 闪烁测试
+          \item PWM 呼吸灯 (软件控制)
+          \item 按键输入读取 GPIO 输入
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \centering
+      \begin{tikzpicture}[
+        scale=0.9,
+        led/.style={circle, draw, minimum width=0.6cm, minimum height=0.6cm, align=center},
+        arrow/.style={->, >=Stealth, thick},
+      ]
+        \node[led, fill=ieeeRed!80]  (L7) at (0,0)    {7};
+        \node[led, fill=ieeeRed!80]  (L6) at (0.8,0)  {6};
+        \node[led, fill=ieeeRed!80]  (L5) at (1.6,0)  {5};
+        \node[led, fill=ieeeRed!80]  (L4) at (2.4,0)  {4};
+        \node[led, fill=gray!10] (L3) at (3.2,0)  {3};
+        \node[led, fill=gray!10] (L2) at (4.0,0)  {2};
+        \node[led, fill=gray!10] (L1) at (4.8,0)  {1};
+        \node[led, fill=gray!10] (L0) at (5.6,0)  {0};
+
+        \node[font=\footnotesize, above=0.3cm of L4] {寄存器值: 0xF0};
+        \node[font=\footnotesize, below=0.3cm of L4] {红色 = 点亮, 灰色 = 熄灭};
+      \end{tikzpicture}
+
+      \vspace{10pt}
+      \begin{exampleblock}{验证结果 \checkmark}
+        LED 流水灯正常工作，GPIO 方向/输出/输入寄存器功能全部正确。\\
+        软件 PWM 实现 LED 呼吸效果，验证了定时器与 GPIO 联调。
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{验证结果: SPI 仿真}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{仿真 Testbench 架构}
+        \begin{itemize}
+          \item \textbf{DUT}：spi\_master\_axi\_lite
+          \item \textbf{激励}：AXI4-Lite Master BFM
+          \item \textbf{响应}：SPI Slave 行为模型
+          \item \textbf{比对}：MISO 数据自动校验
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{block}{测试用例}
+        \begin{enumerate}
+          \item 单字节写 (SPI Mode 0)
+          \item 单字节读 (SPI Mode 0)
+          \item 多字节连续传输 (8/16/32 bytes)
+          \item 不同 SPI 模式 (Mode 0/1/2/3)
+          \item 不同时钟分频 (div=2/4/8/16)
+          \item 多片选控制 (CS[0:3])
+        \end{enumerate}
+      \end{block}
+    \end{column}
+  \end{columns}
+
+  \vspace{8pt}
+  \begin{exampleblock}{仿真结果 \checkmark}
+    所有测试用例通过。SPI Master 在 50 MHz 系统时钟下，以 div=4 (12.5 MHz SCLK) 正确完成
+    多字节全双工传输。MISO/MOSI 数据比对无错误，CS 时序符合 SPI 规范。
+  \end{exampleblock}
+\end{frame}
+
+% ============================================
+\section{总结与后续计划}
+% ============================================
+
+\begin{frame}{当前进展总结}
+  \begin{table}[h]
+    \centering
+    \begin{tabular}{lcp{0.45\textwidth}}
+      \toprule
+      \textbf{模块} & \textbf{状态} & \textbf{说明} \\
+      \midrule
+      \rowcolor{ieeeGreen!12}
+      PicoSoC 系统集成 & \checkmark 完成 & PicoRV32 + AXI4-Lite + 外设 \\
+      \rowcolor{ieeeGreen!12}
+      C 固件工具链 & \checkmark 完成 & GCC + Linker Script + 启动代码 \\
+      \rowcolor{ieeeGreen!12}
+      UART 驱动 & \checkmark 完成 & FPGA 验证通过, 115200 bps \\
+      \rowcolor{ieeeGreen!12}
+      GPIO 驱动 & \checkmark 完成 & FPGA LED 流水灯验证通过 \\
+      \rowcolor{ieeeGreen!12}
+      SPI 驱动 & \checkmark 完成 & 仿真验证通过 (全模式+多速率) \\
+      \rowcolor{ieeeGreen!12}
+      BRAM 访问 & \checkmark 完成 & AXI-Lite 直接读写, 堆栈正常 \\
+      \rowcolor{ieeeBlue!8}
+      SPI Flash XIP & \checkmark 完成 & 固件从 SPI Flash 就地执行 \\
+      \rowcolor{ieeeOrange!8}
+      SPI FPGA 实测 & 进行中 & 待外接 SPI 设备联调 \\
+      \rowcolor{ieeeOrange!8}
+      中断系统 & 规划中 & 外部中断引脚 (irq\_5/6/7) \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+
+  \begin{alertblock}{当前瓶颈}
+    SPI 外设在仿真中验证通过，FPGA 上需要外接 SPI Flash/Sensor 等真实设备进行联调。
+    AXI-Lite 总线时序在 FPGA @ 50 MHz 下稳定运行。
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{后续工作计划}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{近期 (2 周内)}
+        \begin{enumerate}
+          \item SPI FPGA 硬件联调 (外接 SPI Sensor)
+          \item I2C Master 控制器开发
+          \item Timer/PWM 硬件模块
+          \item Watchdog 定时器
+        \end{enumerate}
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{block}{中期 (1 个月内)}
+        \begin{enumerate}
+          \item 中断控制器 (PLIC)
+          \item JTAG 调试接口
+          \item 性能 Profiling (Cycle 级)
+          \item DMA 引擎 (可选)
+        \end{enumerate}
+      \end{block}
+
+      \vspace{5pt}
+      \begin{exampleblock}{长期目标}
+        \begin{itemize}
+          \item ASIC 后端流程 (DC + ICC2)
+          \item 功耗/面积评估
+          \item 应用层算法移植 (ADC 校准 / DSP)
+        \end{itemize}
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ============================================
+\section*{结束}
+% ============================================
+
+\begin{frame}[plain]
+  \centering
+  \vfill
+  {\huge\color{ieeeBlue} 谢谢！欢迎提问与讨论}
+
+  \vspace{20pt}
+  {\large 葛良晨}
+
+  \vspace{8pt}
+  {\normalsize 2026年5月21日}
+  \vfill
+\end{frame}
+
+\end{document}
