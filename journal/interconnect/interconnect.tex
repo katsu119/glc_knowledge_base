@@ -1,0 +1,81 @@
+% ====================================================
+%  接口互联知识 — 独立编译文件
+%  Author: 葛良晨
+%  Compile: latexmk -xelatex -shell-escape interconnect.tex
+%  用途：只编译互联相关章节，避免每次编译整个知识库
+% ====================================================
+\documentclass[UTF8,a4paper,10pt,oneside]{ctexbook}
+
+% ---------- 页面与基础 ----------
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{indentfirst}
+\setlength{\parindent}{2em}
+
+% ---------- 数学与公式 ----------
+\usepackage{amsmath,amssymb}
+
+% ---------- 图形与颜色 ----------
+\usepackage[table]{xcolor}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{positioning, calc, shapes.geometric, arrows.meta, backgrounds, fit}
+
+% ---------- 表格 ----------
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{longtable}
+
+% ---------- 列表、代码与文本 ----------
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{siunitx}
+
+% ---------- 代码样式 ----------
+\definecolor{ieeeBlue}{RGB}{0, 83, 159}
+\definecolor{ieeeRed}{RGB}{198, 38, 46}
+\definecolor{ieeeGreen}{RGB}{0, 114, 41}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  frame=single,
+  breaklines=true,
+  keywordstyle=\color{ieeeBlue},
+  commentstyle=\color{ieeeGreen},
+  stringstyle=\color{ieeeRed!70!black}
+}
+
+% ---------- 链接 ----------
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue,
+  pdftitle={接口互联知识},
+  pdfauthor={葛良晨}
+}
+
+\title{接口互联知识}
+\author{葛良晨}
+\date{\today}
+
+\begin{document}
+
+\frontmatter
+\maketitle
+\tableofcontents
+
+\mainmatter
+
+% ---- 文章内容 ----
+\input{infiniband.tex}
+\input{ai_interconnect_survey.tex}
+
+% ---- 后续新增内容在此添加 ----
+% \input{pcie.tex}
+% \input{cxl.tex}
+% \input{ethernet_roce.tex}
+
+\end{document}

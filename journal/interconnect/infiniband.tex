@@ -1,0 +1,240 @@
+\chapter{InfiniBand 介绍}
+
+InfiniBand（简称 IB）是一种高性能互连技术，主要用于高性能计算（HPC）和数据中心。它提供了极高的带宽、极低的延迟，并原生支持 RDMA（Remote Direct Memory Access），是超级计算机和 AI 训练集群的事实标准互连方案。
+
+\section{发展历程}
+
+InfiniBand 诞生于 1999 年，由 Compaq、Dell、HP、IBM、Intel、Microsoft 和 Sun 等公司共同推动，目标是取代 PCI 总线，成为服务器内部与服务器之间的统一互连架构。虽然最终未能取代 PCI，但在 HPC 领域取得了巨大成功。
+
+\paragraph{速率演进}
+
+\begin{longtable}{llll}
+\toprule
+\textbf{代际} & \textbf{信号速率} & \textbf{有效带宽 (4x)} & \textbf{发布时间} \\
+\midrule
+\endhead
+SDR   & 2.5 Gbps/lane  & 10 Gbps   & 2001 \\
+DDR   & 5 Gbps/lane    & 20 Gbps   & 2005 \\
+QDR   & 10 Gbps/lane   & 40 Gbps   & 2007 \\
+FDR   & 14 Gbps/lane   & 56 Gbps   & 2011 \\
+EDR   & 25 Gbps/lane   & 100 Gbps  & 2014 \\
+HDR   & 50 Gbps/lane   & 200 Gbps  & 2017 \\
+HDR100& 50 Gbps/lane   & 100 Gbps (2x) & 2017 \\
+NDR   & 100 Gbps/lane  & 400 Gbps  & 2020 \\
+XDR   & 200 Gbps/lane  & 800 Gbps  & 2024 \\
+GDR   & 400 Gbps/lane  & 1600 Gbps & 规划中 \\
+\bottomrule
+\end{longtable}
+
+每代带宽翻倍，同时延迟持续降低。NDR 400 Gbps 已成为当前主流部署，XDR 800 Gbps 正在落地。
+
+\section{核心特性}
+
+\subsection{RDMA（远程直接内存访问）}
+
+RDMA 是 InfiniBand 最核心的能力。它允许一台主机直接读写远程主机的内存，完全绕过远端 CPU 和内核网络栈。
+
+\begin{itemize}
+  \item \textbf{零拷贝}：数据从网卡直接写入应用缓冲区，不经过内核缓冲区
+  \item \textbf{内核旁路}：数据传输不经过内核协议栈，没有系统调用开销
+  \item \textbf{CPU 卸载}：远端 CPU 完全不参与数据传输
+\end{itemize}
+
+一次 RDMA 操作的延迟通常在 1--2 \textmu s 以内，而传统 TCP/IP 网络往返时延在 10--50 \textmu s。
+
+\subsection{高带宽与低延迟}
+
+InfiniBand 交换机采用 cut-through 转发模式，单跳交换延迟低至 90 ns 以下。结合 RDMA，端到端延迟可控制在微秒级。
+
+\subsection{可靠传输}
+
+InfiniBand 链路层提供基于信用的流控机制（Credit-based Flow Control），确保零丢包。传输层提供可靠连接（RC）、不可靠数据报（UD）等多种服务类型，应用可根据需求选择。
+
+\section{协议层次}
+
+InfiniBand 协议栈分为五层：
+
+\begin{longtable}{lll}
+\toprule
+\textbf{层次} & \textbf{功能} & \textbf{类比 TCP/IP} \\
+\midrule
+\endhead
+物理层   & 电气信号、连接器、线缆规范        & 物理层 \\
+链路层   & 包格式、流控、子网内路由           & 链路层 \\
+网络层   & 子网间路由（GRH 全局路由头）       & IP 层 \\
+传输层   & 分段/重组、QP 管理、可靠传输       & TCP/UDP \\
+上层协议 & SDP、SRP、IPoIB、RDS 等映射       & 应用层 \\
+\bottomrule
+\end{longtable}
+
+%实际使用中，应用并非直接操控传输层，而是通过 Verbs API 进行操作。
+
+\section{核心概念}
+
+\subsection{队列对（Queue Pair, QP）}
+
+QP 是 InfiniBand 通信的基本端点，由发送队列（SQ）和接收队列（RQ）组成。每个 QP 绑定一个本地端口，所有通信操作都基于 QP 进行。
+
+QP 的服务类型：
+
+\begin{itemize}
+  \item \textbf{RC（Reliable Connection）}：可靠连接，一对一，支持所有 RDMA 操作
+  \item \textbf{UC（Unreliable Connection）}：不可靠连接，一对一，不保证送达
+  \item \textbf{UD（Unreliable Datagram）}：不可靠数据报，一对多，支持多播
+  \item \textbf{RD（Reliable Datagram）}：可靠数据报，一对多，QDR 后基本废弃
+  \item \textbf{XRC（Extended Reliable Connected）}：扩展可靠连接，支持多对多
+  \item \textbf{DCI（Dynamically Connected）}：动态连接，一对多共享接收端
+\end{itemize}
+
+\subsection{完成队列（Completion Queue, CQ）}
+
+CQ 用于收集已完成的发送/接收操作信息。多个 QP 可以共享同一个 CQ，应用通过轮询（polling）CQ 来获取操作完成状态。
+
+\subsection{保护域（Protection Domain, PD）}
+
+PD 是一个安全隔离域，定义哪些内存区域和 QP 可以相互访问。同一个 PD 内的 QP 才能操作该 PD 注册的内存。
+
+\subsection{内存注册（Memory Registration, MR）}
+
+RDMA 操作前，应用需要把本地内存缓冲区注册到 HCA，获得 lkey（本地密钥）和 rkey（远端密钥）。远端主机需要 rkey 才能访问该内存。这一步是为了将物理内存页钉住（pin），防止被换出。
+
+\subsection{全局标识符（GID）与本地标识符（LID）}
+
+\begin{itemize}
+  \item \textbf{LID}：16 位本地地址，由子网管理器（SM）分配，仅在子网内有效
+  \item \textbf{GID}：128 位全局地址（类 IPv6），用于跨子网路由
+\end{itemize}
+
+\section{硬件组件}
+
+\subsection{HCA（Host Channel Adapter）}
+
+HCA 即 IB 网卡，一端接 PCIe 总线与主机内存相连，一端接 IB 线缆与交换机相连。HCA 负责所有 IB 协议处理（包括传输层、链路层），将 CPU 从网络处理中解放出来。
+
+主流供应商：NVIDIA（原 Mellanox）、Intel（原 QLogic，已退出）。
+
+\subsection{交换机}
+
+IB 交换机执行简单的 LID 查表转发，单跳延迟极低。IB 网络不需要像以太网那样运行生成树（STP），路由由 SM 统一计算并下发给所有交换机。
+
+\subsection{子网管理器（Subnet Manager, SM）}
+
+SM 是 InfiniBand 子网的核心控制面，负责：
+\begin{itemize}
+  \item 发现拓扑并扫描所有节点
+  \item 为每个端口分配 LID
+  \item 计算子网内的转发路径（Forwarding Tables）
+  \item 维护子网运行状态
+\end{itemize}
+
+SM 可以运行在交换机（硬件 SM）上，也可以运行在服务器（软件 SM，如 OpenSM）上。
+
+\subsection{线缆与连接器}
+
+\begin{longtable}{lll}
+\toprule
+\textbf{类型} & \textbf{读写速率} & \textbf{典型距离} \\
+\midrule
+\endhead
+铜缆 (DAC)          & 到 400 Gbps  & 3--5 m \\
+有源光缆 (AOC)      & 到 400 Gbps  & 30--100 m \\
+光模块 (QSFP)       & 到 400 Gbps  & 100 m--10 km \\
+\bottomrule
+\end{longtable}
+
+\section{与以太网/RoCE 的对比}
+
+RoCE（RDMA over Converged Ethernet）是在以太网上实现 RDMA 的技术，分为两个版本：
+
+\begin{itemize}
+  \item \textbf{RoCEv1}：以太网链路层直接承载 IB 传输层包，仅限同二层网络
+  \item \textbf{RoCEv2}：将 IB 传输层封装在 UDP/IP 中，支持 IP 路由
+\end{itemize}
+
+\begin{longtable}{lll}
+\toprule
+\textbf{维度} & \textbf{InfiniBand} & \textbf{RoCEv2} \\
+\midrule
+\endhead
+网络层       & IB 子网 + GRH                      & IP/UDP \\
+流控         & 基于信用（Credit-based），无损     & 依赖 PFC/ECN，配置复杂 \\
+拥塞控制     & 原生支持，由 SM/FM 管理            & 需要 DCQCN 等算法辅助 \\
+管理复杂度   & SM 集中管理，即插即用              & 需要 PFC/ECN/DCB 全网调优 \\
+生态         & NVIDIA 封闭生态，成本高            & 多厂商支持，成本低 \\
+延迟         & 极低（~1\textmu s）                 & 略高（依赖交换机） \\
+丢包         & 零丢包                             & PFC 配置不当可能出现 \\
+路由         & SM 集中计算，确定性路由             & 标准 IP 路由 \\
+最大规模     & 已部署超 40000 节点                 & 理论上无限制 \\
+\bottomrule
+\end{longtable}
+
+\paragraph{选型建议}：极致性能和超大规模 HPC/AI 训练集群选 InfiniBand；接入层、多厂商混合、成本敏感场景选 RoCEv2。
+
+\section{InfiniBand 在 AI 训练中的应用}
+
+当前主流 AI 训练集群（如 NVIDIA SuperPOD）广泛使用 InfiniBand 互连：
+
+\begin{itemize}
+  \item GPU 节点通过 8 块 HCA 连接到胖树（Fat-Tree）IB 交换机网络
+  \item 使用 NCCL 库实现 GPU 间直接 RDMA 通信，AllReduce 操作可完全卸载到网络
+  \item SHARP（Scalable Hierarchical Aggregation and Reduction Protocol）在交换机内完成归约运算，减少网络流量
+  \item 节点数万卡规模的训练，InfiniBand 是目前唯一经过大规模验证的互连方案
+\end{itemize}
+
+\section{关键术语速查}
+
+\begin{longtable}{ll}
+\toprule
+\textbf{缩写} & \textbf{全称 / 含义} \\
+\midrule
+\endhead
+HCA     & Host Channel Adapter（IB 网卡） \\
+TCA     & Target Channel Adapter（存储/IO 端 HCA） \\
+QP      & Queue Pair（通信端点，SQ + RQ） \\
+CQ      & Completion Queue（完成通知队列） \\
+PD      & Protection Domain（保护域） \\
+MR      & Memory Region（注册的内存缓冲区） \\
+MW      & Memory Window（MR 的子窗口，用于动态权限） \\
+SM      & Subnet Manager（子网管理器） \\
+MAD     & Management Datagram（管理报文） \\
+LID     & Local Identifier（子网内地址） \\
+GID     & Global Identifier（全局地址） \\
+GRH     & Global Routing Header（全局路由头） \\
+MTU     & Maximum Transfer Unit（最大传输单元） \\
+RC      & Reliable Connection \\
+UC      & Unreliable Connection \\
+UD      & Unreliable Datagram \\
+RDMA    & Remote Direct Memory Access \\
+RC QP   & 可靠连接 QP，最常用 \\
+SRQ     & Shared Receive Queue（多个 QP 共享接收队列） \\
+GID     & Global Identifier \\
+PKey    & Partition Key（分区隔离） \\
+SHARP   & 交换机内聚合/归约加速 \\
+NCCL    & NVIDIA Collective Communications Library \\
+\bottomrule
+\end{longtable}
+
+\section{Verbs API 编程概览}
+
+InfiniBand 的编程接口称为 Verbs，核心流程如下：
+
+\begin{enumerate}
+  \item \textbf{获取设备列表} \texttt{ibv\_get\_device\_list()}
+  \item \textbf{打开设备} \texttt{ibv\_open\_device()}
+  \item \textbf{分配保护域} \texttt{ibv\_alloc\_pd()}
+  \item \textbf{注册内存} \texttt{ibv\_reg\_mr()}
+  \item \textbf{创建完成队列} \texttt{ibv\_create\_cq()}
+  \item \textbf{创建队列对} \texttt{ibv\_create\_qp()}
+  \item \textbf{修改 QP 状态} \texttt{ibv\_modify\_qp()}：RESET $\rightarrow$ INIT $\rightarrow$ RTR $\rightarrow$ RTS
+  \item \textbf{连接交换}：通过 TCP 带外通道交换 QP 信息（QPN、LID、GID、密钥等）
+  \item \textbf{发起 RDMA 操作}：\texttt{ibv\_post\_send()} 提交 WR 到 SQ
+  \item \textbf{轮询完成}：\texttt{ibv\_poll\_cq()} 等待 WC（Work Completion）
+\end{enumerate}
+
+RDMA 操作类型：
+\begin{itemize}
+  \item \textbf{SEND/RECV}：类似传统消息收发，接收端需预置接收缓冲区
+  \item \textbf{RDMA WRITE}：单端写入远端内存，无需远端 CPU 参与
+  \item \textbf{RDMA READ}：单端读取远端内存
+  \item \textbf{ATOMIC}：原子的 CAS/Fetch-and-Add，用于分布式锁和同步
+\end{itemize}
