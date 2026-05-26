@@ -120,3 +120,54 @@
 \end{enumerate}
 
 \end{taskbox}
+
+\begin{personalnote}
+
+今天读到一篇公众号文章《程序员的那些事》，分享了 SpaceX 星舰 V3 首秀成功以及一张广为流传的梗图，感触颇深。
+
+\paragraph{\href{https://mp.weixin.qq.com/s/Z_fQ8B32EWXoN0iQ6t5r-w}{SpaceX 星舰 V3 首秀 \& 工程哲学}}
+5月23日，马斯克旗下 SpaceX 星舰 V3 搭载猛禽第三代发动机（Raptor 3）首秀成功。随之诞生的是一张刷屏的梗图——
+
+\textbf{「先做出来 \quad vs \quad 之后再把它做好」}
+
+% [注] 编译错误 "Not in outer par mode" 原因说明：
+% personalnote 环境底层是基于 tcolorbox 构建的，而 tcolorbox 这种盒子环境内部不允许嵌套浮动体（如 \begin{figure} 或 \begin{table}）。
+% 解决方案：使用非浮动环境（如 \begin{center}）替代，并借助 caption 宏包提供的 \captionof{figure}{...} 命令来生成图注。
+\begin{center}
+  \begin{minipage}[b]{0.45\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{journal/images/20260526/01_spacex_v3_meme.jpg}
+    \captionof{figure}{Raptor 3 引擎对比：干净利落的成熟形态}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.45\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{journal/images/20260526/03_raptor3_clean.png}
+    \includegraphics[width=\textwidth]{journal/images/20260526/02_spacex_starship_v3.png}
+    \captionof{figure}{星舰 V3 首秀}
+  \end{minipage}
+\end{center}
+
+这个梗图直接把工程圈的底层逻辑说透了：
+
+\begin{enumerate}
+  \item \textbf{先解决「从 0 到 1」的问题} —— 星舰早期的发动机和助推器，核心目标是「能点火、能装上去、能飞起来」，哪怕管线外露、结构臃肿也没关系，先让系统跑通，拿到真实的测试数据。
+  \item \textbf{再通过迭代优化「从 1 到 100」} —— 后续通过不断的测试，优化发动机设计、整合管线、提升集成度，最终变成那种「干净利落」的成熟形态。
+\end{enumerate}
+
+\begin{center}
+  \includegraphics[width=0.7\textwidth]{journal/images/20260526/04_meme_comparison.png}
+  \captionof{figure}{梗图：先做出来 vs 之后再把它做好}
+\end{center}
+
+今天早上马斯克转发了这个梗图。有人说「真正难的不是做好，而是迈出第一步」。有人感慨人生里的所有事都适用。还有程序员说这就是软件工程里「重构」一词的最好图解：先写出能跑的代码，再慢慢打磨优雅的架构。
+
+说到底，这张梗图戳中了很多人的痛点：我们总困在「完美主义陷阱」里不敢行动，却忘了——
+
+\vspace{0.5em}
+\centerline{\large \textbf{「你永远无法优化一个不存在的东西。」}}
+\vspace{0.5em}
+
+不管是做产品、写代码，还是搞创作，\textbf{先做出一个能用的版本，再慢慢打磨}，才是最高效的路径。与自己的完美主义倾向做斗争，迈出第一步，Get shit done。
+
+\end{personalnote}
