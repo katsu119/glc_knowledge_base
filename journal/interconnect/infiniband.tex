@@ -13,6 +13,8 @@ InfiniBand 诞生于 1999 年，由 Compaq、Dell、HP、IBM、Intel、Microsoft
 \textbf{代际} & \textbf{信号速率} & \textbf{有效带宽 (4x)} & \textbf{发布时间} \\
 \midrule
 \endhead
+\bottomrule
+\endfoot
 SDR   & 2.5 Gbps/lane  & 10 Gbps   & 2001 \\
 DDR   & 5 Gbps/lane    & 20 Gbps   & 2005 \\
 QDR   & 10 Gbps/lane   & 40 Gbps   & 2007 \\
@@ -23,7 +25,6 @@ HDR100& 50 Gbps/lane   & 100 Gbps (2x) & 2017 \\
 NDR   & 100 Gbps/lane  & 400 Gbps  & 2020 \\
 XDR   & 200 Gbps/lane  & 800 Gbps  & 2024 \\
 GDR   & 400 Gbps/lane  & 1600 Gbps & 规划中 \\
-\bottomrule
 \end{longtable}
 
 每代带宽翻倍，同时延迟持续降低。NDR 400 Gbps 已成为当前主流部署，XDR 800 Gbps 正在落地。
@@ -40,7 +41,7 @@ RDMA 是 InfiniBand 最核心的能力。它允许一台主机直接读写远程
   \item \textbf{CPU 卸载}：远端 CPU 完全不参与数据传输
 \end{itemize}
 
-一次 RDMA 操作的延迟通常在 1--2 \textmu s 以内，而传统 TCP/IP 网络往返时延在 10--50 \textmu s。
+一次 RDMA 操作的延迟通常在 1--2 \textmu{}s 以内，而传统 TCP/IP 网络往返时延在 10--50 \textmu{}s。
 
 \subsection{高带宽与低延迟}
 
@@ -59,12 +60,13 @@ InfiniBand 协议栈分为五层：
 \textbf{层次} & \textbf{功能} & \textbf{类比 TCP/IP} \\
 \midrule
 \endhead
+\bottomrule
+\endfoot
 物理层   & 电气信号、连接器、线缆规范        & 物理层 \\
 链路层   & 包格式、流控、子网内路由           & 链路层 \\
 网络层   & 子网间路由（GRH 全局路由头）       & IP 层 \\
 传输层   & 分段/重组、QP 管理、可靠传输       & TCP/UDP \\
 上层协议 & SDP、SRP、IPoIB、RDS 等映射       & 应用层 \\
-\bottomrule
 \end{longtable}
 
 %实际使用中，应用并非直接操控传输层，而是通过 Verbs API 进行操作。
@@ -136,10 +138,11 @@ SM 可以运行在交换机（硬件 SM）上，也可以运行在服务器（�
 \textbf{类型} & \textbf{读写速率} & \textbf{典型距离} \\
 \midrule
 \endhead
+\bottomrule
+\endfoot
 铜缆 (DAC)          & 到 400 Gbps  & 3--5 m \\
 有源光缆 (AOC)      & 到 400 Gbps  & 30--100 m \\
 光模块 (QSFP)       & 到 400 Gbps  & 100 m--10 km \\
-\bottomrule
 \end{longtable}
 
 \section{与以太网/RoCE 的对比}
@@ -156,16 +159,17 @@ RoCE（RDMA over Converged Ethernet）是在以太网上实现 RDMA 的技术，
 \textbf{维度} & \textbf{InfiniBand} & \textbf{RoCEv2} \\
 \midrule
 \endhead
+\bottomrule
+\endfoot
 网络层       & IB 子网 + GRH                      & IP/UDP \\
 流控         & 基于信用（Credit-based），无损     & 依赖 PFC/ECN，配置复杂 \\
 拥塞控制     & 原生支持，由 SM/FM 管理            & 需要 DCQCN 等算法辅助 \\
 管理复杂度   & SM 集中管理，即插即用              & 需要 PFC/ECN/DCB 全网调优 \\
 生态         & NVIDIA 封闭生态，成本高            & 多厂商支持，成本低 \\
-延迟         & 极低（~1\textmu s）                 & 略高（依赖交换机） \\
+延迟         & 极低（~1\textmu{}s）                 & 略高（依赖交换机） \\
 丢包         & 零丢包                             & PFC 配置不当可能出现 \\
 路由         & SM 集中计算，确定性路由             & 标准 IP 路由 \\
 最大规模     & 已部署超 40000 节点                 & 理论上无限制 \\
-\bottomrule
 \end{longtable}
 
 \paragraph{选型建议}：极致性能和超大规模 HPC/AI 训练集群选 InfiniBand；接入层、多厂商混合、成本敏感场景选 RoCEv2。
@@ -188,6 +192,8 @@ RoCE（RDMA over Converged Ethernet）是在以太网上实现 RDMA 的技术，
 \textbf{缩写} & \textbf{全称 / 含义} \\
 \midrule
 \endhead
+\bottomrule
+\endfoot
 HCA     & Host Channel Adapter（IB 网卡） \\
 TCA     & Target Channel Adapter（存储/IO 端 HCA） \\
 QP      & Queue Pair（通信端点，SQ + RQ） \\
@@ -207,11 +213,9 @@ UD      & Unreliable Datagram \\
 RDMA    & Remote Direct Memory Access \\
 RC QP   & 可靠连接 QP，最常用 \\
 SRQ     & Shared Receive Queue（多个 QP 共享接收队列） \\
-GID     & Global Identifier \\
 PKey    & Partition Key（分区隔离） \\
 SHARP   & 交换机内聚合/归约加速 \\
 NCCL    & NVIDIA Collective Communications Library \\
-\bottomrule
 \end{longtable}
 
 \section{Verbs API 编程概览}
@@ -238,3 +242,4 @@ RDMA 操作类型：
   \item \textbf{RDMA READ}：单端读取远端内存
   \item \textbf{ATOMIC}：原子的 CAS/Fetch-and-Add，用于分布式锁和同步
 \end{itemize}
+

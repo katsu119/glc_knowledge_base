@@ -1,0 +1,788 @@
+% ====================================================
+%  AI 领域接口互联与研究方向 — 汇报 PPT（框架）
+%  Author: 葛良晨
+%  Date:   2026-05-25
+%  Compile: latexmk -xelatex -shell-escape
+% ====================================================
+\documentclass[aspectratio=169, 8pt, UTF8]{ctexbeamer}
+
+% ---------- 主题与颜色 ----------
+\usetheme{Madrid}
+\usecolortheme{default}
+
+\definecolor{ieeeBlue}{RGB}{0, 83, 159}
+\definecolor{ieeeRed}{RGB}{198, 38, 46}
+\definecolor{ieeeGreen}{RGB}{0, 114, 41}
+\definecolor{ieeeOrange}{RGB}{235, 110, 31}
+\definecolor{darkGray}{RGB}{66, 66, 66}
+\definecolor{gold}{RGB}{200, 150, 0}
+\definecolor{darkblue}{RGB}{0, 0, 139}
+\definecolor{darkred}{RGB}{180, 0, 0}
+\definecolor{darkgreen}{RGB}{0, 128, 0}
+
+\setbeamercolor{structure}{fg=ieeeBlue}
+\setbeamercolor{alerted text}{fg=ieeeRed}
+\setbeamercolor{example text}{fg=ieeeGreen}
+\setbeamercolor{frametitle}{bg=ieeeBlue!15, fg=ieeeBlue}
+\setbeamercolor{block title}{bg=ieeeBlue!15, fg=ieeeBlue}
+\setbeamercolor{block body}{bg=ieeeBlue!5}
+\setbeamercolor{block title example}{bg=ieeeGreen!15, fg=ieeeGreen}
+\setbeamercolor{block body example}{bg=ieeeGreen!5}
+\setbeamercolor{block title alerted}{bg=ieeeRed!15, fg=ieeeRed}
+\setbeamercolor{block body alerted}{bg=ieeeRed!5}
+
+% ---------- 包 ----------
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage[table]{xcolor}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usetikzlibrary{positioning, calc, shapes.geometric, arrows.meta, backgrounds, fit, shadows}
+\usepackage{hyperref}
+\usepackage{listings}
+
+% ---------- 页脚 ----------
+\setbeamertemplate{footline}[frame number]
+
+% ---------- 每节前显示目录 ----------
+\AtBeginSection[]{
+  \begin{frame}{本节内容}
+    \tableofcontents[currentsection]
+  \end{frame}
+}
+
+% ---------- 元信息 ----------
+\title[AI 接口互联研究]{AI 领域的接口互联与研究方向}
+\subtitle{技术现状 · 前沿探索 · 未来方向}
+\author[葛良晨]{葛良晨}
+\institute[]{组会汇报}
+\date{\today}
+
+% ---------- 全局 TikZ 样式（在此处统一定义）----------
+\tikzset{
+  mynode/.style={rectangle, draw=ieeeBlue, fill=ieeeBlue!8, thick,
+                 minimum width=3cm, minimum height=1.2cm,
+                 align=center, rounded corners=4pt, font=\normalsize},
+  myarrow/.style={->, >=Stealth, thick},
+  % --- CXL / Leo 专用样式 ---
+  cpuBox/.style={rectangle, draw=ieeeBlue, fill=ieeeBlue!12, thick,
+                 minimum width=1.8cm, minimum height=1.0cm,
+                 align=center, rounded corners=3pt, font=\small\bfseries},
+  memBox/.style={rectangle, draw=ieeeGreen, fill=ieeeGreen!10, thick,
+                 minimum width=1.6cm, minimum height=0.7cm,
+                 align=center, rounded corners=3pt, font=\footnotesize},
+  leoBox/.style={rectangle, draw=ieeeOrange, fill=ieeeOrange!12, thick,
+                 minimum width=2.2cm, minimum height=1.0cm,
+                 align=center, rounded corners=4pt, font=\small\bfseries},
+  cxlArrow/.style={->, >=Stealth, ultra thick, ieeeRed},
+  busArrow/.style={<->, >=Stealth, thick, ieeeBlue},
+  serverBox/.style={rectangle, draw=ieeeBlue, fill=ieeeBlue!8, thick,
+                    minimum width=1.6cm, minimum height=0.8cm,
+                    align=center, rounded corners=3pt, font=\footnotesize},
+  poolBox/.style={rectangle, draw=ieeeOrange, fill=ieeeOrange!8, thick,
+                  minimum width=5.5cm, minimum height=0.7cm,
+                  align=center, rounded corners=3pt, font=\footnotesize\bfseries},
+}
+
+\begin{document}
+
+% ============================================
+%  标题页
+% ============================================
+\begin{frame}
+  \titlepage
+\end{frame}
+
+% ============================================
+%  目录
+% ============================================
+\begin{frame}{汇报大纲}
+  \tableofcontents
+\end{frame}
+
+% ================================================================
+\section{背景与动机}
+% ================================================================
+
+\begin{frame}{研究背景}
+  % TODO: 填写内容
+  \begin{block}{背景}
+    \begin{itemize}
+      \item
+    \end{itemize}
+  \end{block}
+\end{frame}
+
+\begin{frame}{核心问题}
+  % TODO: 填写内容
+  \begin{alertblock}{痛点}
+    \begin{itemize}
+      \item
+    \end{itemize}
+  \end{alertblock}
+
+  \begin{exampleblock}{机遇}
+    \begin{itemize}
+      \item
+    \end{itemize}
+  \end{exampleblock}
+\end{frame}
+
+% ================================================================
+\section{CXL 与 Leo：内存解耦的钥匙}
+% ================================================================
+
+\begin{frame}{CXL：让内存``飞出''主板的开放标准}
+  \begin{columns}[T]
+    \begin{column}{0.52\textwidth}
+      \begin{block}{CXL 是什么}
+        \begin{itemize}
+          \item Intel 牵头，AMD / ARM / NVIDIA / Google / Microsoft 共同支持的\textbf{开放式互联标准}
+          \item 底层构建在 PCIe 5.0/6.0 物理通道之上
+          \item 支持 CXL 的设备直接插在标准 PCIe 插槽
+          \item \textbf{不是产品，是一套行业协议规范}
+        \end{itemize}
+      \end{block}
+
+      \vspace{6pt}
+
+      \begin{alertblock}{核心创新：缓存一致性}
+        \begin{itemize}
+          \item 引入 \textbf{内存语义} 和 \textbf{缓存一致性} 协议
+          \item CPU / GPU / 加速器\textbf{像访问本地内存一样}直接访问彼此内存
+          \item 告别传统 PCIe 设备的多次数据拷贝 $\to$ 延迟大幅降低
+        \end{itemize}
+      \end{alertblock}
+
+      \vspace{6pt}
+
+      \begin{exampleblock}{解决的终极问题}
+        \textbf{内存解耦}：内存不再被``锁死''在主板 DIMM 插槽上，可以``飞''到机架任何位置，甚至让多台服务器共享同一片物理内存。
+      \end{exampleblock}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \centering
+      \begin{block}{传统架构 vs CXL 架构}
+        \vspace{4pt}
+        \texttt{%
+        \textbf{【传统】内存锁死在主板}\\[4pt]
+        \quad CPU\ \textbullet\!\!-\!\!\textbullet\!\!-\!\!\textbullet\ DDR\ \ (本地总线)\\[2pt]
+        \quad |\qquad\qquad\qquad\qquad|\\[2pt]
+        \quad 主板物理插槽 $\to$ 3--4 条 DIMM\\[2pt]
+        \quad $\to$ 插满即止，无法扩展\\[10pt]
+        \textbf{【CXL】内存飞出主板}\\[4pt]
+        \quad CPU\ ---\ PCIe/CXL\ ---\ \fbox{CXL 内存设备}\\[2pt]
+        \qquad\qquad\qquad\qquad\qquad\ \  $\Downarrow$\\[2pt]
+        \qquad\qquad\qquad\qquad\ \  DDR $\times$ N（可无限扩展）\\[2pt]
+        \quad $\to$ 远离主板，甚至跨机架\\[2pt]
+        \quad $\to$ 多服务器共享同一内存池%
+        }
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{CXL 为什么快：总线级内存直连}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{物理层：复用 PCIe，不重新造轮子}
+        \begin{itemize}
+          \item 底层直接跑在 PCIe 5.0/6.0 物理通道上
+          \item 利用成熟的 SerDes、布线、连接器生态
+          \item 天然享受 PCIe 每一代速率翻倍的红利
+        \end{itemize}
+      \end{block}
+
+      \vspace{6pt}
+
+      \begin{alertblock}{协议层：缓存行是唯一``语言''}
+        \begin{itemize}
+          \item 上层不再是 TCP/UDP 网络语义，而是\textbf{内存语义}
+          \item 数据传输单位：\textbf{64 字节缓存行 (Cache Line)}
+          \item CPU 通过 Load / Store 指令直接读写远端内存
+          \item 硬件自动维护多核缓存一致性 (CXL.cache / CXL.mem)
+        \end{itemize}
+      \end{alertblock}
+    \end{column}
+    \begin{column}{0.52\textwidth}
+      \begin{exampleblock}{传输路径对比}
+        \vspace{2pt}
+        \texttt{%
+        \textbf{传统网络路径 (RDMA / TCP)}：\\[3pt]
+        \ CPU $\to$ 内存 $\to$ 组装网络包\\[2pt]
+        \ $\to$ NIC 网卡 $\to$ 交换机 $\to$ NIC\\[2pt]
+        \ $\to$ 拆包 $\to$ 内存 $\to$ CPU\\[3pt]
+        $\to$ \textbf{多级拷贝 + 协议栈开销}\\[10pt]
+        \textbf{CXL 路径}：\\[3pt]
+        \ CPU\ ---\ 64B 缓存行\ ---\ \fbox{CXL ASIC}\\[4pt]
+        \ \ \quad (如 Scorpio / Leo)\\[3pt]
+        $\to$ \textbf{零网卡、零拆包、零协议栈}\\[3pt]
+        $\to$ 硬件总线上直飞，不落地%
+        }
+      \end{exampleblock}
+
+      \vspace{6pt}
+
+      \begin{block}{一句话总结}
+        \centering
+        CXL = PCIe 的物理底座 + \textbf{内存语义的灵魂}\\[4pt]
+        不经过网卡，不组装网络包，\textbf{64 字节缓存行在总线硬件直飞}
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Leo：让 CXL 落地的智能内存控制器}
+  \begin{columns}[T]
+    \begin{column}{0.45\textwidth}
+      \begin{block}{Leo 是什么}
+        \begin{itemize}
+          \item Astera Labs 专为 CXL 标准研发的\textbf{智能内存控制器芯片}
+          \item 一端通过 CXL 协议接 PCIe 插槽，另一端接成排普通 DDR 内存条
+          \item CPU ``误以为''远端内存就是原生本地内存 $\to$ \textbf{超级转接头}
+        \end{itemize}
+      \end{block}
+
+      \vspace{6pt}
+      \begin{center}
+        \texttt{%
+        \ \ CPU/GPU\ \ ---\ \ \fbox{LEO}\ \ ---\ \ DDR $\times$ N\\[4pt]
+        \ \ (PCIe/CXL)\qquad\ \ (内存总线)%
+        }
+      \end{center}
+
+      \vspace{6pt}
+      \begin{exampleblock}{为什么 LLM 时代需要 Leo}
+        \begin{itemize}
+          \item LLM 推理/训练\textbf{不缺算力，缺内存}
+          \item 模型参数动辄几百 GB，主板内存插槽早已插满
+          \item Leo 让服务器通过 PCIe 插槽\textbf{继续加内存}
+        \end{itemize}
+      \end{exampleblock}
+    \end{column}
+    \begin{column}{0.55\textwidth}
+      \begin{alertblock}{痛点一：内存容量瓶颈 $\to$ E-Series 内存扩展}
+        \vspace{2pt}
+        \texttt{%
+        \quad Server\ \textbullet\!\!-\!\!\textbullet\ \fbox{本地 DDR 已插满}\\[2pt]
+        \quad \ $\downarrow$ PCIe/CXL\\[2pt]
+        \quad \fbox{Leo E-Series}\ \textbullet\!\!-\!\!\textbullet\ \fbox{扩展 DDR $\times$ N}\\[6pt]
+        }
+        $\to$ \textbf{单台服务器内存容量直接翻倍甚至更多}，延迟极低
+      \end{alertblock}
+
+      \vspace{4pt}
+
+      \begin{block}{痛点二：内存闲置孤岛 $\to$ P-Series 内存池化}
+        \vspace{2pt}
+        \texttt{%
+        \quad Server A (AI 任务, 内存爆满) ---\qquad\ \ \,\\[2pt]
+        \quad Server B (网页托管, 70\% 闲置) ---\ Leo P\ =\ CXL 共享内存池\\[2pt]
+        \quad Server C (常规负载)\qquad\ \ \ ---\qquad\ \ \,\\[6pt]
+        }
+        \textbf{按需划出，用完收回} $\to$ 消除 Stranded Memory，大幅降低 TCO
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Astera Labs 产品矩阵：Taurus / Aries / Scorpio / Leo}
+  \begin{block}{Taurus：以太网智能线缆模块 (Smart Cable Module)}
+    \begin{columns}[T]
+      \begin{column}{0.55\textwidth}
+        \begin{itemize}
+          \item 在铜缆连接器内部嵌入 \textbf{DSP Retimer 芯片}，将无源 DAC 变成有源电缆 (AEC)
+          \item 解决数据中心机架内 交换机$\leftrightarrow$服务器 / 交换机$\leftrightarrow$交换机 的物理层瓶颈
+        \end{itemize}
+      \end{column}
+      \begin{column}{0.45\textwidth}
+        \begin{itemize}
+          \item \textbf{为什么不用无源直连铜缆(DAC)？} 无源铜缆距离稍长信号就畸变
+          \item \textbf{为什么不用光模块？} 成本过高，短距场景不划算
+        \end{itemize}
+      \end{column}
+    \end{columns}
+    \centering
+    \texttt{%
+    无源死线\ \ $\to$\ \ \fbox{DSP Retimer 嵌入连接器}\ \ $\to$\ \ 有源智能电缆\\[2pt]
+    信号重整\ \ $\cdot$\ \ 突破距离极限\ \ $\cdot$\ \ 线缆瘦身（细缆替代粗缆）%
+    }
+  \end{block}
+
+  \vspace{-1pt}
+
+  \begin{block}{Aries / Scorpio / Leo 三大芯片系列对比}
+    \vspace{2pt}
+    \centering
+    \begin{tabularx}{\textwidth}{p{2.6cm} p{3.8cm} p{3.8cm} p{3.8cm}}
+      \toprule
+      & \textbf{Aries (Smart Retimer)} & \textbf{Scorpio (Smart Switch)} & \textbf{Leo (Memory Controller)} \\
+      \midrule
+      核心问题
+        & 信号完整性 (Signal Integrity)
+        & 拓扑路由 (拓扑\& 路由)
+        & 内存容量与池化 \\
+      \addlinespace
+      网络层级
+        & 物理层 (PHY)
+        & 数据链路层 / 网络层
+        & 内存层 (CXL) \\
+      \addlinespace
+      I/O 比
+        & 1 : 1（一条进，一条出）
+        & M : N（多端口交换矩阵）
+        & 1 : N（一控多内存）\\
+      \addlinespace
+      类比
+        & 长线驱动器 / Repeater
+        & AXI Crossbar Switch
+        & 内存扩展坞 \\
+      \addlinespace
+      对数据干预
+        & \textbf{不解析目的地}，只还原电气信号
+        & \textbf{解析包头}，按地址动态投递
+        & \textbf{地址映射}，透明扩展 \\
+      \addlinespace
+      AI 架构角色
+        & 让 GPU 能插得更远，跨机架连接
+        & 让成百上千 GPU 组成无死角超级网络
+        & 让每台 GPU 服务器拥有用不完的内存 \\
+      \bottomrule
+    \end{tabularx}
+  \end{block}
+\end{frame}
+
+\begin{frame}{国内竞争格局总览}
+  \begin{block}{Astera Labs 产品线与国内对标}
+    \vspace{2pt}
+    \centering
+    \footnotesize
+    \begin{tabularx}{\textwidth}{p{2.2cm} p{2.4cm} p{3.5cm} p{4.5cm}}
+      \toprule
+      \textbf{Astera 产品} & \textbf{核心痛点} & \textbf{国内对标企业} & \textbf{竞争状态} \\
+      \midrule
+      Aries (Retimer)
+        & 物理层高速信号衰减
+        & 澜起科技、谱瑞 (Parade)
+        & 国内头部已量产 PCIe 5.0，正研发 6.0，处于全球第一梯队 \\
+      \addlinespace
+      Leo (CXL 内存控制器)
+        & 内存容量扩展与池化
+        & 澜起科技
+        & 全球领跑阵营，已推出 CXL 3.1 方案并送样 \\
+      \addlinespace
+      Scorpio (交换芯片)
+        & 多 GPU/节点复杂路由
+        & 芯动科技、澜起科技 (研发中)
+        & 国产突破初期，120 通道 PCIe 5.0 交换芯片已落地 \\
+      \addlinespace
+      Taurus (智能 AEC)
+        & 机架内线缆降本降功耗
+        & 兆龙互连、瑞可达、澜起科技
+        & 400G/800G AEC 制造成熟，核心 DSP 芯片逐步国产化 \\
+      \bottomrule
+    \end{tabularx}
+  \end{block}
+
+  \vspace{4pt}
+
+  \begin{alertblock}{客观差距：两块短板仍需追赶}
+    \begin{columns}[T]
+      \begin{column}{0.50\textwidth}
+        \textbf{软件生态护城河}\\[2pt]
+        Astera Labs 的核心壁垒不仅是芯片本身，更是 COSMOS 软件套件——管理数万条链路、提供极强运维诊断能力。国内芯片公司仍需大量时间与云厂商共同打磨系统级软件。
+      \end{column}
+      \begin{column}{0.50\textwidth}
+        \textbf{超大规模实战检验}\\[2pt]
+        Astera Labs 产品已在 AWS、微软等顶级云厂商的万卡集群中历经极限工况考验。国内对标产品的大规模商用验证仍在加速推进中。
+      \end{column}
+    \end{columns}
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{核心企业深度解析}
+  \begin{columns}[T]
+    \begin{column}{0.90\textwidth}
+      \begin{block}{澜起科技 (Montage Technology)：最全面的挑战者}
+        \scriptsize
+        \begin{itemize}
+          \item \textbf{国内唯一}在战略纵深和产品管线上能与 Astera Labs 全面对标的 IC 设计公司，同样从内存接口芯片起家向高速互联扩张
+          \item \textbf{Retimer (对标 Aries)}：全球极少数掌握 PCIe 5.0/CXL 2.0 Retimer 并量产的供应商，2026 年初已推 PCIe 6.x/CXL 3.x 方案
+          \item \textbf{CXL 内存控制器 (对标 Leo)}：发布全球首款 MXC 芯片，2025 年底推出 CXL 3.1 M88MX6852，全面支持内存池化——部分节点全球领跑
+          \item \textbf{AEC + Switch 扩张}：2026.01 发布 PCIe 6.x/CXL 3.x AEC，正依托 SerDes 技术优势积极布局 PCIe Switch
+        \end{itemize}
+      \end{block}
+      \begin{block}{芯动科技 (Innosilicon)：Switch 破局者}
+        \scriptsize
+        \begin{itemize}
+          \item Scorpio 交换机领域长期被 Broadcom / Microchip 垄断
+          \item \textbf{2026.02} 发布全球首款 \textbf{120 通道 PCIe Gen5 交换芯片}，已与国产主流服务器成功适配
+          \item 扎根底层 IP 研发近 20 年，\textbf{115 纳秒超低延迟}让 16 张高性能显卡协同工作
+          \item 填补国内多节点动态路由和高端互联芯片空白
+        \end{itemize}
+      \end{block}
+
+      \vspace{4pt}
+
+      \begin{exampleblock}{谱瑞 (Parade) · 线缆生态}
+        \scriptsize
+        \begin{itemize}
+          \item \textbf{谱瑞}：研发中心扎根上海，PS8926 等 16 链路 Retimer 在 PCIe 4.0/5.0 时代获不少份额，是 Aries 有效备选方案
+          \item \textbf{线缆端}：兆龙互连、瑞可达在 400G/800G AEC 物理制造和信号完整性设计上已成熟，进入国内头部互联网企业数据中心
+          \item \textbf{IP 端}：合见工软 (UniVista) 推出全国产 PCIe Gen5 IP（含 32G SerDes），为 Fabless 公司开发互联芯片提供底层``技术图纸''
+        \end{itemize}
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ================================================================
+\section{Fabless 团队的技术切入方向}
+% ================================================================
+
+\begin{frame}{结构性瓶颈与 Fabless 团队的进入空间}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \begin{alertblock}{基本判断：数据移动开销已超过计算开销}
+        \begin{itemize}
+          \item GPU 峰值算力增速远超内存带宽与互联带宽增速
+          \item 数据传输能力不足导致计算单元有效利用率下降
+          \item 系统瓶颈已从``计算受限''转向以下维度：
+        \end{itemize}
+        \vspace{2pt}
+        \centering
+        \texttt{%
+        \fbox{Memory Wall}\quad
+        \fbox{IO Wall}\quad
+        \fbox{Power Wall}\\[4pt]
+        \fbox{Thermal Wall}\quad
+        \fbox{Network Congestion}\quad
+        \fbox{Rack-Level Sync}%
+        }
+      \end{alertblock}
+    \end{column}
+    \begin{column}{0.52\textwidth}
+      \begin{block}{Fabless 团队的进入合理性}
+        \begin{itemize}
+          \item 上述瓶颈领域高度碎片化，大型厂商缺乏优先投入的动力
+          \item GPU 厂商关注毛利率更高的计算芯片，不愿深入 PHY 层
+          \item 网络芯片厂商（Broadcom 等）聚焦高容量交换机，不深耕细分场景
+        \end{itemize}
+      \end{block}
+
+      \vspace{6pt}
+
+      \begin{alertblock}{约束条件：避免与 NVIDIA 软件生态直接竞争}
+        \begin{itemize}
+          \item 不涉足 AI GPU / 大模型训练芯片 / 通用推理 ASIC
+          \item NVIDIA 的竞争壁垒不仅是硬件，而是 CUDA + NCCL + TensorRT + PyTorch 集成 + 云平台适配 + 供应链控制的整体生态
+        \end{itemize}
+      \end{alertblock}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{五个技术方向总览}
+  \centering
+  \footnotesize
+  \begin{tabularx}{\textwidth}{p{2.2cm} p{2.9cm} p{2.4cm} p{2.6cm} p{2.8cm}}
+    \toprule
+    \textbf{方向} & \textbf{技术逻辑} & \textbf{大型厂商投入不足的原因} & \textbf{国内团队基础} & \textbf{核心壁垒} \\
+    \midrule
+    Retimer / Smart Cable
+      & PCIe 6/7 PAM4 信号衰减严重，高速链路普遍需要信号恢复
+      & 毛利率偏低、PHY 层定位、客户分散
+      & 高速接口 / SerDes / 通信背景人才储备充足
+      & SI Validation + 系统兼容性 \\
+    \addlinespace
+    CXL Memory Controller
+      & 推理场景显存容量不足，需 Tiered / Pooled Memory
+      & CXL 软件生态尚未成熟，市场格局未定
+      & 内存接口芯片领域积累深厚
+      & 软件栈 + NUMA 调度优化 \\
+    \addlinespace
+    Optical 控制 ASIC
+      & 铜互联接近物理极限，光互联向板间 / GPU tray 下沉
+      & 难点在 Mixed Signal + DSP，不在光器件制造
+      & 光通信产业链完整
+      & PHY calibration + 研发周期长 \\
+    \addlinespace
+    Telemetry ASIC
+      & 大规模集群的可观测性不足，运维复杂度急剧上升
+      & 硬件--系统软件交叉领域，大型企业响应速度有限
+      & 系统软件 + 硬件联合设计能力
+      & 需与云厂商深度联调 \\
+    \addlinespace
+    Power / VRM 控制
+      & 单机架功耗 200--300kW，供电系统成为瓶颈
+      & 传统 PMIC 厂商未针对 AI 负载特性做专门优化
+      & 电力电子领域人才基础较好
+      & rack-level 系统理解 \\
+    \bottomrule
+  \end{tabularx}
+\end{frame}
+
+\begin{frame}{方向一：Retimer / Smart Cable \quad 方向二：CXL Memory Controller}
+  \begin{columns}[T]
+    \begin{column}{0.50\textwidth}
+      \begin{block}{方向一：AI Retimer / Re-driver}
+        \begin{itemize}
+          \item PCIe 6.0/7.0 采用 PAM4 调制，高频损耗显著，GPU tray / NVLink cable / CXL cable 均需要信号恢复
+          \item 技术内涵超出简单模拟电路，涉及 \textbf{DSP + Adaptive EQ + DFE + CDR + Telemetry} 的综合系统设计
+          \item NVIDIA 关注计算芯片而非 PHY；Broadcom 聚焦高容量交换，不深耕特定场景 Retimer
+          \item 国内具备高速接口/SerDes/通信背景的团队储备
+          \item ASP 区间 20--100 USD+，16nm/12nm 工艺节点即可实现
+        \end{itemize}
+      \end{block}
+      \begin{alertblock}{核心壁垒：SI Validation + 系统兼容性}
+        电路设计本身并非主要壁垒；\textbf{信号完整性验证 + 跨厂商系统兼容性}（跨 GPU / Switch / Cable 的互操作验证）才是 Astera Labs 长期积累的护城河。
+      \end{alertblock}
+    \end{column}
+    \begin{column}{0.50\textwidth}
+      \begin{block}{方向二：CXL Memory Controller}
+        \begin{itemize}
+          \item MoE、长上下文、Agent Memory 等工作负载对内存容量提出极高需求，推理场景瓶颈在显存而非算力
+          \item 存储器层次将向 Tiered / Shared / Pooled Memory 方向演进
+          \item CXL 软件栈、Linux memory policy、NUMA 调度、pooling 机制仍处于早期阶段
+          \item $\to$ 市场格局尚未固化，存在技术切入窗口
+        \end{itemize}
+      \end{block}
+      \begin{exampleblock}{可行的技术切入点}
+        \begin{itemize}
+          \item 不追求完整对标 Leo，而是聚焦\textbf{专用控制器}：推理内存扩展、KV Cache pooling、内存遥测、内存压缩加速
+          \item 值得关注的方向：\textbf{面向 LLM 访存模式的专用内存调度 ASIC}——LLM 内存访问模式与传统 CPU 应用存在根本性差异，具有进一步研究价值
+        \end{itemize}
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{方向三：Optical 控制 ASIC \quad 方向四：Telemetry ASIC}
+  \begin{columns}[T]
+    \begin{column}{0.50\textwidth}
+      \begin{block}{方向三：光电混合控制 ASIC}
+        \begin{itemize}
+          \item 铜互联在 128G PAM4 速率下面临显著工程挑战，光互联向短距下沉是确定性趋势
+          \item 技术路径：板间光互联 $\to$ GPU tray 光互联 $\to$ Co-packaged optics
+          \item 不做完整硅光模块，聚焦\textbf{光电混合控制 ASIC}：optical DSP、retiming、link training、telemetry、thermal compensation
+          \item 技术难点在 Mixed Signal + DSP + PHY calibration，而非光器件工艺 $\to$ 适合 Fabless 模式
+        \end{itemize}
+      \end{block}
+      \begin{alertblock}{时间窗口}
+        研发和产业化周期较长，但技术卡位一旦完成，竞争壁垒较高。
+      \end{alertblock}
+    \end{column}
+    \begin{column}{0.50\textwidth}
+      \begin{block}{方向四：AI Infra Telemetry ASIC}
+        \begin{itemize}
+          \item 大规模集群的可观测性严重不足：链路拥塞状态、GPU 等待时间、retimer 误码情况、switch buffer 占用率等关键指标缺乏硬件级采集手段
+          \item GPU 节点数量持续增长 $\to$ 集群停机时间的经济代价日益突出
+          \item 预期将出现 \textbf{AI Infra Observability Layer}——面向硬件 Fabric 的监控基础设施（类比 Datadog / Prometheus 在软件层的角色）
+          \item 可切入的硬件形态：link telemetry controller、congestion monitor、packet timing ASIC、hardware tracing fabric、distributed timestamp unit
+        \end{itemize}
+      \end{block}
+      \begin{exampleblock}{竞争格局}
+        \textbf{硬件 + 系统软件}交叉领域，大型厂商关注度较低，但随集群规模扩大，需求确定性较强。
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{方向五：Power Delivery 控制 \quad 可行性评估与方向优先级}
+  \begin{columns}[T]
+    \begin{column}{0.50\textwidth}
+      \begin{block}{方向五：Power Delivery / VRM 智能控制}
+        \begin{itemize}
+          \item 单机架功耗达 200--300kW 已成为可预见的需求，供电系统本身正成为基础设施瓶颈
+          \item 关键技术问题：transient response、phase balancing、thermal hotspots、dynamic power routing
+          \item 可切入的芯片形态：AI-load-aware PMIC、rack-level power scheduler、transient prediction ASIC
+          \item 该方向关注度较低，但需求明确
+        \end{itemize}
+      \end{block}
+
+      \vspace{6pt}
+
+      \begin{alertblock}{可行性评估框架}
+        \begin{enumerate}
+          \item \textbf{目标环节必须是系统瓶颈}——否则缺乏明确市场需求
+          \item \textbf{单芯片 ASP 应覆盖研发投入}——参考区间 20--100 USD+
+          \item \textbf{对第三方软件生态的依赖应可控}——否则面临类似 CUDA 的生态壁垒
+          \item \textbf{避免依赖最先进工艺节点}——16/12/7nm 可实现的方案更具成本可行性
+          \item \textbf{需具备验证层面的壁垒}——SI tuning、互操作性认证、firmware、telemetry 等均属此类
+        \end{enumerate}
+      \end{alertblock}
+    \end{column}
+    \begin{column}{0.50\textwidth}
+      \begin{exampleblock}{方向优先级评估}
+        \vspace{4pt}
+        \texttt{%
+        \textbf{第一优先级：AI Retimer / Smart Cable}\\[2pt]
+        \ \ 需求验证充分 · 客户场景明确 · PoC 周期短\\[2pt]
+        \ \ 不依赖 CUDA 生态 · 不依赖先进工艺\\[2pt]
+        \ \ 国内人才储备充足\\[8pt]
+        \textbf{第二优先级：AI Infra Telemetry}\\[2pt]
+        \ \ 当前关注度较低 · 增量需求确定性较强\\[2pt]
+        \ \ 硬件与软件联合设计 · 易于建立壁垒\\[8pt]
+        \textbf{第三优先级：专用 CXL Controller}\\[2pt]
+        \ \ 长期技术价值显著 · 市场格局尚未形成\\[2pt]
+        \ \ 有机会成长为平台级企业\\[2pt]
+        \ \ (不确定性相对较高)%
+        }
+      \end{exampleblock}
+
+      \vspace{6pt}
+
+      \begin{block}{方法论总结}
+        \centering
+        \textbf{技术方向选择应从``Hyperscaler 的核心瓶颈是什么''出发，}\\[4pt]
+        \textbf{而非从``团队能设计什么芯片''出发}\\[4pt]
+        成功的 AI Infra 企业本质上是\textbf{系统瓶颈驱动}，而非芯片规格驱动
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ================================================================
+\section{技术现状分析}
+% ================================================================
+
+\begin{frame}{现有方案总览}
+  % TODO: 填写内容，可插入 TikZ 架构图
+  \begin{columns}[T]
+    \begin{column}{0.50\textwidth}
+      \begin{block}{方案一}
+        \begin{itemize}
+          \item
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.50\textwidth}
+      \begin{block}{方案二}
+        \begin{itemize}
+          \item
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{关键技术对比}
+  % TODO: 填写内容，可用 table 做对比
+  \begin{block}{指标对比}
+    % \begin{tabular}{...}
+    % ...
+    % \end{tabular}
+  \end{block}
+\end{frame}
+
+\begin{frame}{当前瓶颈}
+  % TODO: 填写内容
+  \begin{alertblock}{}
+    \begin{itemize}
+      \item
+    \end{itemize}
+  \end{alertblock}
+\end{frame}
+
+% ================================================================
+\section{前沿研究方向}
+% ================================================================
+
+\begin{frame}{方向一：\quad [标题]}
+  % TODO: 自行设计内容
+  \begin{block}{核心思路}
+    \begin{itemize}
+      \item
+    \end{itemize}
+  \end{block}
+
+  \begin{exampleblock}{关键技术}
+    \begin{itemize}
+      \item
+    \end{itemize}
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{方向二：\quad [标题]}
+  % TODO: 自行设计内容
+  \begin{columns}[T]
+    \begin{column}{0.50\textwidth}
+      \begin{block}{思路}
+        \begin{itemize}
+          \item
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.50\textwidth}
+      \begin{exampleblock}{优势}
+        \begin{itemize}
+          \item
+        \end{itemize}
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{方向三：\quad [标题]}
+  % TODO: 自行设计内容
+\end{frame}
+
+\begin{frame}{方向四：\quad [标题]}
+  % TODO: 自行设计内容
+\end{frame}
+
+\begin{frame}{方向五：\quad [标题]}
+  % TODO: 自行设计内容
+\end{frame}
+
+% ================================================================
+\section{技术路线与展望}
+% ================================================================
+
+\begin{frame}{技术演进路线图}
+  % TODO: 填写内容，可插入 TikZ 时间线
+  \begin{block}{短期 (1--2 年)}
+    \begin{itemize}
+      \item
+    \end{itemize}
+  \end{block}
+
+  \begin{exampleblock}{中期 (3--5 年)}
+    \begin{itemize}
+      \item
+    \end{itemize}
+  \end{exampleblock}
+
+  \begin{alertblock}{远期 (5 年+)}
+    \begin{itemize}
+      \item
+    \end{itemize}
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{核心结论}
+  % TODO: 填写内容
+  \begin{center}
+    {\large 你的核心结论}
+  \end{center}
+\end{frame}
+
+% ============================================
+%  结束页
+% ============================================
+\begin{frame}[plain]
+  \centering
+  \vfill
+  {\huge\color{ieeeBlue} 谢谢！欢迎提问}
+
+  \vspace{20pt}
+  {\large 葛良晨}
+
+  \vspace{8pt}
+  {\large \today}
+  \vfill
+\end{frame}
+
+\end{document}

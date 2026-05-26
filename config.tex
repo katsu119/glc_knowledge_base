@@ -73,6 +73,8 @@
 \AtEndEnvironment{tcolorbox}{\tikzexternalenable}
 \AtBeginEnvironment{personalnote}{\tikzexternaldisable}
 \AtEndEnvironment{personalnote}{\tikzexternalenable}
+\AtBeginEnvironment{taskbox}{\tikzexternaldisable}
+\AtEndEnvironment{taskbox}{\tikzexternalenable}
 
 \definecolor{ieeeBlue}{RGB}{0, 83, 159}
 \definecolor{ieeeRed}{RGB}{198, 38, 46}
@@ -178,6 +180,18 @@
   colframe=yellow!70!black,
   fonttitle=\bfseries,
   title=个人总结,
+  breakable,
+  enhanced,
+  before upper={\setlength{\parindent}{2em}},
+  #1
+}
+
+% 自定义待办事项环境
+\newtcolorbox{taskbox}[1][]{
+  colback=blue!5,
+  colframe=blue!60!cyan!70!black,
+  fonttitle=\bfseries,
+  title=待办事项,
   breakable,
   enhanced,
   before upper={\setlength{\parindent}{2em}},
