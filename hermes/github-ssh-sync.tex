@@ -1,0 +1,54 @@
+\section{GitHub SSH 同步失败的排查与修复（2026-05-30）}
+
+\subsection{问题现象}
+两个 cron 定时同步任务（hermes-daily-sync、kb-daily-sync）连续两天（05-29、05-30）推送失败：
+\begin{itemize}
+  \item SSH 连接能建立 TCP 握手，但在 banner exchange 阶段超时
+  \item Git push 卡死，hermes 脚本在 120 秒后被 cron 强制终止
+  \item 知识库的 commit 在本地成功但无法推送到远程仓库
+\end{itemize}
+
+\subsection{排查过程}
+\begin{enumerate}
+  \item 查看 cron 日志确认两个任务均受阻
+  \item 执行 \texttt{git fetch --dry-run} 验证网络连通性
+  \item 检查 DNS 解析：\texttt{ssh.github.com} 被解析为 \texttt{198.18.1.39}
+  \item 确认该 IP 属于 Clash Verge 虚拟网络接口 \texttt{utun1024}（mihomo 内核的 fake-ip 模式）
+\end{enumerate}
+
+\subsection{根因分析}
+Clash Verge (mihomo) 开启 TUN 模式接管了所有网络流量：
+\begin{itemize}
+  \item \texttt{ssh.github.com} 的 DNS 被 fake-ip 机制返回 \texttt{198.18.1.39}（保留地址段）
+  \item SSH 实际连接该 fake-ip → Clash TUN 拦截 → 匹配 \texttt{DOMAIN-KEYWORD,github} 规则
+  \item 流量被路由到代理节点，但该节点对 SSH over 443 协议支持不完善
+  \item 结果：TCP 握手成功，SSH 协议层 banner exchange 超时
+\end{itemize}
+
+关于 fake-ip 的工作原理：Clash 不会将 fake-ip 发送给真实网络，而是在 TUN 拦截到连接后，根据原始域名查询真正的 DNS 并建立连接。因此 \texttt{198.18.1.39} 的解析结果本身不是问题，问题在于后续的代理路由。
+
+\subsection{解决方案}
+\textbf{方案一（推荐，已实施）：} 在 Clash Verge 的 Merge 模板中添加直连规则：
+\begin{verbatim}
+# ~/Library/Application Support/io.github.clash-verge-rev.clash-verge-rev/profiles/Merge.yaml
+rules:
+  - DOMAIN-SUFFIX,ssh.github.com,DIRECT
+\end{verbatim}
+这样 SSH 到 GitHub 的流量不再经过代理节点，直接通过本地网络连接。
+
+\textbf{方案二（临时有效）：} 在 Clash 界面中更换代理节点。更换到正常工作（支持 SSH 协议）的节点后，同步立即恢复。
+
+\subsection{验证结果}
+\begin{itemize}
+  \item \texttt{git ls-remote git@github.com:katsu119/lc-hermes.git} 返回正常
+  \item hermes-daily-sync 手动执行成功推送 \texttt{main} 分支
+  \item 知识库成功推送积压的 2 个 commit 到 \texttt{dev} 分支
+\end{itemize}
+
+\subsection{经验总结}
+\begin{itemize}
+  \item SSH over HTTPS port (443) 经代理节点转发时，不是所有节点都完整支持 SSH 协议
+  \item Clash 的 fake-ip + TUN 对 SSH 流量透明代理可能引入协议兼容性问题
+  \item 使用 \texttt{DOMAIN-SUFFIX,ssh.github.com,DIRECT} 规则可从根本上避免此问题
+  \item cron 脚本超时日志（\texttt{\textasciitilde/.hermes/cron/output/}）是定位问题的重要入口
+\end{itemize}
