@@ -139,6 +139,24 @@
   \end{exampleblock}
 \end{frame}
 
+\begin{frame}{代码生成示例：SPI模块 Verilog代码和注释}
+  \begin{exampleblock}{用户提示词}
+    \small
+    ``对这份代码增加详细的注释用于理解。保留现有的注释，新增相应的中文注释。''
+  \end{exampleblock}
+
+  \vspace{-4pt}
+  \centering
+  \includegraphics[width=0.82\textwidth]{figs/case_code.png}
+\end{frame}
+
+\begin{frame}{代码生成示例：寄存器控制模块 by LLM}
+
+  \vspace{-4pt}
+  \centering
+  \includegraphics[width=0.82\textwidth]{figs/case_code2.png}
+\end{frame}
+
 % --- 协议与 Datasheet 智能解析 ---
 \begin{frame}{协议与 Datasheet 智能解析}
   \begin{alertblock}{痛点}
@@ -225,7 +243,7 @@
     \end{itemize}
   \end{block}
 
-  \vspace{6pt}
+  % \vspace{6pt}
   \begin{block}{场景二：数据可视化与拟合}
     \begin{itemize}
       \item 使用 Matplotlib 生成 PVT 曲线、蒙特卡洛分布直方图、眼图等
@@ -233,11 +251,14 @@
       \item Pandas 汇总多次仿真结果，自动生成对比报告
     \end{itemize}
   \end{block}
-
-  \vspace{6pt}
+  \begin{alertblock}{案例}
+    张博（zsc）使用LLM设计python代码对SerDes的仿真模型，生成图片等，1-2天时间。
+  \end{alertblock}
+  % \vspace{6pt}
   \begin{exampleblock}{效率提升}
-    原本手动处理数据需要数小时，LLM 辅助可将脚本编写时间压缩到 \textbf{数分钟}，工程师只需验证逻辑即可。
+    原本手动处理数据需要数小时，LLM 辅助可将脚本编写时间压缩到 \textbf{数分钟}，工程师需验证逻辑。
   \end{exampleblock}
+
 \end{frame}
 
 % ================================================================
@@ -270,7 +291,7 @@
 
   \vspace{6pt}
   \begin{alertblock}{核心价值}
-    释放高年级研究生的指导精力，让他们专注于 \alert{架构指导} 和 \alert{科研方向} 而非重复性基础答疑。
+    释放指导精力，让学生专注于 \alert{架构指导} 和 \alert{科研方向} 而非重复性基础答疑。
   \end{alertblock}
 \end{frame}
 
@@ -303,6 +324,175 @@
       $\rightarrow$ LLM 生成 LaTeX 骨架 $\rightarrow$ 工程师补充细节 $\rightarrow$ LLM润色语言$\rightarrow$ 最终报告。
   \end{exampleblock}
 \end{frame}
+
+\begin{frame}{文档规范化示例：实验报告生成}
+  \begin{exampleblock}{用户提示词}
+    \small
+    ``根据项目代码，帮我新建一个 doc 目录，我要在其中撰写 LaTeX 文档，帮我规划好 LaTeX 项目管理格式，重点是规范中间输出文件的管理，我使用的环境是 VS Code 中的 LaTeX Workshop。''
+  \end{exampleblock}
+
+  \vspace{6pt}
+  \centering
+  \begin{columns}
+  \begin{column}{0.48\textwidth}
+  \includegraphics[width=0.80\textwidth]{figs/case_doc.png}
+  \end{column}
+  \begin{column}{0.48\textwidth}
+  \includegraphics[width=0.5\textwidth]{figs/case_doc2.png}
+  \end{column}
+  \end{columns}
+\end{frame}
+
+
+
+% ================================================================
+\section{实施方案}
+% ================================================================
+
+% --- 方案一：多卡 GPU 工作站 ---
+\begin{frame}{实施方案一：多卡 GPU 工作站}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \begin{exampleblock}{硬件配置}
+        \begin{itemize}
+          \item \textbf{GPU}：8 $\times$ NVIDIA RTX 4090 / 5090
+          \item \textbf{总显存}：8 $\times$ 32 GiB = \alert{256 GiB}
+          \item \textbf{适用模型}：32B 参数级别模型（Qwen 32B、DeepSeek 32B、LLaMA 3.1 8B/70B 量化版等）
+          \item \textbf{成本估算}：\alert{约 30--40 万元}
+          \item \textbf{部署方式}：内网本地部署，数据不出实验室
+        \end{itemize}
+      \end{exampleblock}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{table}
+        \centering
+        \small
+        \begin{tabular}{l l}
+          \toprule
+          \textbf{项目} & \textbf{方案} \\
+          \midrule
+          GPU   & 8 $\times$ 4090 \\
+          % CPU   & EPYC 9375F \\
+          内存  & 512 GB ECC \\
+          SSD   & 2 TB + 8 TB \\
+          推理  & vLLM \\
+          向量库 & Qdrant \\
+          Agent & PydanticAI \\
+          主模型 & 32B \\
+          推理模型 & 70B \\
+          RAG   & BGE-M3 \\
+          用户数 & 10 人以内 \\
+          \bottomrule
+        \end{tabular}
+      \end{table}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% --- 8×4090 工作站商品页 ---
+\begin{frame}{硬件采购参考：8×4090 工作站}
+  \centering
+  \includegraphics[width=0.82\textwidth]{figs/jd_8_4090.png}
+
+\end{frame}
+
+% --- 供应商报价单 ---
+\begin{frame}{供应商报价参考}
+  \centering
+  \includegraphics[width=0.82\textwidth]{figs/quotation.png}
+
+  \vspace{4pt}
+  \begin{exampleblock}{说明}
+    供应商针对 8*H100工作站及配套设备的详细报价单，包含冗余的配置。实际4*H100 77万。
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{供应商报价参考}
+  \centering
+  \includegraphics[width=0.52\textwidth]{figs/quotation2.png}
+\end{frame}
+
+
+
+% --- 模型选型对比 ---
+\begin{frame}{模型选型对比：32B 级稠密模型 vs MoE 模型}
+  \footnotesize
+  \begin{table}
+    \centering
+    \begin{tabularx}{\textwidth}{@{} p{25mm} c c p{31mm} X @{}}
+      \toprule
+      \textbf{模型名称与架构} & \textbf{参数规模} & \textbf{上下文} & \textbf{部署精度 \& 显存} & \textbf{在 IC 设计中的核心定位} \\
+      \midrule
+      Qwen2.5-Coder-32B-Instruct
+      \newline (Dense)
+        & 32B
+        & 128K
+        & BF16 $\approx$ 64 GB
+        \newline FP8 $\approx$ 32 GB
+        & \textbf{主战模型 / 实时代码助手}。预训练含 5.5 万亿 Tokens 代码数据，原生支持 FIM，在 Verilog 生成、指令遵循与多语言脚本编写上表现卓越，媲美 GPT-4o。 \\
+      \midrule
+      DeepSeek-R1-Distill-Qwen-32B
+      \newline (Dense, 蒸馏)
+        & 32B
+        & 128K
+        & FP8 量化 $\approx$ 36 GB
+        & \textbf{深度逻辑推理 \& Debug 专家}。具备 CoT 链式思考能力，适合深度解析 VCS 编译日志或综合违例报告，精准定位 Root Cause。 \\
+      \midrule
+      DeepSeek-Coder-V2
+      \newline (MoE)
+        & 总 236B
+        \newline 激活 21B
+        & 128K
+        & 多卡 TP 加载
+        \newline $\approx$ 192 GB
+        & \textbf{工程目录级分析备选}。跨文件理解能力强，适合多模块 SoC 架构重构、Code Review 或顶层连线分析。 \\
+      \bottomrule
+    \end{tabularx}
+  \end{table}
+
+  \vspace{4pt}
+  \begin{alertblock}{选型建议}
+    单机 8 卡 4090/5090（256 GB 总显存）可同时常驻 \textbf{Qwen2.5-Coder-32B}（主编码）\textbf{+ DeepSeek-R1-Distill-Qwen-32B}（推理 Debug），
+    必要时以张量并行加载 \textbf{DeepSeek-Coder-V2} 进行大规模代码库分析。
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{vLLM网站}
+  \centering
+  \includegraphics[width=0.72\textwidth]{figs/recipe.png}
+
+ 
+\end{frame}
+
+% --- 本地部署示例：Ollama 终端 ---
+\begin{frame}{本地部署示例：Ollama 命令行推理}
+  \begin{columns}
+    
+    \begin{column}{0.7\textwidth}
+      \centering
+      \includegraphics[width=0.72\textwidth]{figs/case_ollama.png}
+    \end{column}
+
+    \begin{column}{0.3\textwidth}
+      \vspace{-3cm}
+      \begin{exampleblock}{说明}
+        通过 Ollama 在本地加载量化模型（图中为Gemma 4 E4B,仅4.5B参数，显存占用9.5GiB），终端直接对话。
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+
+\end{frame}
+
+% --- 本地部署示例：Copilot 内网聊天 ---
+\begin{frame}{本地部署示例：VS Code Copilot 本地Agent}
+  \centering
+  \includegraphics[width=0.62\textwidth]{figs/case_copilot.png}
+  \vspace{-4pt}
+  \begin{exampleblock}{说明}
+    \small Agent类代码工具对接本地推理服务：途中通过 Copilot  CLI 与本地 LLM 交互.可用于完成代码生成、文档查询、日志分析等任务
+  \end{exampleblock}
+\end{frame}
+
 
 % ================================================================
 \section{总结}
@@ -345,10 +535,10 @@
   {\huge\color{ieeeBlue} 谢谢！欢迎提问}
 
   \vspace{20pt}
-  {\large 邮箱：example@university.edu.cn}
+  {\large 邮箱：katsu119@foxmail.com}
 
   \vspace{8pt}
-  {\large GitHub：github.com/xxx}
+  {\large GitHub：github.com/katsu119}
   \vfill
 \end{frame}
 

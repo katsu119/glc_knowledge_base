@@ -1,49 +1,59 @@
 {
-  "latex-workshop.latex.outDir": "%WORKSPACE_FOLDER%/out",
-  "latex-workshop.latex.autoBuild.run": "onSave",
-  "latex-workshop.latex.build.forceRecipeUsage": true,
-  "latex-workshop.latex.recipe.default": "first",
+  // ============================================================
+  //  LaTeX Workshop 配置
+  // ============================================================
+
+  // --- 编译工具链: latexmk (xelatex, 输出到 build/) ---
   "latex-workshop.latex.recipes": [
     {
-      "name": "latexmk + copy pdf to tex dir",
-      "tools": [
-        "latexmk_xelatex_outdir",
-        "copy_pdf_to_tex_dir"
-      ]
+      "name": "latexmk (xelatex)",
+      "tools": ["latexmk_xelatex"]
     }
   ],
   "latex-workshop.latex.tools": [
     {
-      "name": "latexmk_xelatex_outdir",
+      "name": "latexmk_xelatex",
       "command": "latexmk",
       "args": [
         "-xelatex",
-        "-synctex=1",
         "-interaction=nonstopmode",
-        "-file-line-error",
+        "-synctex=1",
         "-shell-escape",
-        "-outdir=%WORKSPACE_FOLDER%/out",
         "%DOC%"
-      ]
-    },
-    {
-      "name": "copy_pdf_to_tex_dir",
-      "command": "cp",
-      "args": [
-        "%WORKSPACE_FOLDER%/out/%DOCFILE%.pdf",
-        "%DIR%/%DOCFILE%.pdf"
       ]
     }
   ],
+
+  // --- 输出目录: latexmk 的 $out_dir 已设为 build/, 告知插件 PDF 位置 ---
+  "latex-workshop.latex.outDir": "%DIR%/build",
+
+  // --- 保留 .synctex.gz 以实现正反向搜索 ---
+  "latex-workshop.latex.clean.subfolder.enabled": false,
+  "latex-workshop.latex.clean.fileTypes": [
+    "*.aux", "*.bbl", "*.blg", "*.idx", "*.ind", "*.lof", "*.lot",
+    "*.out", "*.toc", "*.acn", "*.acr", "*.alg", "*.glg", "*.glo",
+    "*.gls", "*.fls", "*.fdb_latexmk", "*.snm", "*.nav", "*.vrb",
+    "*.run.xml", "*.bcf"
+  ],
+
+  // --- 保存时自动编译 ---
+  "latex-workshop.latex.autoBuild.run": "onSave",
+  "latex-workshop.latex.autoClean.run": "never",
+
+  // --- PDF 查看器 ---
   "latex-workshop.view.pdf.viewer": "tab",
-  "workbench.editor.openSideBySideDirection": "right",
   "latex-workshop.message.error.show": false,
   "latex-workshop.message.warning.show": false,
+
+  // ============================================================
+  //  Editor 配置
+  // ============================================================
   "editor.cursorSmoothCaretAnimation": "on",
   "editor.cursorBlinking": "expand",
   "editor.cursorStyle": "line",
   "editor.cursorWidth": 3,
   "editor.wordWrap": "on",
+  "workbench.editor.openSideBySideDirection": "right",
   "workbench.colorCustomizations": {
     "editorCursor.foreground": "#00FF7F"
   },
