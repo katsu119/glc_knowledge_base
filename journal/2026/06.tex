@@ -54,6 +54,22 @@ CIC（Cascaded Integrator-Comb）滤波器是一种高效的数字滤波器，�
 \end{enumerate}
 \end{taskbox}
 
+\begin{personalnote}
+\textbf{CIC 建模验证详细规划（与 agent 交互后的反思）}
+
+CIC 验证的思路是以 Python 理论模型作为参考设计，后续用于 RTL 的 reference model。具体分以下四步：
+
+\begin{enumerate}
+  \item \textbf{验证 DSM 信号的生成}：给出对应的输入（如 sine 波形），观察内部累加器以及输出 1bit 流的对应波形，确认 DSM 行为正确。
+  \item \textbf{设计 CIC 滤波器模型}：给一个固定信号，观察滤波结果是否正确，同样需要绘制波形进行验证。
+  \item \textbf{时频域分析}：将测试波形输入到 CIC，分析对应的时频域波形以及相应的内部信号，观察是否符合要求的性能参数（如通带纹波、阻带衰减等）。
+  \item \textbf{生成参考波形}：生成 input 和 output 参考波形，供 RTL 进行参考验证（作为 golden reference）。
+\end{enumerate}
+
+\textbf{经验反思}：驾驭 agent 时，不能给的要求太笼统，否则生成又多又没用的代码。最好给出具体的功能要求——分步骤、明确输入输出、清晰验证标准。这样 agent 产出的代码才可直接利用。
+
+\end{personalnote}
+
 \subsubsection{6月17日 周三}
 
 \begin{itemize}
