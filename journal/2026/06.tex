@@ -34,7 +34,7 @@ CIC（Cascaded Integrator-Comb）滤波器是一种高效的数字滤波器，�
 
 \begin{enumerate}
   \item \textbf{基本结构}：由积分器（Integrator）和梳状滤波器（Comb）级联而成。积分器工作在高采样率端，梳状滤波器工作在低采样率端，中间通过抽取/插值器连接。
-  \item \textbf{数学原理}：CIC 滤波器的冲激响应可视为多个矩形窗的卷积。频率响应具有 $\mathrm{sinc}$ 函数形状，零点位于 $f = k \cdot f_s / R$（$k=1,2,\ldots,R-1$），其中 $R$ 为抽取/插值因子。
+  \item \textbf{数学原理}：CIC 滤波器的冲激响应可视为多个矩形窗的卷积。频率响应具有 $\mathrm{sinc}$ 函数形状，零点位于 $f = k \cdot f_s / R$（$k=1,2,\\ldots,R-1$），其中 $R$ 为抽取/插值因子。
   \item \textbf{核心优势}：\textbf{无需乘法器}——仅使用加法器和寄存器即可实现，资源消耗极低，非常适合 FPGA 实现。代价是通带衰减较大，通常需要在后端加 FIR 补偿滤波器（CIC 补偿滤波器）。
   \item \textbf{设计参数}：$R$（抽取/插值比）、$N$（级数）、$M$（差分延迟，通常取 1 或 2）。级数 $N$ 决定了阻带衰减和通带滚降的陡峭程度。
   \item \textbf{寄存器位宽}：内部寄存器位宽需满足 $B_{\text{max}} = B_{\text{in}} + N \log_2 (RM)$ 以避免溢出，这是设计中容易忽略的关键细节。
@@ -42,6 +42,17 @@ CIC（Cascaded Integrator-Comb）滤波器是一种高效的数字滤波器，�
 
 今天是入职后的第一个正式工作日，任务线开始清晰化。AI 辅助设计加速了 CIC 这类常规模块的落地，但验证和报告仍需要人工把控质量。
 \end{personalnote}
+
+\subsubsection{6月25日 周四}
+
+\begin{taskbox}
+\textbf{组会待办}
+\begin{enumerate}
+  \item \textbf{行为建模文档交付 — 下周一截止}：组会上要求对接同事在下周一前交付模拟器件行为建模文档，需确认对方是否能按时完成，并在下周一前验收。
+  \item \textbf{内网 AI 部署 — 外网机器接入}：内网 AI 部署方案中有一台外网的机器需要配置和接入，需协调网络环境与权限，完成部署链路打通。
+  \item \textbf{CIC 建模验证}：CIC（Cascaded Integrator-Comb）滤波器的建模工作已推进了一部分，但仿真结果尚未经过系统性验证。下一步需搭建测试环境，对照设计指标完成功能与时序验证。
+\end{enumerate}
+\end{taskbox}
 
 \subsubsection{6月17日 周三}
 
