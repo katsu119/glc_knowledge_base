@@ -1,5 +1,48 @@
 \subsection{6月}
 
+\subsubsection{6月22日 周一}
+
+\begin{itemize}
+  \item \textbf{入职办理}：上午办理了入职手续，正式成为公司一员。
+  \item \textbf{组会汇报}：参加组会，汇报了上周的工作情况——包括 Astera Labs 调研、内网部署方案推进等。
+  \item \textbf{内网 LLM 部署讨论}：需要在公司内网环境中做一个简单的 LLM 部署尝试，作为内网 AI 能力的初步验证。后续需要搭建推理环境并测试基本功能。
+\end{itemize}
+
+\subsubsection{6月23日 周二}
+
+\begin{itemize}
+  \item \textbf{CIC 滤波器 AI 设计完成}：借助 AI 辅助完成了 CIC（Cascaded Integrator-Comb）滤波器的设计工作，包括架构搭建和 Verilog 代码生成。这是信号链前端的关键模块，为后续的下采样和抗混叠滤波奠定了基础。
+  \item \textbf{Astera Labs 报告发给老陈}：上午将整理好的一版 Astera Labs 调研报告发给了陈老师。综合之前的各类调研信息来看，他应该是要给潘老师汇报 Astera Labs 的整体情况，包括其产品线（CXL Retimer、Smart Memory Bridge 等）、市场定位以及对本团队的参考价值。
+  \item \textbf{任务梳理}：明确了当前的核心任务线——\textbf{CIC 代码撰写}、\textbf{内网 AI 部署}、\textbf{模拟器件行为建模}，以及长期的 \textbf{PCIE 设计研究}。
+\end{itemize}
+
+\subsubsection{6月24日 周三}
+
+\begin{taskbox}
+\textbf{今日计划}
+\begin{enumerate}
+  \item \textbf{CIC 滤波器验证}：对昨天 AI 设计完成的 CIC 滤波器进行功能仿真验证，确保时序正确、功能完备。
+  \item \textbf{报告撰写}：撰写 CIC 滤波器设计报告，记录设计思路、实现方案和验证结果。
+  \item \textbf{CIC 基础原理研究}：系统学习 CIC 滤波器的核心原理——级联积分梳状结构的数学推导、频率响应特性、通带滚降补偿等。
+\end{enumerate}
+\end{taskbox}
+
+\begin{personalnote}
+\textbf{关于 CIC 滤波器的核心技术要点}
+
+CIC（Cascaded Integrator-Comb）滤波器是一种高效的数字滤波器，广泛应用于通信系统中的抽取/插值操作。核心要点如下：
+
+\begin{enumerate}
+  \item \textbf{基本结构}：由积分器（Integrator）和梳状滤波器（Comb）级联而成。积分器工作在高采样率端，梳状滤波器工作在低采样率端，中间通过抽取/插值器连接。
+  \item \textbf{数学原理}：CIC 滤波器的冲激响应可视为多个矩形窗的卷积。频率响应具有 $\mathrm{sinc}$ 函数形状，零点位于 $f = k \cdot f_s / R$（$k=1,2,\ldots,R-1$），其中 $R$ 为抽取/插值因子。
+  \item \textbf{核心优势}：\textbf{无需乘法器}——仅使用加法器和寄存器即可实现，资源消耗极低，非常适合 FPGA 实现。代价是通带衰减较大，通常需要在后端加 FIR 补偿滤波器（CIC 补偿滤波器）。
+  \item \textbf{设计参数}：$R$（抽取/插值比）、$N$（级数）、$M$（差分延迟，通常取 1 或 2）。级数 $N$ 决定了阻带衰减和通带滚降的陡峭程度。
+  \item \textbf{寄存器位宽}：内部寄存器位宽需满足 $B_{\text{max}} = B_{\text{in}} + N \log_2 (RM)$ 以避免溢出，这是设计中容易忽略的关键细节。
+\end{enumerate}
+
+今天是入职后的第一个正式工作日，任务线开始清晰化。AI 辅助设计加速了 CIC 这类常规模块的落地，但验证和报告仍需要人工把控质量。
+\end{personalnote}
+
 \subsubsection{6月17日 周三}
 
 \begin{itemize}
