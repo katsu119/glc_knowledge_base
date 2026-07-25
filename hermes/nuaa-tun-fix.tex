@@ -1,0 +1,48 @@
+\section{Clash TUN 模式下 macOS 校园网访问修复}
+
+\subsection{问题现象}
+开启 Clash Verge TUN 模式（fake-IP + auto-route）后，无法访问 \verb|*.nuaa.edu.cn| 域名。
+
+\subsection{根因分析}
+三个问题叠加导致：
+
+\begin{enumerate}
+  \item \textbf{DNS 解析路径分裂}：macOS 的 mDNSResponder 使用 scoped DNS 查询，DNS 请求绑定到物理网卡（en1）发出，不从 TUN 虚拟网卡走。Clash 的 \verb|dns-hijack: any:53| 只劫持经过 TUN 网卡的端口 53 流量，抓不到物理网卡上的 scoped 查询。因此 Clash 的 \verb|hosts|、\verb|nameserver-policy| 在 macOS 上对系统解析器完全无效。
+
+  \item \textbf{公网 DNS 返回公网 IP}：公网 DNS（114.114.114.114）对 \verb|*.nuaa.edu.cn| 返回 218.94.136.180。从非教育网 IP 直连该 IP 会超时（服务器仅对 CERNET 可达，或防火墙拦截）。
+
+  \item \textbf{TUN 路由死循环}：即使 DNS 返回正确 IP，若该 IP 不在 \verb|route-exclude-address| 中，TCP 连接会被 TUN 拦截 → Clash 处理 → DIRECT 出站 → 又被 TUN 拦截 → 死循环。
+\end{enumerate}
+
+\subsection{解决方案}
+三个配置协同工作，缺一不可：
+
+\subsubsection{/etc/hosts — 解决 DNS}
+让 macOS 系统解析器直接返回正确 IP。\textbf{这是 macOS 上唯一可靠覆盖系统 DNS 的方式。}
+\begin{verbatim}
+10.0.241.133 nuaa.edu.cn www.nuaa.edu.cn agent.nuaa.edu.cn fuwu.nuaa.edu.cn
+\end{verbatim}
+注意：\verb|/etc/hosts| 不支持通配符，每个子域名需单独添加。
+
+\subsubsection{Clash route-exclude-address — 解决路由}
+让 TUN 驱动不拦截发往校园网 IP 段的流量：
+\begin{verbatim}
+tun:
+  route-exclude-address:
+    - 10.0.241.0/24          # 校园网内网 IPv4
+    - 218.94.136.0/24        # 校园网公网 IPv4
+    - 2001:da8:1006:1001::/64  # 校园网 IPv6
+\end{verbatim}
+
+\subsubsection{Clash 规则 — 兜底}
+对走 TUN 的流量确保命中 DIRECT：
+\begin{verbatim}
+- DOMAIN-SUFFIX,nuaa.edu.cn,DIRECT
+\end{verbatim}
+
+\subsection{注意事项}
+\begin{itemize}
+  \item 每次新增子域名需同步加到 \verb|/etc/hosts|。
+  \item 订阅更新后需要 Restart Core 才能加载 \verb|route-exclude-address| 变更。
+  \item \verb|clash-verge.yaml| 是自动生成文件，不应手动编辑。
+\end{itemize}
