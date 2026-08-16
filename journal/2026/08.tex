@@ -11,3 +11,14 @@
 \begin{personalnote}
 这周在硬件验证和模块开发上双线推进。SPI 验证依托 FPGA 平台跑通，clk\_gen 模块的改写和验证也顺利完成，还同步整理进了 PPT。周报从这周开始固定每周写，节奏要养成习惯。周三开始搭 ADC 的行为级模型，延续之前行为级建模的路线，后续应该会和校准模块的验证需求衔接上。
 \end{personalnote}
+
+\subsubsection{8月16日 周日 —— 想法：类 Verilog 语法糖的中间语言}
+
+\begin{itemize}
+  \item \textbf{背景痛点}：Scala 系 HDL（SpinalHDL、Chisel 等）生成的 Verilog 可读性差，对"翻译后"的 Verilog 不友好——结构不直观，难以直接修改或反查。
+  \item \textbf{想法}：设计一种直观的、类似 Verilog 语法糖的中间语言（脚本），能够直观地展示出电路结构。
+\end{itemize}
+
+\begin{personalnote}
+记录一个新想法：想设计一种"类 Verilog 语法糖"的中间语言。核心痛点在于 Scala 系 HDL（SpinalHDL、Chisel）生成的 Verilog 很不友好——生成结果可读性差，电路结构被抽象层掩盖，翻译/生成之后既难直接改、也难反查。这个中间语言的目标是：保留 Verilog 的直觉语法，但用语法糖把结构表达得更直观，让电路结构一眼可读。本质上是想在"高级 HDL 抽象"和"最终 Verilog"之间加一层可视化桥梁。后续值得想清楚它的定位：是纯前端表示，还是可逆的中间表示（能把生成的 Verilog 反编译回来）？
+\end{personalnote}
